@@ -68,6 +68,10 @@ typedef struct {
 #define double_array_destroy(A) _array_destroy((SArray **) A)
 #define double_array_length(A) _array_length((SArray *) A)
 #define double_array_set_length(A, L) _array_set_length((SArray *) A, L)
+#define double_array_get_at(A, I, E) _array_get_at((SArray *) A, I, E)
+#define double_array_remove_at(A, I) _array_remove_at((SArray *)A, I)
+#define double_array_add(A, E) _array_add((SArray *)A, E)
+#define double_array_sorted_find_index(A, E, I) _array_sorted_find_index(A, E, I)
 
 typedef struct {
   void ** data;
@@ -85,6 +89,7 @@ typedef struct {
 #define ptr_array_append(A, D) _array_append((SArray *) A, &D)
 #define ptr_array_remove_at(A, I) _array_remove_at((SArray *) A, I)
 #define ptr_array_get_at(A, I, E) _array_get_at((SArray *) A, I, E)
+#define ptr_array_set_fdestroy(A, F) _array_set_fdestroy((SArray *)A, F)
 
 extern void ptr_array_destroy(SPtrArray ** ppArray);
 
@@ -93,6 +98,8 @@ extern SArray * _array_create(unsigned int uEltSize,
 			      uint8_t uOptions,
 			      FArrayCompare fCompare,
 			      FArrayDestroy fDestroy);
+// ----- _array_set_fdestroy ----------------------------------------
+void _array_set_fdestroy(SArray * pArray, FArrayDestroy fDestroy);
 // ----- _array_destroy ---------------------------------------------
 extern void _array_destroy(SArray ** ppArray);
 // ----- _array_length ----------------------------------------------
