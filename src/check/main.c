@@ -21,11 +21,11 @@
 #include <libgds/tokens.h>
 
 #define _CHECK_ARRAY_
-#define _CHECK_PTR_ARRAY_
-#define _CHECK_LIST_
-#define _CHECK_RADIX_TREE_
-#define _CHECK_TOKENIZER_
-#define _CHECK_FIFO_
+//#define _CHECK_PTR_ARRAY_
+//#define _CHECK_LIST_
+//#define _CHECK_RADIX_TREE_
+//#define _CHECK_TOKENIZER_
+//#define _CHECK_FIFO_
 
 int array_compare(void * pItem1, void * pItem2,
 		  unsigned int uEltSize) 

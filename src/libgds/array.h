@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 10/04/2003
-// @lastdate 14/04/2004
+// @lastdate 20/04/2004
 // ==================================================================
 
 #ifndef __ARRAY_H__
@@ -56,8 +56,8 @@ typedef struct {
 #define uint16_array_create(O) \
           (SUInt16Array *) _array_create(sizeof(uint16_t), O, \
           _array_compare, NULL)
-#define uint16_array_destroy(A) _array_destroy((SArray **) A)
 #define uint16_array_length(A) _array_length((SArray *) A)
+extern void uint16_array_destroy(SUInt16Array ** ppArray);
 
 typedef struct {
   double * data;
@@ -67,6 +67,7 @@ typedef struct {
           _array_compare, NULL)
 #define double_array_destroy(A) _array_destroy((SArray **) A)
 #define double_array_length(A) _array_length((SArray *) A)
+#define double_array_set_length(A, L) _array_set_length((SArray *) A, L)
 
 typedef struct {
   void ** data;
@@ -76,7 +77,6 @@ typedef struct {
           _array_compare, NULL)
 #define ptr_array_create(O, FC, FD) \
           (SPtrArray *) _array_create(sizeof(void *), O, FC, FD)
-#define ptr_array_destroy(A) _array_destroy((SArray **) A)
 #define ptr_array_length(A) _array_length((SArray *) A)
 #define ptr_array_set_length(A, L) _array_set_length((SArray *) A, L)
 #define ptr_array_sorted_find_index(A, D, I) \
@@ -84,6 +84,7 @@ typedef struct {
 #define ptr_array_add(A, D) _array_add((SArray *) A, D)
 #define ptr_array_append(A, D) _array_append((SArray *) A, &D)
 #define ptr_array_remove_at(A, I) _array_remove_at((SArray *) A, I)
+extern void ptr_array_destroy(SPtrArray ** ppArray);
 
 // ----- _array_create ----------------------------------------------
 extern SArray * _array_create(unsigned int uEltSize,
