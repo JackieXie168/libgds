@@ -2,9 +2,12 @@
 // @(#)regex.c
 //
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
+// @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 29/09/2004
-// @lastdate 16/11/2004
+// @lastdate 27/01/2005
 // ==================================================================
+
+#include <config.h>
 
 /* 
  * Simple regex wrapper based on the pcre library. It's mainly 
@@ -17,6 +20,14 @@
 #include <libgds/memory.h>
 #include <libgds/regex.h>
 #include <libgds/log.h>
+
+#ifdef HAVE_LIBPCRE
+
+#ifdef HAVE_PCRE_PCRE_H
+#  include <pcre/pcre.h>
+#else
+#  include <pcre.h>
+#endif
 
 struct RegEx {
   pcre * pRegEx;
@@ -234,3 +245,6 @@ void regex_finalize(SRegEx ** pRegEx)
     *pRegEx = NULL;
   }
 }
+
+#endif /* HAVE_LIBPCRE */
+

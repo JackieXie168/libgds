@@ -3,9 +3,15 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 20/08/2003
-// @lastdate 01/03/2004
+// @lastdate 27/01/2005
 // =================================================================
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <str_util.h>
 #include <tokens.h>
@@ -89,6 +95,9 @@ int tokens_get_long_at(STokens * pTokens, uint16_t uIndex,
   if (uIndex < tokens_get_num(pTokens)) {
     pcValue= pTokens->data[uIndex];
     lValue= strtol(pcValue, &pcEndPtr, 0);
+    if ((lValue == LONG_MAX) && (errno == ERANGE)) {
+      return -1;
+    }
     *plValue= lValue;
     return (*pcEndPtr == 0)?0:-1;
   }
@@ -121,7 +130,7 @@ int tokens_get_int_at(STokens * pTokens, uint16_t uIndex,
 int tokens_get_ulong_at(STokens * pTokens, uint16_t uIndex,
 			unsigned long int * pulValue)
 {
-  unsigned long int ulValue;
+  long int lValue;
   char * pcValue;
   char * pcEndPtr;
 
@@ -129,8 +138,11 @@ int tokens_get_ulong_at(STokens * pTokens, uint16_t uIndex,
     return -1;
   if (uIndex < tokens_get_num(pTokens)) {
     pcValue= pTokens->data[uIndex];
-    ulValue= strtoul(pcValue, &pcEndPtr, 0);
-    *pulValue= ulValue;
+    lValue= strtol(pcValue, &pcEndPtr, 0);
+    if (((lValue == LONG_MAX) && (errno == ERANGE)) || (lValue < 0)) {
+      return -1;
+    }
+    *pulValue= (unsigned long int) lValue;
     return (*pcEndPtr == 0)?0:-1;
   }
   return -1;

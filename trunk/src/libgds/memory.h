@@ -19,8 +19,6 @@
 				   be the last object in the .DTOR
 				   list) */
 
-extern unsigned long uAllocCount;
-
 // ----- memalloc ---------------------------------------------------
 extern void * memalloc(size_t size, char * pcFileName, 
 			int iLineNumber);
@@ -31,7 +29,7 @@ extern void * memrealloc(void * pPtr, size_t size, char * pcFileName,
 extern void memfree(void * pPtr, char * pcFileName, 
 			int iLineNumber);
 // ----- mem_alloc_cnt ----------------------------------------------
-extern unsigned long int mem_alloc_cnt();
+extern long int mem_alloc_cnt();
 // ----- mem_flag_set -----------------------------------------------
 extern void mem_flag_set(uint8_t uFlag, int iState);
 // ----- mem_flag_get -----------------------------------------------

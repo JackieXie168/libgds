@@ -6,8 +6,12 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 21/10/2002
-// @lastdate 07/04/2004
+// @lastdate 27/01/2005
 // ==================================================================
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -3,8 +3,12 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 10/07/2003
-// @lastdate 04/03/2004
+// @lastdate 10/01/2005
 // =================================================================
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include <assert.h>
 #include <libgds/memory.h>
@@ -106,6 +110,7 @@ int tokenizer_run(STokenizer * pTokenizer, char * pcString)
       switch (*pcString) {
       case 'a': cDataChar= '\a'; break;
       case 'e': cDataChar= '\033'; break;
+      case 'r': cDataChar= '\r'; break;
       case 't': cDataChar= '\t'; break;
       case 'n': cDataChar= '\n'; break;
       default:

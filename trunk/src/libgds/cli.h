@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 01/12/2004
+// @lastdate 28/01/2005
 // ==================================================================
 
 #ifndef __GDS_CLI_H__
@@ -41,6 +41,7 @@ typedef int (*FCliContextCreate)(SCliContext * pContext, void ** ppItem);
 typedef void (*FCliContextDestroy)(void ** pItem);
 typedef int (*FCliCommand)(SCliContext * pContext, STokens * pTokens);
 typedef int (*FCliCheckParam)(const char * pcValue);
+typedef char * (*FCliEnumParam)(const char * pcText, int state);
 
 typedef struct {
   char * pcName;
@@ -61,6 +62,7 @@ typedef struct {
 typedef struct {
   char * pcName;
   FCliCheckParam fCheckParam;
+  FCliEnumParam fEnumParam;
 } SCliCmdParam;
 
 typedef struct {
@@ -93,6 +95,10 @@ extern void cli_params_destroy(SCliParams ** ppParams);
 // ----- cli_params_add ---------------------------------------------
 extern int cli_params_add(SCliParams * pParams, char * pcName,
 			  FCliCheckParam fCheckParam);
+// ----- cli_params_add ---------------------------------------------
+extern int cli_params_add2(SCliParams * pParams, char * pcName,
+			   FCliCheckParam fCheckParam,
+			   FCliEnumParam fEnumParam);
 // ----- cli_cmd_create ---------------------------------------------
 extern SCliCmd * cli_cmd_create(char * pcName, FCliCommand fCommand,
 				SCliCmds * pSubCmds,

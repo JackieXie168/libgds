@@ -3,7 +3,7 @@
 //
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @date 03/12/2004
-// @lastdate 03/12/2004
+// @lastdate 27/01/2005
 // ==================================================================
 
 /* This code implements a hash table structure. We can insert same 
@@ -13,6 +13,7 @@
 
 #include <string.h>
 
+#include <config.h>
 #include <libgds/array.h>
 #include <libgds/memory.h>
 #include <libgds/log.h>
