@@ -668,8 +668,9 @@ int cli_execute_line(SCli * pCli, char * pcLine)
     // Parse and execute command
     iResult= cli_execute(pCli, pcLine);
     if (iResult < 0) {
-      fprintf(stderr, "Error: ");
+      fprintf(stderr, "\033[0;31;1mError: ");
       cli_perror(stderr, iResult);
+      fprintf(stderr, "\033[0m");
       cli_perror_details(stderr, iResult, pCli, pcLine);
     }
   }

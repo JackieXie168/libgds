@@ -105,6 +105,7 @@ int tokenizer_run(STokenizer * pTokenizer, char * pcString)
       }
       switch (*pcString) {
       case 'a': cDataChar= '\a'; break;
+      case 'e': cDataChar= '\033'; break;
       case 't': cDataChar= '\t'; break;
       case 'n': cDataChar= '\n'; break;
       default:
