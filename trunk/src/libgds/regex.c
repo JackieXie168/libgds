@@ -3,7 +3,7 @@
 //
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @date 29/09/2004
-// @lastdate 01/10/2004
+// @lastdate 16/11/2004
 // ==================================================================
 
 /* 
@@ -13,8 +13,6 @@
 
 #include <stdio.h>
 #include <string.h>
-
-#include <pcre/pcre.h>
 
 #include <libgds/memory.h>
 #include <libgds/regex.h>
