@@ -40,7 +40,6 @@ AM_PATH_XML2(2.0.0,
       else
          AC_DEFINE(HAVE_LIBXML, 1, [Define to 1 if you have the 'xml2' library])
       fi
-       AC_MSG_WARN("COUCOU")
    fi
 fi
 
