@@ -4,7 +4,7 @@
 // @author  Bruno Quoitin (bqu@info.ucl.ac.be), 
 //	    Sebastien Tandel (standel@info.ucl.ac.be)
 // @date 29/11/2002
-// @lastdate 24/01/2005
+// @lastdate 03/02/2005
 // ==================================================================
 
 #include <stdio.h>
@@ -124,7 +124,7 @@ void * memalloc(size_t size, char * pcFileName, int iLineNumber)
   SMemAlloc * pAlloc = NULL;
 #endif
 
-  printf("memalloc:debug %ld\n", dAllocCount);
+  //printf("memalloc:debug %ld\n", dAllocCount);
 
   if (dAllocCount < 0) {
     fprintf(stderr, "memalloc: dtor function _memory_init has not yet ");

@@ -44,7 +44,7 @@ extern int radix_tree_add(SRadixTree * pTree, uint32_t uKey,
 			  uint8_t uKeyLen, void * pItem);
 // ----- radix_tree_remove ------------------------------------------
 extern int radix_tree_remove(SRadixTree * pTree, uint32_t uKey,
-			     uint8_t uKeyLen);
+			     uint8_t uKeyLen, int iSingle);
 // ----- radix_tree_get_exact ---------------------------------------
 extern void * radix_tree_get_exact(SRadixTree * pTree,
 				   uint32_t uKey,

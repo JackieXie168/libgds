@@ -4,7 +4,7 @@
 // Generic Data Structures (libgds): validation application.
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
-// @lastdate 28/01/2005
+// @lastdate 03/02/2005
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -252,7 +252,18 @@ int test_list()
 int radix_tree_for_each_function(uint32_t uKey, uint8_t uKeyLen,
 				 void * pItem, void * pContext)
 {
+  fprintf(stdout, "key %d.%d.%d.%d/%d --> value %d\n",
+	  (uKey >> 24) & 255, (uKey >> 16) & 255,
+	  (uKey >> 8) & 255, uKey & 255,
+	  uKeyLen, (int) pItem);
+
   return 0;
+}
+
+// ----- radix_tree_dummy_destroy -----------------------------------
+void radix_tree_dummy_destroy(void ** ppItem)
+{
+  printf("(dummy-destroy %p)\n", *ppItem);
 }
 
 // ----- test_radix_tree --------------------------------------------
@@ -263,18 +274,18 @@ int test_radix_tree()
 {
   SRadixTree * pTree;
 
-  pTree= radix_tree_create(32, NULL);
+#define IPV4_TO_INT(A,B,C,D) ((((A)*256 + B)*256 + C)*256 + D)
 
   MSG_CHECKING("* Basic use");
 
-  //printf("add(1.0.0.0/16, 100)\n");
-  radix_tree_add(pTree, 256*256*256, 16, (void *) 100);
-  //printf("add(0.0.0.0/16, 200)\n");
-  radix_tree_add(pTree, 0, 16, (void *) 200);
+  pTree= radix_tree_create(32, NULL);
+
+  radix_tree_add(pTree, IPV4_TO_INT(1,0,0,0), 16, (void *) 100);
+  radix_tree_add(pTree, IPV4_TO_INT(0,0,0,0), 16, (void *) 200);
   radix_tree_for_each(pTree, radix_tree_for_each_function, NULL);
   //printf("best(0.3.0.0/32)>-->%d\n", (int) radix_tree_get_best(pTree, 3*256*256, 32));
   //printf("add(0.0.0.0/8, 300)\n");
-  radix_tree_add(pTree, 0, 8, (void *) 300);
+  radix_tree_add(pTree, IPV4_TO_INT(0,0,0,0), 8, (void *) 300);
   radix_tree_for_each(pTree, radix_tree_for_each_function, NULL);
   //printf("best(0.3.0.0/32)>-->%d\n", (int) radix_tree_get_best(pTree, 3*256*256, 32));
 
@@ -301,6 +312,23 @@ int test_radix_tree()
   radix_tree_add(pTree, 8, 1, (void *) 899);
   radix_tree_for_each(pTree, radix_tree_for_each_function, NULL);
   */
+  radix_tree_destroy(&pTree);
+
+  MSG_RESULT_SUCCESS();
+
+  MSG_CHECKING("* IPv4 use");
+
+  pTree= radix_tree_create(32, radix_tree_dummy_destroy);
+
+  radix_tree_add(pTree, IPV4_TO_INT(12,0,0,0), 8, (void *) 1);
+  radix_tree_add(pTree, IPV4_TO_INT(12,148,170,0), 24, (void *) 2);
+
+  radix_tree_for_each(pTree, radix_tree_for_each_function, NULL);
+
+  radix_tree_remove(pTree, IPV4_TO_INT(12,0,0,0), 8, 1);
+
+  radix_tree_for_each(pTree, radix_tree_for_each_function, NULL);
+
   radix_tree_destroy(&pTree);
 
   MSG_RESULT_SUCCESS();
@@ -458,7 +486,7 @@ int test_memory()
   char ** ppcTest;
   int iIndex;
 
-  printf("alloc-count: %d\n", mem_alloc_cnt());
+  //printf("alloc-count: %d\n", mem_alloc_cnt());
 
   MSG_CHECKING("* Allocation");
 
@@ -470,7 +498,7 @@ int test_memory()
   }
   MSG_RESULT_SUCCESS();
 
-  printf("alloc-count: %d\n", mem_alloc_cnt());
+  //printf("alloc-count: %d\n", mem_alloc_cnt());
 
   MSG_CHECKING("* Re-allocation");
   for (iIndex= 0; iIndex < NALLOC; iIndex++) {
@@ -479,14 +507,14 @@ int test_memory()
   }
   MSG_RESULT_SUCCESS();
 
-  printf("alloc-count: %d\n", mem_alloc_cnt());
+  //printf("alloc-count: %d\n", mem_alloc_cnt());
 
   MSG_CHECKING("* Freeing");
   for (iIndex= 0; iIndex < NALLOC; iIndex++) {
     //fprintf(stderr, "free : %p\n", ppcTest[iIndex]);
-    printf("alloc-count-before: %d\n", mem_alloc_cnt());
+    //printf("alloc-count-before: %d\n", mem_alloc_cnt());
     FREE(ppcTest[iIndex]);
-    printf("alloc-count-after: %d\n", mem_alloc_cnt());
+    //printf("alloc-count-after: %d\n", mem_alloc_cnt());
   }
   //fprintf(stderr, "ppcTest free : %p\n", ppcTest);
   FREE(ppcTest);
