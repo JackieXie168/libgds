@@ -24,7 +24,7 @@ int hash_utils_key_compute_string(char * pcItem, unsigned int uModulo)
 
   iHash= 0;
   for (iIndex= 0; iIndex < strlen(pcItem); iIndex++) {
-    iHash= (a*iHash+pcItem[iIndex])%uModulo;
+    iHash= (a*iHash+pcItem[iIndex]);
     a= a*b%(uModulo-1);
   }
   return iHash;

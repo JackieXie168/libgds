@@ -62,6 +62,19 @@ else
    fi
 fi
 
+#
+# Enable the memory debugging
+#
+AC_ARG_ENABLE(memory-debug,
+    AC_HELP_STRING([--enable-memory-debug],
+      [helps to track down memory allocation errors]),
+    gds_config_memory_debug="$enableval",
+)
+if test "x$gds_config_memory_debug" == "xyes"; then
+  AC_DEFINE(HAVE_MEMORY_DEBUG, 1, [Define to 1 if memory debug needed])
+fi
+AM_CONDITIONAL([WITH_MEMORY_DEBUG], [test "x$gds_config_memory_debug" == "xyes"])
+    
 AC_PROG_INSTALL
 AC_OUTPUT(Makefile src/Makefile src/libgds/Makefile src/check/Makefile)
 

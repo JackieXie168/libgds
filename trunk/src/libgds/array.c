@@ -59,6 +59,18 @@ SArray * _array_create(unsigned int uEltSize, uint8_t uOptions,
   return (SArray *) pRealArray;
 }
 
+// ----- _array_set_fdestroy -----------------------------------------
+/**
+ *
+ *
+ */
+void _array_set_fdestroy(SArray * pArray, FArrayDestroy fDestroy)
+{
+  SRealArray * pRealArray = (SRealArray *)pArray;
+
+  pRealArray->fDestroy = fDestroy;
+}
+
 // ----- _array_destroy ----------------------------------------------
 /**
  *

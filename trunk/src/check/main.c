@@ -20,12 +20,13 @@
 #include <libgds/tokenizer.h>
 #include <libgds/tokens.h>
 
-#define _CHECK_ARRAY_
+//#define _CHECK_ARRAY_
 //#define _CHECK_PTR_ARRAY_
 //#define _CHECK_LIST_
 //#define _CHECK_RADIX_TREE_
 //#define _CHECK_TOKENIZER_
 //#define _CHECK_FIFO_
+#define _CHECK_MEMORY_
 
 int array_compare(void * pItem1, void * pItem2,
 		  unsigned int uEltSize) 
@@ -317,6 +318,32 @@ void test_fifo()
   fifo_destroy(&pFIFO);
 }
 
+// ----- test_memory ------------------------------------------------
+void test_memory()
+{
+#define NALLOC 5
+  char ** ppcTest;
+  int iIndex;
+
+  ppcTest= (char **) MALLOC(sizeof(char *)*NALLOC);
+  fprintf(stderr, "ppcTest alloc : %p\n", ppcTest);
+  for (iIndex= 0; iIndex < NALLOC; iIndex++) {
+    ppcTest[iIndex]= (char *) MALLOC(sizeof(char)*10);
+    fprintf(stderr, "malloc : %p\n", ppcTest[iIndex]);
+  }
+  for (iIndex= 0; iIndex < NALLOC; iIndex++) {
+    ppcTest[iIndex] = REALLOC(ppcTest[iIndex], sizeof(char)*20);
+    fprintf(stderr, "realloc : %p\n", ppcTest[iIndex]);
+  }
+  for (iIndex= 0; iIndex < NALLOC; iIndex++) {
+    fprintf(stderr, "free : %p\n", ppcTest[iIndex]);
+    FREE(ppcTest[iIndex]);
+  }
+  fprintf(stderr, "ppcTest free : %p\n", ppcTest);
+  FREE(ppcTest);
+  printf("memory-test: done.\n");
+}
+
 // ----- main -------------------------------------------------------
 /**
  *
@@ -340,6 +367,9 @@ int main(int argc, char * argv[])
 #endif
 #ifdef _CHECK_FIFO_
   test_fifo();
+#endif
+#ifdef _CHECK_MEMORY_
+  test_memory();
 #endif
 
   return 0;

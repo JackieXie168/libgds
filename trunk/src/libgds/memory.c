@@ -53,6 +53,7 @@ static uint8_t uFlags= 0;
 static SList * plMemAlloc= NULL;
 static long int iAllocatedBytes= 0;
 static long int iFreedBytes= 0;
+static long int iMaxAllocatedAtOneTime= 0;
 
 SMemAlloc * memory_alloc_init(void * uPtrAddr, unsigned int uSize, 
 			char * pcFileName, int iLineNumber)
@@ -142,6 +143,8 @@ void * memalloc(size_t size, char * pcFileName, int iLineNumber)
       exit(EXIT_FAILURE);
     }
     iAllocatedBytes += size;
+    if (iMaxAllocatedAtOneTime < iAllocatedBytes-iFreedBytes)
+      iMaxAllocatedAtOneTime = iAllocatedBytes-iFreedBytes;
   }
 #endif
   
@@ -178,7 +181,9 @@ extern void * memrealloc(void * pPtr, size_t size, char * pcFileName, int iLineN
 	pAllocSearched = list_get_index(plMemAlloc, iIndex);
 	iAllocatedBytes -= pAllocSearched->uSize;
 	iAllocatedBytes += size;
-
+	if (iMaxAllocatedAtOneTime < iAllocatedBytes-iFreedBytes)
+	  iMaxAllocatedAtOneTime = iAllocatedBytes-iFreedBytes;
+	
 	list_delete(plMemAlloc, iIndex);
 
 	free(pAlloc);
@@ -300,6 +305,7 @@ void _memory_destroy()
     list_destroy(&plMemAlloc);
     fprintf(stderr, "total allocated bytes : %li\n", iAllocatedBytes);
     fprintf(stderr, "total freed bytes     : %li\n", iFreedBytes);
+    fprintf(stderr, "max allocated         : %li\n", iMaxAllocatedAtOneTime);
   }
 #endif
 }
