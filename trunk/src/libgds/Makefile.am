@@ -1,10 +1,10 @@
-INCLUDES = -I..
-AM_CFLAGS = -Wall -Werror -O2
+INCLUDES = -I.. `xml2-config --cflags`
+AM_CFLAGS = -Wall -Werror -O2 -L/usr/lib -lxml2 -lz -lpthread -lm
 
 lib_LTLIBRARIES = libgds.la
-libgds_la_LDFLAGS = -no-undefined
+libgds_la_LDFLAGS = -no-undefined `xml2-config --libs`
 libgds_la_LIBADD = -lm
-libgdsinclude_HEADERS = array.h cli.h cli_ctx.h config.h fifo.h list.h log.h memory.h radix-tree.h rand.h sequence.h stack.h str_util.h tokenizer.h tokens.h types.h
+libgdsinclude_HEADERS = array.h cli.h cli_ctx.h config.h fifo.h list.h log.h memory.h radix-tree.h rand.h regex.h sequence.h stack.h str_util.h tokenizer.h tokens.h types.h xml.h
 libgdsincludedir = $(includedir)/libgds
 
 libgds_la_SOURCES =\
@@ -17,11 +17,13 @@ libgds_la_SOURCES =\
 	memory.c \
 	radix-tree.c \
 	rand.c \
+	regex.c \
 	sequence.c \
 	stack.c \
 	str_util.c \
 	tokenizer.c \
 	tokens.c \
+	xml.c \
 	array.h \
 	cli.h \
 	cli_ctx.h \
@@ -32,10 +34,11 @@ libgds_la_SOURCES =\
 	memory.h \
 	radix-tree.h \
 	rand.h \
+	regex.h \
 	sequence.h \
 	stack.h \
 	str_util.h \
 	tokenizer.h \
 	tokens.h \
+	xml.h \
 	types.h
-

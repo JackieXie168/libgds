@@ -12,6 +12,34 @@ AC_PREFIX_DEFAULT(/usr/local)
 AM_INIT_AUTOMAKE(libgds, $VERSION, no-define)
 AM_CONFIG_HEADER(src/libgds/config.h)
 
+#
+# Test for libxml2 existence (library + headers)
+#
+AC_CHECK_LIB(xml2, xmlNodeGetContent, xml_ok=yes, xml_ok=no)
+if test "x$xml_ok" != "xyes"; then
+   AC_MSG_ERROR([libxml2 is needed to compile xml.* of libgds])
+#else
+   # Check for headers
+#   AC_CHECK_HEADER(libxml/tree.h, xml_header_ok=yes, xml_header_ok=no)
+#   if test "x$xml_header_ok" != "xyes"; then
+#      AC_MSG_ERROR([libxml2 headers are needed to compile xml.* of libgds])
+#   fi
+fi
+
+#
+# Test for libpcre existence (library + headers)
+#
+AC_CHECK_LIB(pcre, pcre_compile, pcre_ok=yes, pcre_ok=no)
+if test "x$pcre_ok" != "xyes"; then
+   AC_MSG_ERROR([libpcre is needed to compile regex.* of libgds])
+else
+   # Check for headers
+   AC_CHECK_HEADERS(pcre.h, pcre_header_ok=yes, pcre_header_ok=no)
+   if test "x$pcre_header_ok" != "xyes"; then
+      AC_MSG_ERROR([libpcre headers are needed to compile regex.* of libgds])
+   fi
+fi
+
 AC_PROG_CC
 AC_PROG_LIBTOOL
 AC_PROG_INSTALL
