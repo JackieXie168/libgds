@@ -4,9 +4,9 @@
 // A library of function that handles radix-trees intended to store
 // IPv4 prefixes.
 //
-// @author Bruno Quoitin (bqu@infonet.fundp.ac.be)
+// @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 21/10/2002
-// @lastdate 23/08/2003
+// @lastdate 07/04/2004
 // ==================================================================
 
 #include <stdio.h>
@@ -241,23 +241,36 @@ void * radix_tree_get_best(SRadixTree * pTree,
   SRadixTreeItem * pTreeItem= pTree->pRoot;
   void * pResult= NULL;
 
+  /* If the tree is empty, there is no possible match. */
   if (pTreeItem == NULL)
     return NULL;
+
+  /* Otherwize, the shortest match corresponds to the root. */
   if (pTreeItem->pItem != NULL)
     pResult= pTreeItem->pItem;
+
+  /* Go down the tree, as long as the requested key matches the
+     traversed prefixes and as deep as the requested key length... */
   while (uLen > 0) {
+
     if ((pTreeItem != NULL) && (pTreeItem->pItem != NULL))
       pResult= pTreeItem->pItem;
+
     if (uKey & (1 << (pTree->uKeyLen-(uKeyLen+1-uLen)))) {
+      // Bit is 1
       if (pTreeItem->pRight != NULL)
 	pTreeItem= pTreeItem->pRight;
+      else
+	break;
     } else {
+      // Bit is 0
       if (pTreeItem->pLeft != NULL)
 	pTreeItem= pTreeItem->pLeft;
+      else
+	break;
     }
     uLen--;
-    if ((pTreeItem != NULL) && (pTreeItem->pItem != NULL))
-      pResult= pTreeItem->pItem;
+
   }
   
   return pResult;
