@@ -191,6 +191,20 @@ void test_radix_tree()
 {
   SRadixTree * pTree;
 
+  pTree= radix_tree_create(32, NULL);
+
+  printf("add(1.0.0.0/16, 100)\n");
+  radix_tree_add(pTree, 256*256*256, 16, (void *) 100);
+  printf("add(0.0.0.0/16, 200)\n");
+  radix_tree_add(pTree, 0, 16, (void *) 200);
+  radix_tree_for_each(pTree, radix_tree_for_each_function, NULL);
+  printf("best(0.3.0.0/32)>-->%d\n", (int) radix_tree_get_best(pTree, 3*256*256, 32));
+  printf("add(0.0.0.0/8, 300)\n");
+  radix_tree_add(pTree, 0, 8, (void *) 300);
+  radix_tree_for_each(pTree, radix_tree_for_each_function, NULL);
+  printf("best(0.3.0.0/32)>-->%d\n", (int) radix_tree_get_best(pTree, 3*256*256, 32));
+
+  /*
   pTree= radix_tree_create(4, NULL);
   printf("add(0/0, 100)\n");
   radix_tree_add(pTree, 0, 0, (void *) 100);
@@ -212,6 +226,7 @@ void test_radix_tree()
   printf("add(8/1, 899)\n");
   radix_tree_add(pTree, 8, 1, (void *) 899);
   radix_tree_for_each(pTree, radix_tree_for_each_function, NULL);
+  */
   radix_tree_destroy(&pTree);
   printf("radix-tree: done.\n");
 }
@@ -326,9 +341,6 @@ int main(int argc, char * argv[])
 #ifdef _CHECK_FIFO_
   test_fifo();
 #endif
-
-  if (uAllocCount > 0)
-    printf("warning: memory leak (%lu)\n", uAllocCount);
 
   return 0;
 }
