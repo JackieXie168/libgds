@@ -5,7 +5,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 05/04/2005
-// @lastdate 05/04/2005
+// @lastdate 06/04/2005
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -105,7 +105,8 @@ static void longest_common_prefix(trie_key_t tKey1,
  * Result: 0 on success and -1 on error (duplicate key)
  */
 static int trie_item_insert(STrieItem ** ppItem, trie_key_t uKey,
-			    trie_key_len_t uKeyLen, void * pData)
+			    trie_key_len_t uKeyLen, void * pData,
+			    FTrieDestroy fDestroy)
 {
   trie_key_t tPrefix;
   trie_key_len_t tPrefixLen;
@@ -117,11 +118,10 @@ static int trie_item_insert(STrieItem ** ppItem, trie_key_t uKey,
 
   // Split, append or recurse ?
   if ((tPrefixLen == uKeyLen) && (tPrefixLen == (*ppItem)->uKeyLen)) {
-    //if ((*ppItem)->pData == NULL) {
-      (*ppItem)->pData= pData;
-      return 0;
-      /*} else
-	return -1;*/
+    if ((fDestroy != NULL) && ((*ppItem)->pData != NULL))
+      fDestroy(&(*ppItem)->pData);
+    (*ppItem)->pData= pData;
+    return 0;
   } else if (tPrefixLen < (*ppItem)->uKeyLen) {
     // Split is required
     pNewItem= trie_item_create(tPrefix, tPrefixLen, NULL);
@@ -145,18 +145,22 @@ static int trie_item_insert(STrieItem ** ppItem, trie_key_t uKey,
     if (uKey & (1 << (TRIE_KEY_SIZE-(*ppItem)->uKeyLen-1))) {
       if ((*ppItem)->pRight != NULL) {
 	// Recurse
-	return trie_item_insert(&(*ppItem)->pRight, uKey, uKeyLen, pData);
+	return trie_item_insert(&(*ppItem)->pRight, uKey, uKeyLen,
+				pData, fDestroy);
       } else {
 	// Append
 	(*ppItem)->pRight= trie_item_create(uKey, uKeyLen, pData);
+	return 0;
       }
     } else {
       if ((*ppItem)->pLeft != NULL) {
 	// Recurse
-	return trie_item_insert(&(*ppItem)->pLeft, uKey, uKeyLen, pData);
+	return trie_item_insert(&(*ppItem)->pLeft, uKey, uKeyLen,
+				pData, fDestroy);
       } else {
 	// Append
 	(*ppItem)->pLeft= trie_item_create(uKey, uKeyLen, pData);
+	return 0;
       }
     }
   }
@@ -176,7 +180,8 @@ int trie_insert(STrie * pTrie, trie_key_t uKey, trie_key_len_t uKeyLen,
     pTrie->pRoot= trie_item_create(uKey, uKeyLen, pData);
     return 0;
   } else {
-    return trie_item_insert(&pTrie->pRoot, uKey, uKeyLen, pData);
+    return trie_item_insert(&pTrie->pRoot, uKey, uKeyLen,
+			    pData, pTrie->fDestroy);
   }
 }
 
