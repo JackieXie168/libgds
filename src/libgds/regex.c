@@ -225,7 +225,7 @@ void regex_finalize(SRegEx ** pRegEx)
 {
   if (*pRegEx != NULL) {
     if ((*pRegEx)->pRegEx != NULL)
-      FREE((*pRegEx)->pRegEx);
+      free((*pRegEx)->pRegEx);
     if ((*pRegEx)->iVectorResult != NULL)
       FREE((*pRegEx)->iVectorResult);
     if ((*pRegEx)->sResult != NULL)

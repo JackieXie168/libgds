@@ -22,11 +22,14 @@
 extern unsigned long uAllocCount;
 
 // ----- memalloc ---------------------------------------------------
-extern void * memalloc(size_t size);
+extern void * memalloc(size_t size, char * pcFileName, 
+			int iLineNumber);
 // ----- memrealloc -------------------------------------------------
-extern void * memrealloc(void * pPtr, size_t size);
+extern void * memrealloc(void * pPtr, size_t size, char * pcFileName,
+			int iLineNumber);
 // ----- memfree ----------------------------------------------------
-extern void memfree(void * pPtr);
+extern void memfree(void * pPtr, char * pcFileName, 
+			int iLineNumber);
 // ----- mem_alloc_cnt ----------------------------------------------
 extern unsigned long int mem_alloc_cnt();
 // ----- mem_flag_set -----------------------------------------------
@@ -34,8 +37,8 @@ extern void mem_flag_set(uint8_t uFlag, int iState);
 // ----- mem_flag_get -----------------------------------------------
 extern int mem_flag_get(uint8_t uFlag);
 
-#define MALLOC(s) memalloc(s)
-#define REALLOC(p, s) memrealloc(p, s)
-#define FREE(p) memfree(p)
+#define MALLOC(s) memalloc(s, __FILE__, __LINE__)
+#define REALLOC(p, s) memrealloc(p, s, __FILE__, __LINE__)
+#define FREE(p) memfree(p, __FILE__, __LINE__)
 
 #endif
