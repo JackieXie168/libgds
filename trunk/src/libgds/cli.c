@@ -594,7 +594,7 @@ int cli_execute_file(SCli * pCli, FILE * pStream)
   while (fgets(acLine, sizeof(acLine), pStream) != NULL) {
     iResult= cli_execute_line(pCli, acLine);
     if (iResult) {
-      fprintf(stderr, "Error: in input file, line %u: ", uLineNumber);
+      fprintf(stderr, "Error: in script file, line %u\n", uLineNumber);
       return iResult;
     }
     uLineNumber++;

@@ -3,7 +3,7 @@
 #
 AC_INIT(src/check/main.c)
 PACKAGE=libgds
-VERSION="1.0.1"
+VERSION="1.1.0"
 AC_PREFIX_DEFAULT(/usr/local)
 
 #
