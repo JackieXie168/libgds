@@ -15,13 +15,14 @@
 #include <string.h>
 #include <pcre.h>
 
-/*#include <libgds/memory.h>
-#include <libgds/regex.h>*/
-#include <regex.h>
+#include <libgds/memory.h>
+#include <libgds/regex.h>
+#include <libgds/log.h>
+//#include <regex.h>
 
-#define LOG_WARNING   printf
-#define MALLOC	      malloc
-#define FREE	      free
+//#define LOG_WARNING   printf
+//#define MALLOC	      malloc
+//#define FREE	      free
 
 // ----- regex_compile -----------------------------------------------
 /**
