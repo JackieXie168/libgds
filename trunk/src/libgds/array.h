@@ -60,6 +60,15 @@ typedef struct {
 #define uint16_array_length(A) _array_length((SArray *) A)
 
 typedef struct {
+  double * data;
+} SDoubleArray;
+#define double_array_create(O) \
+          (SDoubleArray *) _array_create(sizeof(double), O, \
+          _array_compare, NULL)
+#define double_array_destroy(A) _array_destroy((SArray **) A)
+#define double_array_length(A) _array_length((SArray *) A)
+
+typedef struct {
   void ** data;
 } SPtrArray;
 #define ptr_array_create_ref(O) \
