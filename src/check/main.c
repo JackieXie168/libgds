@@ -4,7 +4,7 @@
 // Generic Data Structures (libgds): validation application.
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
-// @lastdate 21/11/2003
+// @lastdate 08/03/2004
 // ==================================================================
 
 #include <assert.h>
@@ -12,6 +12,7 @@
 #include <stdlib.h>
 
 #include <libgds/array.h>
+#include <libgds/fifo.h>
 #include <libgds/list.h>
 #include <libgds/memory.h>
 #include <libgds/radix-tree.h>
@@ -20,10 +21,11 @@
 #include <libgds/tokens.h>
 
 #define _CHECK_ARRAY_
-//#define _CHECK_PTR_ARRAY_
-//#define _CHECK_LIST_
-//#define _CHECK_RADIX_TREE_
-//#define _CHECK_TOKENIZER_
+#define _CHECK_PTR_ARRAY_
+#define _CHECK_LIST_
+#define _CHECK_RADIX_TREE_
+#define _CHECK_TOKENIZER_
+#define _CHECK_FIFO_
 
 int array_compare(void * pItem1, void * pItem2,
 		  unsigned int uEltSize) 
@@ -220,7 +222,7 @@ void test_radix_tree()
  */
 void test_tokenizer()
 {
-  STokenizer * pTokenizer= tokenizer_create(" \t", "\"{", "\"}");
+  STokenizer * pTokenizer= tokenizer_create(" \t", 0, "\"{", "\"}");
   long int lValue;
   double dValue;
   STokens * pTokens;
@@ -289,6 +291,17 @@ void test_tokenizer()
   printf("tokenizer: done.\n");
 }
 
+// ----- test_fifo --------------------------------------------------
+/**
+ *
+ */
+void test_fifo()
+{
+  SFIFO * pFIFO= fifo_create(5, NULL);
+
+  fifo_destroy(&pFIFO);
+}
+
 // ----- main -------------------------------------------------------
 /**
  *
@@ -309,6 +322,9 @@ int main(int argc, char * argv[])
 #endif
 #ifdef _CHECK_TOKENIZER_
   test_tokenizer();
+#endif
+#ifdef _CHECK_FIFO_
+  test_fifo();
 #endif
 
   if (uAllocCount > 0)
