@@ -22,7 +22,7 @@ struct RegEx {
   pcre * pRegEx;
   unsigned int uMaxResult;
   int * iVectorResult;
-  char isFirstSearch;
+  int isFirstSearch;
   int iNumResult;
   int iNbrResult;
   char * sResult;
@@ -171,10 +171,10 @@ int regex_search(SRegEx * pRegEx, const char * sExp)
     if (pRegEx->isFirstSearch == 0) {
       pRegEx->isFirstSearch = 1;
       regex_first_search(pRegEx, sExp);
-    } else {
+    } else 
       regex_next_search(pRegEx, sExp);
-    }
   }
+  //printf("NbrResult : %d\n", pRegEx->iNbrResult);
   return pRegEx->iNbrResult;
 }
 
@@ -207,10 +207,11 @@ char * regex_get_result(SRegEx * pRegEx, const char * sExp)
   if (pRegEx == NULL || pRegEx->iNumResult >= pRegEx->iNbrResult)
     return NULL;
 
-  pRegEx->iNumResult++;
 
   iMatchedStringLen = pRegEx->iVectorResult[pRegEx->iNumResult*2+1] - pRegEx->iVectorResult[pRegEx->iNumResult*2];
   pRegEx->sResult = regex_copy_match_string(sExp+pRegEx->iVectorResult[pRegEx->iNumResult*2], iMatchedStringLen);
+
+  pRegEx->iNumResult++;
 
   return pRegEx->sResult;
 }
