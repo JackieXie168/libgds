@@ -9,7 +9,11 @@
 #ifndef __GDS_REGEX_H__
 #define __GDS_REGEX_H__
 
+#ifdef PCRE_PATH_BASE
+#include <pcre.h>
+#else
 #include <pcre/pcre.h>
+#endif
 
 typedef struct {
   pcre * pRegEx;
