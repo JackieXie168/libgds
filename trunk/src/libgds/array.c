@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 10/04/2003
-// @lastdate 24/11/2003
+// @lastdate 20/04/2004
 // ==================================================================
 
 #include <assert.h>
@@ -378,5 +378,21 @@ int _array_quicksort(SArray * pArray, FArrayCompare fCompare)
   return 0;
 }
 
+// ----- uint16_array_destroy ---------------------------------------
+/**
+ *
+ */
+void uint16_array_destroy(SUInt16Array ** ppArray)
+{
+  _array_destroy((SArray **) ppArray);
+}
 
 
+// ----- ptr_array_destroy ------------------------------------------
+/**
+ *
+ */
+void ptr_array_destroy(SPtrArray ** ppArray)
+{
+  _array_destroy((SArray **) ppArray);
+}
