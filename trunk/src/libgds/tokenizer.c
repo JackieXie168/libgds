@@ -1,9 +1,9 @@
 // =================================================================
 // @(#)tokenizer.c
 //
-// @author Bruno Quoitin (bqu@infonet.fundp.ac.be)
+// @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 10/07/2003
-// @lastdate 20/08/2003
+// @lastdate 04/03/2004
 // =================================================================
 
 #include <assert.h>
@@ -23,6 +23,7 @@
  *
  */
 STokenizer * tokenizer_create(const char * pcDelimiters,
+			      int iSingleDelimiter,
 			      const char * pcOpeningQuotes,
 			      const char * pcClosingQuotes)
 {
@@ -30,6 +31,7 @@ STokenizer * tokenizer_create(const char * pcDelimiters,
     (STokenizer *) MALLOC(sizeof(STokenizer));
   pTokenizer->pTokens= NULL;
   pTokenizer->pcDelimiters= str_create(pcDelimiters);
+  pTokenizer->iSingleDelimiter= iSingleDelimiter;
   if ((pcOpeningQuotes != NULL) && (pcClosingQuotes != NULL)) {
     assert(strlen(pcOpeningQuotes) == strlen(pcClosingQuotes));
     pTokenizer->pcOpeningQuotes= str_create(pcOpeningQuotes);
@@ -160,6 +162,13 @@ int tokenizer_run(STokenizer * pTokenizer, char * pcString)
 	iState= TOKENIZER_STATE_NORMAL;
 	pcTokenBuffer[uTokenBufferPos++]= cDataChar;
 	iTokenReady= 1;
+      } else {
+	// If this option is activated, this means that each delimiter
+	// separates two fields. If two consecutive delimiters are
+	// found, then a dummy field must be created.
+	if (pTokenizer->iSingleDelimiter) {
+	  tokens_add_copy(pTokenizer->pTokens, "");
+	}
       }
       break;
     case TOKENIZER_STATE_QUOTED:

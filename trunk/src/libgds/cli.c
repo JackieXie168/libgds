@@ -312,6 +312,7 @@ SCli * cli_create()
   SCli * pCli= (SCli *) MALLOC(sizeof(SCli));
 
   pCli->pTokenizer= tokenizer_create(CLI_DELIMITERS,
+				     0,
 				     CLI_OPENING_QUOTES,
 				     CLI_CLOSING_QUOTES);
   pCli->pBaseCommand= NULL;
