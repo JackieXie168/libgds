@@ -4,7 +4,7 @@
 // A library of function that handles radix-trees intended to store
 // IPv4 prefixes.
 //
-// @author Bruno Quoitin (bqu@infonet.fundp.ac.be)
+// @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 22/10/2002
 // @lastdate 21/05/2003
 // ==================================================================
