@@ -3,7 +3,7 @@
 #
 AC_INIT(src/check/main.c)
 PACKAGE=libgds
-VERSION="1.1.5"
+VERSION="1.1.6"
 AC_PREFIX_DEFAULT(/usr/local)
 
 #
@@ -15,28 +15,42 @@ AM_CONFIG_HEADER(src/libgds/config.h)
 #
 # Test for libxml2 existence (library + headers)
 #
-AC_CHECK_LIB(xml2, xmlNodeGetContent, xml_ok=yes, xml_ok=no)
-if test "x$xml_ok" != "xyes"; then
-   AC_MSG_ERROR([libxml2 is needed to compile xml.* of libgds])
-#else
-   # Check for headers
-#   AC_CHECK_HEADER(libxml/tree.h, xml_header_ok=yes, xml_header_ok=no)
-#   if test "x$xml_header_ok" != "xyes"; then
-#      AC_MSG_ERROR([libxml2 headers are needed to compile xml.* of libgds])
-#   fi
+AC_ARG_ENABLE(xml,
+              AC_HELP_STRING([--disable-xml],
+                             [disable XML support]),
+              gds_config_xml="$enableval",
+              )
+if test "$gds_config_xml" != "no"; then
+   # Check for existence of 'xml2-config'
+   AM_PATH_XML2(2.0.0,
+                [ LIBS="${LIBS} ${XML_LIBS}" ]
+		[ CPPFLAGS="${CPPFLAGS} ${XML_CFLAGS}" ],
+		)
+   AC_CHECK_LIB(xml2, xmlNodeGetContent, xml_ok=yes, xml_ok=no)
+   if test "$xml_ok" != "yes"; then
+      AC_MSG_ERROR([libxml2 is needed to compile xml.* of libgds])
+   else
+      # Check for headers
+      AC_CHECK_HEADER(libxml/tree.h, xml_header_ok=yes, xml_header_ok=no)
+      if test "x$xml_header_ok" != "xyes"; then
+         AC_MSG_ERROR([libxml2 headers are needed to compile xml.* of libgds])
+      else
+         AC_DEFINE(HAVE_LIBXML, 1, [Define to 1 if you have the 'xml2' library])
+      fi
+   fi
 fi
 
 #
 # Test for libpcre existence (library + headers)
 #
 AC_CHECK_LIB(pcre, pcre_compile, pcre_ok=yes, pcre_ok=no)
-if test "x$pcre_ok" != "xyes"; then
-   AC_MSG_ERROR([libpcre is needed to compile regex.* of libgds])
+if test "$pcre_ok" != "yes"; then
+   AC_MSG_ERROR([libpcre is needed to compile libgds])
 else
    # Check for headers
-   AC_CHECK_HEADERS(pcre.h, pcre_header_ok=yes, pcre_header_ok=no)
+   AC_CHECK_HEADER(pcre/pcre.h, pcre_header_ok=yes, pcre_header_ok=no)
    if test "x$pcre_header_ok" != "xyes"; then
-      AC_MSG_ERROR([libpcre headers are needed to compile regex.* of libgds])
+      AC_MSG_ERROR([libpcre headers are needed to compile libgds])
    fi
 fi
 
