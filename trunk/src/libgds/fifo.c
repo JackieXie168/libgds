@@ -3,11 +3,12 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 28/11/2002
-// @lastdate 08/03/2004
+// @lastdate 29/03/2004
 // ==================================================================
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <libgds/fifo.h>
 #include <libgds/memory.h>
