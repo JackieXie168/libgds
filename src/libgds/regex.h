@@ -9,6 +9,7 @@
 #ifndef __GDS_REGEX_H__
 #define __GDS_REGEX_H__
 
+#include <libgds/types.h>
 #include <libgds/config.h>
 
 #ifdef PCRE_PATH_BASE
@@ -17,22 +18,15 @@
 #include <pcre/pcre.h>
 #endif
 
-typedef struct {
-  pcre * pRegEx;
-  unsigned int uMaxResult;
-  int * iVectorResult;
-  int iNbrResult;
-} SRegEx;
-
+typedef struct RegEx SRegEx;
 
 // ----- regex_int ---------------------------------------------------
 SRegEx * regex_init(char * pattern, const unsigned int uMaxResult);
 // ----- regex_search ------------------------------------------------
-int regex_search(SRegEx * pRegEx, char * sExp);
+int regex_search(SRegEx * pRegEx, const char * sExp);
 // ----- regex_get_result --------------------------------------------
-char * regex_get_result(SRegEx * pRegEx, char * sExp, 
-			  unsigned int iNumRes);
+char * regex_get_result(SRegEx * pRegEx, const char * sExp);
 // ----- regex_finalize ----------------------------------------------
-void regex_finalize(SRegEx * pRegEx);
+void regex_finalize(SRegEx ** pRegEx);
 
 #endif 
