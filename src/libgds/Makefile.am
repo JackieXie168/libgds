@@ -1,9 +1,9 @@
-INCLUDES = -I.. `xml2-config --cflags`
-AM_CFLAGS = -Wall -Werror -O2 -L/usr/lib -lxml2 -lz -lpthread -lm
+INCLUDES = -I..
+AM_CFLAGS = -Wall -Werror -O2 -L/usr/lib
 
 lib_LTLIBRARIES = libgds.la
-libgds_la_LDFLAGS = -no-undefined `xml2-config --libs`
-libgds_la_LIBADD = -lm
+libgds_la_LDFLAGS = -no-undefined
+libgds_la_LIBADD = -lm -lpcre -lz -lpthread
 libgdsinclude_HEADERS = array.h cli.h cli_ctx.h config.h fifo.h list.h log.h memory.h radix-tree.h rand.h regex.h sequence.h stack.h str_util.h tokenizer.h tokens.h types.h xml.h
 libgdsincludedir = $(includedir)/libgds
 
