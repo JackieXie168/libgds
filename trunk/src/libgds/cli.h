@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 25/02/2004
+// @lastdate 01/12/2004
 // ==================================================================
 
 #ifndef __GDS_CLI_H__
@@ -23,6 +23,8 @@
 #define CLI_ERROR_BAD_PARAMETER     -6
 #define CLI_ERROR_CTX_CREATE        -7
 #define CLI_WARNING_EMPTY_COMMAND    1
+#define CLI_SUCCESS_TERMINATE        2
+#define CLI_SUCCESS_HELP             3
 
 typedef SPtrArray SCliCmds;
 typedef SPtrArray SCliParams;
@@ -38,7 +40,7 @@ typedef struct {
 typedef int (*FCliContextCreate)(SCliContext * pContext, void ** ppItem);
 typedef void (*FCliContextDestroy)(void ** pItem);
 typedef int (*FCliCommand)(SCliContext * pContext, STokens * pTokens);
-typedef int (*FCliCheckParam)(char * pcValue);
+typedef int (*FCliCheckParam)(const char * pcValue);
 
 typedef struct {
   char * pcName;
@@ -47,6 +49,7 @@ typedef struct {
   FCliContextCreate fCtxCreate;
   FCliContextDestroy fCtxDestroy;
   FCliCommand fCommand;
+  char * pcHelp;
 } SCliCmd;
 
 typedef struct {
@@ -79,6 +82,8 @@ extern void cli_cmd_param_destroy(SCliCmdParam ** ppParam);
 extern SCliCmds * cli_cmds_create();
 // ----- cli_cmds_destroy -------------------------------------------
 extern void cli_cmds_destroy(SCliCmds ** ppCmds);
+// ----- cli_matching_cmds ------------------------------------------
+extern SCliCmds * cli_matching_cmds(SCliCmds * pCmds, const char * pcText);
 // ----- cli_cmds_add -----------------------------------------------
 extern int cli_cmds_add(SCliCmds * pCmds, SCliCmd * pCmd);
 // ----- cli_params_create ------------------------------------------
@@ -119,6 +124,10 @@ extern int cli_cmd_get_num_params(SCliCmd * pCmd);
 // ----- cli_cmd_get_param_at ---------------------------------------
 extern SCliCmdParam * cli_cmd_get_param_at(SCliCmd * pCmd,
 					   uint32_t uIndex);
+// ----- cli_cmd_match_subcmds --------------------------------------
+extern SCliCmd * cli_cmd_match_subcmds(SCli * pCli, SCliCmd * pCmd,
+				       char * pcStartCmd,
+				       int * piParamIndex);
 // ----- cli_create -------------------------------------------------
 extern SCli * cli_create();
 // ----- cli_destroy ------------------------------------------------
