@@ -236,7 +236,7 @@ int _array_append(SArray * pArray, void * pData)
   _array_resize_if_required(pArray, ((SRealArray *) pArray)->uLength+1);
 
   _array_set_at(pArray, ((SRealArray *) pArray)->uLength-1, pData);
-  return 0;
+  return ((SRealArray *) pArray)->uLength-1;
 }
 
 // ----- _array_copy ------------------------------------------------

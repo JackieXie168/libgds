@@ -84,6 +84,8 @@ typedef struct {
 #define ptr_array_add(A, D) _array_add((SArray *) A, D)
 #define ptr_array_append(A, D) _array_append((SArray *) A, &D)
 #define ptr_array_remove_at(A, I) _array_remove_at((SArray *) A, I)
+#define ptr_array_get_at(A, I, E) _array_get_at((SArray *) A, I, E)
+
 extern void ptr_array_destroy(SPtrArray ** ppArray);
 
 // ----- _array_create ----------------------------------------------
