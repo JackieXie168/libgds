@@ -6,6 +6,8 @@
 // @lastdate 26/08/2004
 // ==================================================================
 
+#ifdef HAVE_LIBXML
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -435,3 +437,4 @@ void xml_char_free(char * cContent)
   xmlFree(cContent);
 }
 
+#endif

@@ -9,6 +9,8 @@
 #ifndef __GDS_XML_H__
 #define __GDS_XML_H__
 
+#ifdef HAVE_LIBXML
+
 #define XML_STRING_DATA_TYPE  0x1
 #define XML_INT_DATA_TYPE     0x2
 #define XML_FLOAT_DATA_TYPE   0x3
@@ -58,5 +60,7 @@ void xml_xpath_search_finalize(xmlHandle * hXML);
 int xml_xpath_search(xmlHandle * hXML, const char * xmlExpr);
 // ----- xml_xpath_first_nodeset -------------------------------------
 void xml_xpath_first_nodeset(xmlHandle * hXML);
+
+#endif
 
 #endif
