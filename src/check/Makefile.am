@@ -8,7 +8,8 @@ check_PROGRAMS = \
 	gds_test_radix_tree \
 	gds_test_tokenizer \
 	gds_test_fifo \
-	gds_test_memory
+	gds_test_memory \
+	gds_test_patricia_tree
 TESTS = $(check_PROGRAMS)
 
 gds_test_array_SOURCES = main.c
@@ -38,3 +39,7 @@ gds_test_fifo_LDADD = ../libgds/libgds.la
 gds_test_memory_SOURCES = main.c
 gds_test_memory_CFLAGS = -D_GDS_CHECK_MEMORY_
 gds_test_memory_LDADD = ../libgds/libgds.la
+
+gds_test_patricia_tree_SOURCES = main.c
+gds_test_patricia_tree_CFLAGS = -D_GDS_CHECK_PATRICIA_TREE_
+gds_test_patricia_tree_LDADD = ../libgds/libgds.la
