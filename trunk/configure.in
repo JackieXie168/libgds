@@ -12,8 +12,6 @@ AC_PREFIX_DEFAULT(/usr/local)
 AM_INIT_AUTOMAKE(libgds, $VERSION, no-define)
 AM_CONFIG_HEADER(src/libgds/config.h)
 
-AC_DEFINE([PCRE_PATH_BASE], [], [Define path for libpcre headers])
-
 #
 # Test for libxml2 existence (library + headers)
 #
@@ -28,11 +26,6 @@ if test "$gds_config_xml" != "no"; then
                 [ LIBS="${LIBS} ${XML_LIBS}" ]
 		[ CPPFLAGS="${CPPFLAGS} ${XML_CFLAGS} ${XML_CPPFLAGS}" ],
 		)
-   AC_MSG_WARN("LIBS: $LIBS")
-   AC_MSG_WARN("CPPFLAGS: $CPPFLAGS")
-   AC_MSG_WARN("XML_LIBS: $XML_LIBS")
-   AC_MSG_WARN("XML_CFLAGS: $XML_CFLAGS")
-   AC_MSG_WARN("XML_CPPFLAGS: $XML_CPPFLAGS")
    AC_CHECK_LIB(xml2, xmlNodeGetContent, xml_ok=yes, xml_ok=no)
    if test "$xml_ok" != "yes"; then
       AC_MSG_ERROR([libxml2 is needed to compile xml.* of libgds])
@@ -60,11 +53,9 @@ else
       AC_CHECK_HEADER(pcre/pcre.h, pcre_header_ok=yes, pcre_header_ok=no)
       if test "x$pcre_header_ok" != "xyes"; then
          AC_MSG_ERROR([libpcre headers are needed to compile libgds])
-      else
-         AC_DEFINE([PCRE_PATH_BASE], 0, [])
       fi
    else
-      AC_DEFINE([PCRE_PATH_BASE], 1, [])
+      AC_DEFINE(PCRE_PATH_BASE, 1, [Define path for libpcre headers])
    fi
 fi
 

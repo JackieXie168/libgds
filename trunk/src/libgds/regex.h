@@ -9,6 +9,8 @@
 #ifndef __GDS_REGEX_H__
 #define __GDS_REGEX_H__
 
+#include <libgds/config.h>
+
 #ifdef PCRE_PATH_BASE
 #include <pcre.h>
 #else
