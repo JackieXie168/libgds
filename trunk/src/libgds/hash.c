@@ -60,6 +60,7 @@ void hash_element_destroy(void * pHElt)
 
   if (pHashElt->pFunctions->fEltDestroy != NULL)
     pHashElt->pFunctions->fEltDestroy(pHashElt->pElt);
+  FREE(pHashElt);
 }
 
 // ----- hash_element_destroy ----------------------------------------
@@ -165,7 +166,7 @@ SHash * hash_init(const uint32_t uHashSize, FHashEltCompare fEltCompare,
 // ----- hash_add ----------------------------------------------------
 /**
  *
- * returns NULL if error else pointer to the Elt added
+ * returns -1 if error else the key at which the elt has been added
  */
 int hash_add(SHash * pHash, void * pElt)
 {

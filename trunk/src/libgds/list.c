@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@infonet.fundp.ac.be), Sebastien Tandel
 // @date 23/11/2002
-// @lastdate 13/06/2003
+// @lastdate 09/12/2004
 // ==================================================================
 // Warning: performance of 'list_add' are poor (due to realloc +
 // memmove) but memory usage and research are optimal !!!
@@ -11,12 +11,19 @@
 // 13/06/2003 : added the possibility to resize the list by uStepResize.
 // it improves the performance by reducing the number of realloc done 
 // but the number of memmove remains the same !
+// 09/12/2004 : 
+// 1) bug correction. 
+// 2) This code is only used to make the garbage collector for memory.c. 
+// It doesn't use anymore MALLOC, FREE and REALLOC but only malloc, free 
+// and realloc.
+// If you plan to use a list or an array, choose the array implementation 
+// instead.
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <libgds/list.h>
-#include <libgds/memory.h>
 
 // ----- list_compare -----------------------------------------------
 /**
@@ -39,12 +46,12 @@ int list_compare(void * pItem1, void * pItem2)
 SList * list_create(FListCompare fCompare,
 		    FListDestroy fDestroy, unsigned int uStepResize)
 {
-  SList * pList= (SList *) MALLOC(sizeof(SList));
+  SList * pList= (SList *) malloc(sizeof(SList));
   pList->iSize= 0;
-	pList->uNbrElt = 0;
-	if (pList->uStepResize == 0) 
-		uStepResize = 1;
-	pList->uStepResize = uStepResize;
+  pList->uNbrElt = 0;
+  if (uStepResize == 0) 
+    uStepResize = 1;
+  pList->uStepResize = uStepResize;
   pList->fCompare= fCompare;
   pList->fDestroy= fDestroy;
   pList->ppItems= NULL;
@@ -64,10 +71,10 @@ void list_destroy(SList ** ppList)
       if ((*ppList)->fDestroy != NULL)
 	for (iIndex= 0; iIndex < (*ppList)->uNbrElt; iIndex++)
 	  (*ppList)->fDestroy(&(*ppList)->ppItems[iIndex]);
-      FREE((*ppList)->ppItems);
+      free((*ppList)->ppItems);
       (*ppList)->ppItems= NULL;
     }
-    FREE(*ppList);
+    free(*ppList);
     *ppList= NULL;
   }
 }
@@ -118,13 +125,13 @@ void list_resize(SList * pList)
 {
 	if (pList->ppItems != NULL)
 		if (pList->iSize == 0) {
-			FREE(pList->ppItems);
+			free(pList->ppItems);
 			pList->ppItems = NULL;
 		}
 		else
-			pList->ppItems= REALLOC(pList->ppItems, sizeof(void *)*pList->iSize);
+			pList->ppItems= realloc(pList->ppItems, sizeof(void *)*pList->iSize);
 	else
-		pList->ppItems= MALLOC(sizeof(void *)*pList->iSize);
+		pList->ppItems= malloc(sizeof(void *)*pList->iSize);
 }
 // ----- list_insert_index ------------------------------------------
 /**
@@ -194,10 +201,16 @@ int list_delete(SList * pList, int iIndex)
 
 	if (pList->fDestroy != NULL)
 		pList->fDestroy(&pList->ppItems[iIndex]);
+
+
+	if (pList->uNbrElt - (iIndex+1) != 0) {
+	  /*fprintf(stderr, "@%d: memcpy %p %p %p %d\n", iIndex,
+	      pList->ppItems[iIndex], pList->ppItems[iIndex+1], pList->ppItems[iIndex+pList->uNbrElt-iIndex-1], pList->uNbrElt-iIndex-1);*/
+	  memmove(&(pList->ppItems[iIndex]), &(pList->ppItems[iIndex+1]), sizeof(void *)*(pList->uNbrElt - (iIndex+1)));
+	}
 	
-	memcpy(pList->ppItems[iIndex], pList->ppItems[iIndex+1], sizeof(void *)*(pList->uNbrElt - (iIndex+1)));
-	
-	if (pList->uStepResize <= pList->iSize - --(pList->uNbrElt)) {
+	pList->uNbrElt--;
+	if (pList->uStepResize <= pList->iSize - pList->uNbrElt) {
 		pList->iSize -= pList->uStepResize;
 		list_resize(pList);
 	}
@@ -226,7 +239,7 @@ void list_for_each(SList * pList, FListForEach fForEach, void * pContext)
 {
   int iIndex;
 
-  for (iIndex= 0; iIndex < pList->iSize; iIndex++)
+  for (iIndex= 0; iIndex < pList->uNbrElt; iIndex++)
     fForEach(pList->ppItems[iIndex], pContext);
 }
 
@@ -242,7 +255,7 @@ SList * list_copy(SList * pList, FListCopyItem fCopyItem)
   pNewList->iSize= pList->iSize;
 	pNewList->uNbrElt = pList->uNbrElt;
 	
-  pNewList->ppItems= MALLOC(sizeof(void *)*pNewList->iSize);
+  pNewList->ppItems= malloc(sizeof(void *)*pNewList->iSize);
   if (fCopyItem == NULL)
     memcpy(pNewList->ppItems, pList->ppItems, sizeof(void *)*pNewList->uNbrElt);
   else

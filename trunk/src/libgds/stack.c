@@ -17,7 +17,7 @@
  */
 SStack * stack_create(int iMaxDepth)
 {
-  SStack * pStack= (SStack *) memalloc(sizeof(SStack)+
+  SStack * pStack= (SStack *) MALLOC(sizeof(SStack)+
 				      iMaxDepth*sizeof(void *));
   pStack->iMaxDepth= iMaxDepth;
   pStack->iDepth= 0;
@@ -31,7 +31,7 @@ SStack * stack_create(int iMaxDepth)
 void stack_destroy(SStack ** ppStack)
 {
   if (*ppStack != NULL) {
-    memfree(*ppStack);
+    FREE(*ppStack);
     *ppStack= NULL;
   }
 }
