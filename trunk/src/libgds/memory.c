@@ -26,8 +26,8 @@ void * memalloc(size_t size)
   void * pNewPtr= malloc(size);
 
   if (uAllocCount < 0) {
-    fprintf(stderr, "memalloc: dtor function _memory_init has not yet
- been called. Check the linking process !!!\n");
+    fprintf(stderr, "memalloc: dtor function _memory_init has not yet ");
+    fprintf(stderr, "been called. Check the linking process !!!\n");
     exit(EXIT_FAILURE);
   }	
   
