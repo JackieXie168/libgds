@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 10/04/2003
-// @lastdate 24/11/2003
+// @lastdate 14/04/2004
 // ==================================================================
 
 #ifndef __ARRAY_H__
@@ -56,6 +56,8 @@ typedef struct {
 #define uint16_array_create(O) \
           (SUInt16Array *) _array_create(sizeof(uint16_t), O, \
           _array_compare, NULL)
+#define uint16_array_destroy(A) _array_destroy((SArray **) A)
+#define uint16_array_length(A) _array_length((SArray *) A)
 
 typedef struct {
   void ** data;
