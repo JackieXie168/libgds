@@ -12,6 +12,8 @@
 # include <config.h>
 #endif
 
+#include <stdio.h>
+
 #include <libgds/memory.h>
 #include <libgds/patricia-tree.h>
 
@@ -115,11 +117,11 @@ static int trie_item_insert(STrieItem ** ppItem, trie_key_t uKey,
 
   // Split, append or recurse ?
   if ((tPrefixLen == uKeyLen) && (tPrefixLen == (*ppItem)->uKeyLen)) {
-    if ((*ppItem)->pData == NULL) {
+    //if ((*ppItem)->pData == NULL) {
       (*ppItem)->pData= pData;
       return 0;
-    } else
-      return -1;
+      /*} else
+	return -1;*/
   } else if (tPrefixLen < (*ppItem)->uKeyLen) {
     // Split is required
     pNewItem= trie_item_create(tPrefix, tPrefixLen, NULL);
@@ -292,8 +294,9 @@ static int trie_item_remove(STrieItem ** ppItem, trie_key_t uKey,
   // requested key has same length
   if (uKeyLen == (*ppItem)->uKeyLen) {
     if ((uKey == (*ppItem)->uKey) && ((*ppItem)->pData != NULL)) {
+
       if (fDestroy != NULL)
-	fDestroy((*ppItem)->pData);
+	fDestroy(&(*ppItem)->pData);
       (*ppItem)->pData= NULL;
 
       // Two cases: 2 childs or less
@@ -375,12 +378,69 @@ int trie_remove(STrie * pTrie, trie_key_t uKey, trie_key_len_t uKeyLen)
     return -1;
 }
 
+// -----[ trie_item_replace ]----------------------------------------
+static int trie_item_replace(STrieItem * pItem, trie_key_t uKey,
+			     trie_key_len_t uKeyLen, void * pData)
+{
+  trie_key_t tPrefix;
+  trie_key_len_t tPrefixLen;
+
+  // requested key is smaller than current => no match found
+  if (uKeyLen < pItem->uKeyLen)
+    return -1;
+
+  // requested key has same length
+  if (uKeyLen == pItem->uKeyLen) {
+    if ((uKey == pItem->uKey) && (pItem->pData != NULL)) {
+      pItem->pData= pData;
+      return 0;
+    } else
+      return -1;
+  }
+
+  // requested key is longer => check if common parts match
+  if (uKeyLen > pItem->uKeyLen) {
+    longest_common_prefix(pItem->uKey, pItem->uKeyLen,
+			  uKey, uKeyLen, &tPrefix, &tPrefixLen);
+    
+    // Current key is too long => no match found
+    if (tPrefixLen < pItem->uKeyLen)
+      return -1;
+    
+    if (uKey & (1 << (TRIE_KEY_SIZE-tPrefixLen-1))) {
+      if (pItem->pRight != NULL)
+	return trie_item_replace(pItem->pRight, uKey, uKeyLen, pData);
+      else
+	return -1;
+    } else {
+      if (pItem->pLeft != NULL)
+	return trie_item_replace(pItem->pLeft, uKey, uKeyLen, pData);
+      else
+	return -1;
+    }
+  }
+  return -1;
+}
+
+// -----[ trie_replace ]---------------------------------------------
+int trie_replace(STrie * pTrie, trie_key_t uKey,
+		 trie_key_len_t uKeyLen, void * pData)
+{
+  // Mask the given key according to its length
+  uKey= uKey & trie_predef_masks[uKeyLen];
+
+  if (pTrie->pRoot != NULL)
+    return trie_item_replace(pTrie->pRoot, uKey, uKeyLen, pData);
+  else
+    return -1;  
+}
+
 // -----[ trie_item_destroy ]----------------------------------------
 static void trie_item_destroy(STrieItem ** ppItem, FTrieDestroy fDestroy)
 {
   if (*ppItem != NULL) {
     if ((fDestroy != NULL) && ((*ppItem)->pData != NULL))
-      fDestroy((*ppItem)->pData);
+      fDestroy(&(*ppItem)->pData);
     if ((*ppItem)->pLeft != NULL)
       trie_item_destroy(&(*ppItem)->pLeft, fDestroy);
     if ((*ppItem)->pRight != NULL)
@@ -400,22 +460,34 @@ void trie_destroy(STrie ** ppTrie)
 }
 
 // -----[ trie_item_for_each ]---------------------------------------
-static void trie_item_for_each(STrieItem * pItem,
+static int trie_item_for_each(STrieItem * pItem,
 			       FTrieForEach fForEach, void * pContext)
 {
+  int iResult;
+
+  if (pItem->pLeft != NULL) {
+    iResult= trie_item_for_each(pItem->pLeft, fForEach, pContext);
+    if (iResult != 0)
+      return iResult;
+  }
+  if (pItem->pRight != NULL) {
+    iResult= trie_item_for_each(pItem->pRight, fForEach, pContext);
+    if (iResult != 0)
+      return iResult;
+  }
+
   if (pItem->pData != NULL)
-    fForEach(pItem->uKey, pItem->uKeyLen, pItem->pData, pContext);
-  if (pItem->pLeft != NULL)
-    trie_item_for_each(pItem->pLeft, fForEach, pContext);
-  if (pItem->pRight != NULL)
-    trie_item_for_each(pItem->pRight, fForEach, pContext);
+    return fForEach(pItem->uKey, pItem->uKeyLen, pItem->pData, pContext);
+  else
+    return 0;
 }
 
 // -----[ trie_for_each ]--------------------------------------------
-void trie_for_each(STrie * pTrie, FTrieForEach fForEach, void * pContext)
+int trie_for_each(STrie * pTrie, FTrieForEach fForEach, void * pContext)
 {
   if (pTrie->pRoot != NULL)
-    trie_item_for_each(pTrie->pRoot, fForEach, pContext);
+    return trie_item_for_each(pTrie->pRoot, fForEach, pContext);
+  return 0;
 }
 
 /////////////////////////////////////////////////////////////////////

@@ -558,13 +558,13 @@ int test_memory()
 /////////////////////////////////////////////////////////////////////
 
 // -----[ destroy ]--------------------------------------------------
-void destroy(void * pData)
+void destroy(void ** ppData)
 {
   //fprintf(stdout, "destroy %u\n", (int) pData);
 }
 
 // -----[ dump ]-----------------------------------------------------
-void dump(trie_key_t uKey, trie_key_len_t uKeyLen,
+int dump(trie_key_t uKey, trie_key_len_t uKeyLen,
 	  void * pData, void * pContext)
 {
   printf("  %s/%u => ", INT_TO_IPV4(uKey), uKeyLen);
@@ -572,6 +572,7 @@ void dump(trie_key_t uKey, trie_key_len_t uKeyLen,
     printf("%u\n", (int) pData);
   } else
     printf("(null)\n", uKey, uKeyLen);
+  return 0;
 }
 
 // -----[ dump_exact ]-----------------------------------------------
