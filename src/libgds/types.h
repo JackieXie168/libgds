@@ -3,13 +3,11 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 24/11/2002
-// @lastdate 31/05/2004
+// @lastdate 27/01/2005
 // ==================================================================
 
 #ifndef __TYPES_H__
 #define __TYPES_H__
-
-#include <libgds/config.h>
 
 /* `inttypes.h' vs. `stdint.h' (quoting from the GNU autoconf manual)
  *
@@ -25,7 +23,9 @@
 #else
 # if HAVE_STDINT_H
 #  include <stdint.h>
-# endif
+# else
+#  error "no HAVE_INTTYPES_H or HAVE_STDINT_H"
+# endif 
 #endif
 
 #include <limits.h>

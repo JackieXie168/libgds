@@ -3,10 +3,12 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be), Sebastien Tandel
 // @date 05/06/2003
-// @lastdate 04/11/2003
+// @lastdate 24/01/2005
 // ==================================================================
 
 #include <assert.h>
+#include <errno.h>
+#include <config.h>
 #include <libgds/memory.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -123,6 +125,19 @@ void log_write(SLog * pLog, uint8_t uLevel, char * pcFormat, ...)
 	vfprintf(stderr, pcFormat, ap);
     }
   }
+}
+
+// ----- log_perror -------------------------------------------------
+/**
+ *
+ */
+void log_perror(SLog * pLog, char * pcFormat, ...)
+{
+  va_list ap;
+
+  va_start(ap, pcFormat);
+  log_write(pLog, LOG_LEVEL_SEVERE, pcFormat, ap);
+  log_write(pLog, LOG_LEVEL_SEVERE, "%s\n", strerror(errno));
 }
 
 // ----- log_str2level ----------------------------------------------

@@ -1,10 +1,14 @@
 // =================================================================
 // @(#)str_util.c
 //
-// @author Bruno Quoitin (bqu@infonet.fundp.ac.be)
+// @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 24/07/2003
-// @lastdate 24/07/2003
+// @lastdate 27/01/2005
 // =================================================================
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include <libgds/memory.h>
 #include <libgds/str_util.h>

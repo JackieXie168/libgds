@@ -10,45 +10,53 @@ dnl the usual two ACTION-IF-FOUND / ACTION-IF-NOT-FOUND are supported
 dnl and they can take advantage of the LIBS/CFLAGS additions.
 dnl
 dnl @category InstalledPackages
-dnl @author guidod@gmx.de
-dnl @version 2005-01-22
-dnl @license GPL2
+dnl @author Guido Draheim (guidod@dmx.de)
+dnl @author Bruno Quoitin (bqu@info.ucl.ac.be)
+dnl @version 2005-01-27
+dnl @license GPL
 
 AC_DEFUN([AX_PATH_LIB_PCRE],[dnl
 AC_MSG_CHECKING([lib pcre])
 AC_ARG_WITH(pcre,
-[  --with-pcre[[=prefix]]    compile xmlpcre part (via libpcre check)],,
-     with_pcre="yes")
+  AC_HELP_STRING([--with-pcre[[=prefix]]], [define libpcre path]),,
+  with_pcre="")
+
 if test ".$with_pcre" = ".no" ; then
   AC_MSG_RESULT([disabled])
   m4_ifval($2,$2)
 else
   AC_MSG_RESULT([(testing)])
-  AC_CHECK_LIB(pcre, pcre_study)
-  if test "$ac_cv_lib_pcre_pcre_study" = "yes" ; then
-     PCRE_LIBS="-lpcre"
-     AC_MSG_CHECKING([lib pcre])
-     AC_MSG_RESULT([$PCRE_LIBS])
-     m4_ifval($1,$1)
-  else
-     OLDLDFLAGS="$LDFLAGS" ; LDFLAGS="$LDFLAGS -L$with_pcre/lib"
-     OLDCPPFLAGS="$CPPFLAGS" ; CPPFLAGS="$CPPFLAGS -I$with_pcre/include"
-     AC_CHECK_LIB(pcre, pcre_compile)
-     CPPFLAGS="$OLDCPPFLAGS"
-     LDFLAGS="$OLDLDFLAGS"
-     if test "$ac_cv_lib_pcre_pcre_compile" = "yes" ; then
-        AC_MSG_RESULT(.setting PCRE_LIBS -L$with_pcre/lib -lpcre)
-        PCRE_LIBS="-L$with_pcre/lib -lpcre"
-        test -d "$with_pcre/include" && PCRE_CFLAGS="-I$with_pcre/include"
-        AC_MSG_CHECKING([lib pcre])
-        AC_MSG_RESULT([$PCRE_LIBS])
-        m4_ifval($1,$1)
-     else
-        AC_MSG_CHECKING([lib pcre])
-        AC_MSG_RESULT([no, (WARNING)])
-        m4_ifval($2,$2)
-     fi
+  OLDLDFLAGS="$LDFLAGS"
+  OLDCPPFLAGS="$CPPFLAGS"
+
+  dnl Check presence of library
+  if test ".$with_pcre" != "."; then
+    PCRE_TMP_LDFLAGS="-L$with_pcre/lib"
+    PCRE_TMP_CFLAGS="-I$with_pcre/include"
   fi
+  LDFLAGS="$LDFLAGS $PCRE_TMP_LDFLAGS"
+  CPPFLAGS="$CPPFLAGS $PCRE_TMP_CFLAGS"
+
+  AC_CHECK_LIB(pcre, pcre_compile)
+  if test "$ac_cv_lib_pcre_pcre_compile" = "yes" ; then
+    PCRE_LIBS="-lpcre $PCRE_TMP_LDFLAGS"
+
+    dnl Check presence of header
+    dnl (can be found in either include/ or include/pcre/)
+    AC_CHECK_HEADERS([pcre.h pcre/pcre.h], [break])
+    if test $ac_cv_header_pcre_h != no ||
+       test $ac_cv_header_pcre_pcre_h != no; then
+      PCRE_CFLAGS=$PCRE_TMP_CFLAGS
+      m4_ifval($1,$1)
+    else
+      m4_ifval($2,$2)
+    fi
+  else
+    m4_ifval($2,$2)
+  fi
+
+  CPPFLAGS="$OLDCPPFLAGS"
+  LDFLAGS="$OLDLDFLAGS"
 fi
 AC_SUBST([PCRE_LIBS])
 AC_SUBST([PCRE_CFLAGS])

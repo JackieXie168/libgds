@@ -4,12 +4,13 @@
 // @author  Bruno Quoitin (bqu@info.ucl.ac.be), 
 //	    Sebastien Tandel (standel@info.ucl.ac.be)
 // @date 29/11/2002
-// @lastdate 09/12/2004
+// @lastdate 24/01/2005
 // ==================================================================
 
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <config.h>
 #include <libgds/memory.h>
 
 /* Implementation of a kind of garbage collector to detect the origin 
@@ -44,7 +45,7 @@ typedef struct {
  * the global ctor function _memory_init. If memalloc detects that the
  * allocation counter is -1, this means that the ctor function has not
  * yet been called (problem during linking process ?) */
-static unsigned long int uAllocCount= -1;
+static long int dAllocCount= -1;
 
 // ----- uFlags -----
 static uint8_t uFlags= 0;
@@ -123,11 +124,13 @@ void * memalloc(size_t size, char * pcFileName, int iLineNumber)
   SMemAlloc * pAlloc = NULL;
 #endif
 
-  if (uAllocCount < 0) {
+  printf("memalloc:debug %ld\n", dAllocCount);
+
+  if (dAllocCount < 0) {
     fprintf(stderr, "memalloc: dtor function _memory_init has not yet ");
     fprintf(stderr, "been called. Check the linking process !!!\n");
     exit(EXIT_FAILURE);
-  }	
+  }
   
   if (pNewPtr == NULL) {
     perror("memalloc: ");
@@ -148,7 +151,7 @@ void * memalloc(size_t size, char * pcFileName, int iLineNumber)
   }
 #endif
   
-  uAllocCount++;
+  dAllocCount++;
   
   return pNewPtr;
 }
@@ -231,8 +234,8 @@ void memfree(void * pPtr,
     free(pAlloc);
   }
 #endif
-  if (uAllocCount > 0)
-    uAllocCount--;
+  if (dAllocCount > 0)
+    dAllocCount--;
   else {
     fprintf(stderr, "memfree: alloc-count == 0\n");
     exit(EXIT_FAILURE);
@@ -245,9 +248,9 @@ void memfree(void * pPtr,
 /**
  *
  */
-unsigned long int mem_alloc_cnt()
+long int mem_alloc_cnt()
 {
-  return uAllocCount;
+  return dAllocCount;
 }
 
 // ----- mem_flag_set -----------------------------------------------
@@ -284,10 +287,10 @@ void _memory_destroy() __attribute__((destructor));
  */
 void _memory_init()
 {
+  dAllocCount= 0;
 #ifdef HAVE_MEMORY_DEBUG
   memory_alloc_debug();
 #endif
-  uAllocCount= 0;
 }
 
 // ----- _memory_destroy --------------------------------------------
@@ -296,8 +299,8 @@ void _memory_init()
  */
 void _memory_destroy()
 {
-  if (mem_flag_get(MEM_FLAG_WARN_LEAK) && (uAllocCount > 0))
-    fprintf(stderr, "WARNING: memory leak (%lu) !\n", uAllocCount);
+  if (mem_flag_get(MEM_FLAG_WARN_LEAK) && (dAllocCount > 0))
+    fprintf(stderr, "WARNING: memory leak (%lu) !\n", dAllocCount);
 
 #ifdef HAVE_MEMORY_DEBUG
   if (plMemAlloc != NULL) {

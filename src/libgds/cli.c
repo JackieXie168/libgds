@@ -3,8 +3,12 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 01/12/2004
+// @lastdate 28/01/2005
 // ==================================================================
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include <assert.h>
 #include <libgds/cli.h>
@@ -29,6 +33,7 @@ SCliCmdParam * cli_cmd_param_create(char * pcName,
   pParam->pcName= (char *) MALLOC(sizeof(char)*(strlen(pcName)+1));
   strcpy(pParam->pcName, pcName);
   pParam->fCheckParam= fCheckParam;
+  pParam->fEnumParam= NULL;
   return pParam;
 }
 
@@ -89,6 +94,16 @@ int cli_params_add(SCliParams * pParams, char * pcName,
 		   FCliCheckParam fCheckParam)
 {
   SCliCmdParam * pParam= cli_cmd_param_create(pcName, fCheckParam);
+  return ptr_array_add((SPtrArray *) pParams, &pParam);
+}
+
+// ----- cli_params_add ---------------------------------------------
+int cli_params_add2(SCliParams * pParams, char * pcName,
+		    FCliCheckParam fCheckParam,
+		    FCliEnumParam fEnumParam)
+{
+  SCliCmdParam * pParam= cli_cmd_param_create(pcName, fCheckParam);
+  pParam->fEnumParam= fEnumParam;
   return ptr_array_add((SPtrArray *) pParams, &pParam);
 }
 

@@ -4,8 +4,12 @@
 // Generic Data Structures (libgds): validation application.
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
-// @lastdate 08/03/2004
+// @lastdate 28/01/2005
 // ==================================================================
+
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif
 
 #include <assert.h>
 #include <stdio.h>
@@ -20,18 +24,31 @@
 #include <libgds/tokenizer.h>
 #include <libgds/tokens.h>
 
-//#define _CHECK_ARRAY_
-//#define _CHECK_PTR_ARRAY_
-//#define _CHECK_LIST_
-//#define _CHECK_RADIX_TREE_
-//#define _CHECK_TOKENIZER_
-//#define _CHECK_FIFO_
-#define _CHECK_MEMORY_
+#define MSG_CHECKING(MSG) \
+  printf("\033[37;1m%s\033[0m", MSG)
+#define MSG_RESULT_SUCCESS() \
+  printf("\033[70G[\033[32;1mSUCCESS\033[0m]\n")
+#define MSG_RESULT_FAIL() \
+  printf("\033[70G[\033[31;1mFAIL\033[0m]\n")
+#define ASSERT_RETURN(TEST, INFO) \
+  if (!(TEST)) { \
+    MSG_RESULT_FAIL(); \
+    printf("  Reason: [%s]\n", INFO); \
+    return -1; \
+  }
 
+/////////////////////////////////////////////////////////////////////
+// GDS_CHECK_ARRAY
+/////////////////////////////////////////////////////////////////////
+
+// ----- array_compare ----------------------------------------------
+/**
+ * Utility function used in test_array() to compare two array items
+ * (integers).
+ */
 int array_compare(void * pItem1, void * pItem2,
 		  unsigned int uEltSize) 
 {
-  printf("%d <-> %d\n", *((int *) pItem1), *((int *) pItem2));
   if (*((int *) pItem1) > *((int *) pItem2))
     return 1;
   else if (*((int *) pItem1) < *((int *) pItem2))
@@ -41,47 +58,94 @@ int array_compare(void * pItem1, void * pItem2,
 
 // ----- test_array -------------------------------------------------
 /**
- *
+ * Perform various tests with arrays.
+ * [x] basic use with integers (add, length, get, copy, remove, sub)
+ * [x] sorting
+ * [ ] insertion
  */
-void test_array()
+int test_array()
 {
+#define NUM_ITEMS 5
+  int aiArray[NUM_ITEMS]= {27, 33, 5, 3, 7};
   SIntArray * pArray, * pArrayCopy, * pSubArray;
   int iIndex;
   int iData;
+  int iTestResult= 0;
 
-  pArray= int_array_create(0/*ARRAY_OPTION_SORTED*/);
-  iData= 27;
-  assert(int_array_add(pArray, &iData) == 0);
-  iData= 33;
-  assert(int_array_add(pArray, &iData) == 0);
-  iData= 5;
-  assert(int_array_add(pArray, &iData) == 0);
-  iData= 3;
-  assert(int_array_add(pArray, &iData) == 0);
-  iData= 7;
-  assert(int_array_add(pArray, &iData) == 0);
-  for (iIndex= 0; iIndex < int_array_length(pArray); iIndex++) {
-    printf("(%d)>-->%d\n", iIndex, pArray->data[iIndex]);
+  MSG_CHECKING("* Basic use");
+
+  /* BASIC USE WITH INTEGERS */
+  pArray= int_array_create(0);
+  
+  /* Add */
+  for (iIndex= 0; iIndex < NUM_ITEMS; iIndex++) {
+    iData= aiArray[iIndex];
+    /* int_array_add() must return the index of insertion */
+    ASSERT_RETURN(int_array_add(pArray, &iData) == iIndex,
+		  "int_array_add() does not return the index of insertion")
   }
+
+  /* Length */
+  ASSERT_RETURN(NUM_ITEMS == int_array_length(pArray),
+		"int_array_length() returns an incorrect length");
+
+  /* Direct get (as a C array) */
+  for (iIndex= 0; iIndex < NUM_ITEMS; iIndex++) {
+    ASSERT_RETURN(pArray->data[iIndex] == aiArray[iIndex],
+		  "direct read does not return expected value");
+  }
+
+  /* Get */
+  for (iIndex= 0; iIndex < NUM_ITEMS; iIndex++) {
+    _array_get_at((SArray *) pArray, iIndex, &iData);
+    ASSERT_RETURN(iData == aiArray[iIndex],
+		  "_array_get_at() does not return expected value");
+  }
+
+  /* Copy */
   pArrayCopy= (SIntArray *) _array_copy((SArray *) pArray);
+  ASSERT_RETURN(int_array_length(pArrayCopy) == int_array_length(pArray),
+		"length of copied array does not match length of original array");
+  for (iIndex= 0; iIndex < int_array_length(pArrayCopy); iIndex++) {
+    ASSERT_RETURN(pArray->data[iIndex] == pArrayCopy->data[iIndex],
+		  "data in copied array does not match data in original array");
+  }
+
+  /* Remove (remove even elements) */
+  for (iIndex= 0; iIndex < (NUM_ITEMS-1)/2; iIndex++) {
+    int_array_remove_at(pArrayCopy, iIndex+1);
+  }
+  ASSERT_RETURN(int_array_length(pArrayCopy) == (NUM_ITEMS+1)/2,
+		"unexpected number of elements after int_array_remove_at()");
+
+  MSG_RESULT_SUCCESS();
+  MSG_CHECKING("* Sorting");
+
+  /* Sort (ascending sequence) */
+  _array_sort((SArray *) pArray, array_compare);
+  for (iIndex= 0; iIndex < int_array_length(pArray); iIndex++) {
+    if (iIndex > 0) {
+      ASSERT_RETURN(pArray->data[iIndex-1] <= pArray->data[iIndex],
+		    "ascending ordering not respected after _array_sort()");
+    }
+  }
+
+  /* Sub (extract a sub-array) */
+  pSubArray= (SIntArray *) _array_sub((SArray *) pArray, 2, 3);
+
+  /* Destroy */
   int_array_destroy(&pArray);
-  int_array_remove_at(pArrayCopy, 1);
-  for (iIndex= 0; iIndex < int_array_length(pArrayCopy); iIndex++) {
-    printf("(%d)>-->%d\n", iIndex, pArrayCopy->data[iIndex]);
-  }
-  _array_sort((SArray *) pArrayCopy, array_compare);
-  for (iIndex= 0; iIndex < int_array_length(pArrayCopy); iIndex++) {
-    printf("(%d)>-->%d\n", iIndex, pArrayCopy->data[iIndex]);
-  }
-  pSubArray= (SIntArray *) _array_sub((SArray *) pArrayCopy, 2, 3);
-  for (iIndex= 0; iIndex < int_array_length(pSubArray); iIndex++) {
-    printf("(%d)>-->%d\n", iIndex, pSubArray->data[iIndex]);
-  }
   int_array_destroy(&pArrayCopy);
   int_array_destroy(&pSubArray);
-  printf("array-test: done.\n");
+
+  MSG_RESULT_SUCCESS();
+
+  return iTestResult;
 }
 
+/////////////////////////////////////////////////////////////////////
+// GDS_CHECK_PTR_ARRAY
+/////////////////////////////////////////////////////////////////////
 typedef struct {
   uint16_t uHighID, uLowID;
   uint8_t uData;
@@ -108,10 +172,6 @@ int array_ptr_compare_function(void * pItem1, void * pItem2,
   SPtrArrayItem * pRealItem1= *((SPtrArrayItem **) pItem1);
   SPtrArrayItem * pRealItem2= *((SPtrArrayItem **) pItem2);
 
-  printf("[%d:%d] vs [%d:%d]\n",
-	 pRealItem1->uHighID, pRealItem1->uLowID,
-	 pRealItem2->uHighID, pRealItem2->uLowID);
-
   if (pRealItem1->uHighID < pRealItem2->uHighID)
     return -1;
   else if (pRealItem1->uHighID > pRealItem2->uHighID)
@@ -136,11 +196,13 @@ void array_ptr_destroy_function(void * pItem)
 /**
  *
  */
-void test_ptr_array()
+int test_ptr_array()
 {
   SPtrArray * pPtrArray;
   SPtrArrayItem * pItem;
   int iIndex;
+
+  MSG_CHECKING("* Basic use");
 
   pPtrArray= ptr_array_create(ARRAY_OPTION_SORTED,
 			      array_ptr_compare_function,
@@ -156,31 +218,40 @@ void test_ptr_array()
   for (iIndex= 0; iIndex < ptr_array_length(pPtrArray);
        iIndex++) {
     pItem= (SPtrArrayItem *) pPtrArray->data[iIndex];
-    printf("(%d)>-->[%d:%d], %d\n", iIndex,
-	   pItem->uHighID, pItem->uLowID, pItem->uData);
   }
   ptr_array_destroy(&pPtrArray);
-  printf("array-ptr-test: done.\n");
+
+  MSG_RESULT_SUCCESS();
+
+  return 0;
 }
+
+/////////////////////////////////////////////////////////////////////
+// GDS_CHECK_LIST
+/////////////////////////////////////////////////////////////////////
 
 // ----- test_list --------------------------------------------------
 /**
  *
  */
-void test_list()
+int test_list()
 {
   SList * pList;
 
   pList= list_create(NULL, NULL, 1);
   list_destroy(&pList);
-  printf("list-test: done.\n");
+
+  return 0;
 }
+
+/////////////////////////////////////////////////////////////////////
+// GDS_CHECK_RADIX_TREE
+/////////////////////////////////////////////////////////////////////
 
 // ----- radix_tree_for_each_function -------------------------------
 int radix_tree_for_each_function(uint32_t uKey, uint8_t uKeyLen,
 				 void * pItem, void * pContext)
 {
-  printf("(%d/%d)>-->%d\n", uKey, uKeyLen, (int) pItem);
   return 0;
 }
 
@@ -188,22 +259,24 @@ int radix_tree_for_each_function(uint32_t uKey, uint8_t uKeyLen,
 /**
  *
  */
-void test_radix_tree()
+int test_radix_tree()
 {
   SRadixTree * pTree;
 
   pTree= radix_tree_create(32, NULL);
 
-  printf("add(1.0.0.0/16, 100)\n");
+  MSG_CHECKING("* Basic use");
+
+  //printf("add(1.0.0.0/16, 100)\n");
   radix_tree_add(pTree, 256*256*256, 16, (void *) 100);
-  printf("add(0.0.0.0/16, 200)\n");
+  //printf("add(0.0.0.0/16, 200)\n");
   radix_tree_add(pTree, 0, 16, (void *) 200);
   radix_tree_for_each(pTree, radix_tree_for_each_function, NULL);
-  printf("best(0.3.0.0/32)>-->%d\n", (int) radix_tree_get_best(pTree, 3*256*256, 32));
-  printf("add(0.0.0.0/8, 300)\n");
+  //printf("best(0.3.0.0/32)>-->%d\n", (int) radix_tree_get_best(pTree, 3*256*256, 32));
+  //printf("add(0.0.0.0/8, 300)\n");
   radix_tree_add(pTree, 0, 8, (void *) 300);
   radix_tree_for_each(pTree, radix_tree_for_each_function, NULL);
-  printf("best(0.3.0.0/32)>-->%d\n", (int) radix_tree_get_best(pTree, 3*256*256, 32));
+  //printf("best(0.3.0.0/32)>-->%d\n", (int) radix_tree_get_best(pTree, 3*256*256, 32));
 
   /*
   pTree= radix_tree_create(4, NULL);
@@ -229,120 +302,202 @@ void test_radix_tree()
   radix_tree_for_each(pTree, radix_tree_for_each_function, NULL);
   */
   radix_tree_destroy(&pTree);
-  printf("radix-tree: done.\n");
+
+  MSG_RESULT_SUCCESS();
+
+  return 0;
 }
+
+/////////////////////////////////////////////////////////////////////
+// GDS_CHECK_TOKENIZER
+/////////////////////////////////////////////////////////////////////
 
 // ----- test_tokenizer ---------------------------------------------
 /**
- *
+ * Perform various tests with tokenizer
+ * [x] Test 1 ["abc def ghi"]
+ * [x] Test 2 ["abc \"def\" ghi"]
+ * [x] Test 3 ["123 abc\"def\"ghi 456"]
+ * [x] Test 4 ["123 abc\"def\"ghi { 456 }"]
+ * [x] Test 5 ["  in-filter \"\"\"\"\"\""]
+ * [x] Test 6 ["abcdef 12345678901 ghijkl 123:45\t-123.456 \"Hello World !\" ceci\" n{'}est pas \"une{ pipe}"]
  */
-void test_tokenizer()
+int test_tokenizer()
 {
-  STokenizer * pTokenizer= tokenizer_create(" \t", 0, "\"{", "\"}");
+  STokenizer * pTokenizer;
   long int lValue;
   double dValue;
   STokens * pTokens;
   int iIndex;
   int iResult;
+  int iTestResult= 0;
 
-  char * pcTest= str_create("abc");
-  printf("[%s]\n", pcTest);
-  str_append(&pcTest, "def");
-  printf("[%s]\n", pcTest);
-  str_nappend(&pcTest, "ghijkl", 3);
-  printf("[%s]\n", pcTest);
-  str_destroy(&pcTest);
+  pTokenizer= tokenizer_create(" \t", 0, "\"{", "\"}");
 
-  tokenizer_perror(stderr, tokenizer_run(pTokenizer, "abc def ghi"));
+  MSG_CHECKING("* Test 1");
+  iResult= tokenizer_run(pTokenizer, "abc def ghi");
+  ASSERT_RETURN(iResult == TOKENIZER_SUCCESS,
+		"tokenization of [abc def ghi] failed");
   pTokens= tokenizer_get_tokens(pTokenizer);
-  for (iIndex= 0; iIndex < tokens_get_num(pTokens); iIndex++)
-    printf("(%s)", tokens_get_string_at(pTokens, iIndex));
-  printf("\n");
+  ASSERT_RETURN(tokens_get_num(pTokens) == 3,
+		"wrong number of tokens");
+  for (iIndex= 0; iIndex < tokens_get_num(pTokens); iIndex++) {
+    //printf("(%s)", tokens_get_string_at(pTokens, iIndex));
+  }
+  MSG_RESULT_SUCCESS();
 
-  tokenizer_perror(stderr, tokenizer_run(pTokenizer, "abc \"def\" ghi"));
+  MSG_CHECKING("* Test 2");
+  iResult= tokenizer_run(pTokenizer, "abc \"def\" ghi");
+  ASSERT_RETURN(iResult == TOKENIZER_SUCCESS,
+		"tokenization of [abc \"def\" ghi] failed");
   pTokens= tokenizer_get_tokens(pTokenizer);
-  for (iIndex= 0; iIndex < tokens_get_num(pTokens); iIndex++)
-    printf("(%s)", tokens_get_string_at(pTokens, iIndex));
-  printf("\n");
+  ASSERT_RETURN(tokens_get_num(pTokens) == 3,
+		"wrong number of tokens");
+  for (iIndex= 0; iIndex < tokens_get_num(pTokens); iIndex++) {
+    //printf("(%s)", tokens_get_string_at(pTokens, iIndex));
+  }
+  MSG_RESULT_SUCCESS();
 
-  tokenizer_perror(stderr, tokenizer_run(pTokenizer, "123 abc\"def\"ghi 456"));
+  MSG_CHECKING("* Test 3");
+  iResult= tokenizer_run(pTokenizer, "123 abc\"def\"ghi 456");
+  ASSERT_RETURN(iResult == TOKENIZER_SUCCESS,
+		"tokenization of [123 abc\"def\"ghi 456] failed");
   pTokens= tokenizer_get_tokens(pTokenizer);
-  for (iIndex= 0; iIndex < tokens_get_num(pTokens); iIndex++)
-    printf("(%s)", tokens_get_string_at(pTokens, iIndex));
-  printf("\n");
+  ASSERT_RETURN(tokens_get_num(pTokens) == 3,
+		"wrong number of tokens");
+  for (iIndex= 0; iIndex < tokens_get_num(pTokens); iIndex++) {
+    //printf("(%s)", tokens_get_string_at(pTokens, iIndex));
+  }
+  MSG_RESULT_SUCCESS();
 
-  tokenizer_perror(stderr, tokenizer_run(pTokenizer, "123 abc\"def\"ghi {456}"));
+
+  MSG_CHECKING("* Test 4");
+  iResult= tokenizer_run(pTokenizer, "123 abc\"def\"ghi { 456 }");
+  ASSERT_RETURN(iResult == TOKENIZER_SUCCESS,
+		"tokenization of [123 abc\"def\"ghi { 456 }] failed");
   pTokens= tokenizer_get_tokens(pTokenizer);
-  for (iIndex= 0; iIndex < tokens_get_num(pTokens); iIndex++)
-    printf("(%s)", tokens_get_string_at(pTokens, iIndex));
-  printf("\n");
+  ASSERT_RETURN(tokens_get_num(pTokens) == 3,
+		"wrong number of tokens");
+  for (iIndex= 0; iIndex < tokens_get_num(pTokens); iIndex++) {
+    //printf("(%s)", tokens_get_string_at(pTokens, iIndex));
+  }
+  MSG_RESULT_SUCCESS();
 
-  tokenizer_perror(stderr, tokenizer_run(pTokenizer, "  in-filter \"\"\"\"\"\""));
-  pTokens= tokenizer_get_tokens(pTokenizer);
-  for (iIndex= 0; iIndex < tokens_get_num(pTokens); iIndex++)
-    printf("(%s)", tokens_get_string_at(pTokens, iIndex));
-  printf("\n");
+  MSG_CHECKING("* Test 5");
+  iResult= tokenizer_run(pTokenizer, "  in-filter \"\"\"\"\"\"");
+  ASSERT_RETURN(iResult == TOKENIZER_SUCCESS,
+		"tokenization of [  in-filter \"\"\"\"\"\"] failed")
+    pTokens= tokenizer_get_tokens(pTokenizer);
+  ASSERT_RETURN(tokens_get_num(pTokens) == 2,
+		"wrong number of tokens");
+  for (iIndex= 0; iIndex < tokens_get_num(pTokens); iIndex++) {
+    //printf("(%s)", tokens_get_string_at(pTokens, iIndex));
+  }
+  MSG_RESULT_SUCCESS();
 
+  MSG_CHECKING("* Test 6");
   iResult= tokenizer_run(pTokenizer, "abcdef 12345678901 ghijkl 123:45\t-123.456 \"Hello World !\" ceci\" n{'}est pas \"une{ pipe}");
-  if (iResult)
-    tokenizer_perror(stderr, iResult);
+  ASSERT_RETURN(iResult == TOKENIZER_SUCCESS,
+		"tokenization of [abcdef 12345678901 ghijkl 123:45\t-123.456 \"Hello World !\" ceci\" n{'}est pas \"une{ pipe}] failed");
   pTokens= tokenizer_get_tokens(pTokenizer);
-  for (iIndex= 0; iIndex < tokens_get_num(pTokens); iIndex++)
-    printf("(%s)", tokens_get_string_at(pTokens, iIndex));
-  printf("\n");
-  printf("# tokens: %hu\n", tokens_get_num(pTokens));
-  printf("item 0: \"%s\"\n", tokens_get_string_at(pTokens, 0));
-  assert(!tokens_get_long_at(pTokens, 1, &lValue));
-  printf("item 1: %ld\n", lValue);
-  printf("item 2: \"%s\"\n", tokens_get_string_at(pTokens, 2));
-  printf("item 3: \"%s\"\n", tokens_get_string_at(pTokens, 3));
-  assert(!tokens_get_double_at(pTokens, 4, &dValue));
-  printf("item 4: %f\n", dValue);
-  printf("item 5: \"%s\"\n", tokens_get_string_at(pTokens, 5));
-  printf("item 6: \"%s\"\n", tokens_get_string_at(pTokens, 6));
+  ASSERT_RETURN(tokens_get_num(pTokens) == 7,
+		"wrong number of tokens");
+  for (iIndex= 0; iIndex < tokens_get_num(pTokens); iIndex++) {
+    //printf("(%s)", tokens_get_string_at(pTokens, iIndex));
+  }
+  MSG_RESULT_SUCCESS();
 
+  //printf("\n");
+  //printf("# tokens: %hu\n", tokens_get_num(pTokens));
+  //printf("item 0: \"%s\"\n", tokens_get_string_at(pTokens, 0));
+  //assert(!tokens_get_long_at(pTokens, 1, &lValue));
+  //printf("item 1: %ld\n", lValue);
+  //printf("item 2: \"%s\"\n", tokens_get_string_at(pTokens, 2));
+  //printf("item 3: \"%s\"\n", tokens_get_string_at(pTokens, 3));
+  //assert(!tokens_get_double_at(pTokens, 4, &dValue));
+  //printf("item 4: %f\n", dValue);
+  //printf("item 5: \"%s\"\n", tokens_get_string_at(pTokens, 5));
+  //printf("item 6: \"%s\"\n", tokens_get_string_at(pTokens, 6));
 
   tokenizer_destroy(&pTokenizer);
 
-  printf("tokenizer: done.\n");
+  return iTestResult;
 }
+
+/////////////////////////////////////////////////////////////////////
+// GDS_CHECK_FIFO
+/////////////////////////////////////////////////////////////////////
 
 // ----- test_fifo --------------------------------------------------
 /**
  *
  */
-void test_fifo()
+int test_fifo()
 {
-  SFIFO * pFIFO= fifo_create(5, NULL);
+  SFIFO * pFIFO;
+
+  MSG_CHECKING("* Basic use");
+
+  pFIFO= fifo_create(5, NULL);
 
   fifo_destroy(&pFIFO);
+
+  MSG_RESULT_SUCCESS();
+
+  return 0;
 }
 
+/////////////////////////////////////////////////////////////////////
+// GDS_CHECK_MEMORY
+/////////////////////////////////////////////////////////////////////
+
 // ----- test_memory ------------------------------------------------
-void test_memory()
+int test_memory()
 {
 #define NALLOC 5
   char ** ppcTest;
   int iIndex;
 
+  printf("alloc-count: %d\n", mem_alloc_cnt());
+
+  MSG_CHECKING("* Allocation");
+
   ppcTest= (char **) MALLOC(sizeof(char *)*NALLOC);
-  fprintf(stderr, "ppcTest alloc : %p\n", ppcTest);
+  //fprintf(stderr, "ppcTest alloc : %p\n", ppcTest);
   for (iIndex= 0; iIndex < NALLOC; iIndex++) {
     ppcTest[iIndex]= (char *) MALLOC(sizeof(char)*10);
-    fprintf(stderr, "malloc : %p\n", ppcTest[iIndex]);
+    //fprintf(stderr, "malloc : %p\n", ppcTest[iIndex]);
   }
+  MSG_RESULT_SUCCESS();
+
+  printf("alloc-count: %d\n", mem_alloc_cnt());
+
+  MSG_CHECKING("* Re-allocation");
   for (iIndex= 0; iIndex < NALLOC; iIndex++) {
     ppcTest[iIndex] = REALLOC(ppcTest[iIndex], sizeof(char)*20);
-    fprintf(stderr, "realloc : %p\n", ppcTest[iIndex]);
+    //fprintf(stderr, "realloc : %p\n", ppcTest[iIndex]);
   }
+  MSG_RESULT_SUCCESS();
+
+  printf("alloc-count: %d\n", mem_alloc_cnt());
+
+  MSG_CHECKING("* Freeing");
   for (iIndex= 0; iIndex < NALLOC; iIndex++) {
-    fprintf(stderr, "free : %p\n", ppcTest[iIndex]);
+    //fprintf(stderr, "free : %p\n", ppcTest[iIndex]);
+    printf("alloc-count-before: %d\n", mem_alloc_cnt());
     FREE(ppcTest[iIndex]);
+    printf("alloc-count-after: %d\n", mem_alloc_cnt());
   }
-  fprintf(stderr, "ppcTest free : %p\n", ppcTest);
+  //fprintf(stderr, "ppcTest free : %p\n", ppcTest);
   FREE(ppcTest);
-  printf("memory-test: done.\n");
+  MSG_RESULT_SUCCESS();
+
+  return 0;
 }
+
+/////////////////////////////////////////////////////////////////////
+// MAIN PART
+/////////////////////////////////////////////////////////////////////
 
 // ----- main -------------------------------------------------------
 /**
@@ -350,27 +505,35 @@ void test_memory()
  */
 int main(int argc, char * argv[])
 {
-#ifdef _CHECK_ARRAY_
-  test_array();
+#ifdef _GDS_CHECK_ARRAY_
+  printf("CHECK [array]\n");
+  return test_array();
 #endif
-#ifdef _CHECK_PTR_ARRAY_
-  test_ptr_array();
+#ifdef _GDS_CHECK_PTR_ARRAY_
+  printf("CHECK [ptr_array]\n");
+  return test_ptr_array();
 #endif
-#ifdef _CHECK_LIST_
-  test_list();
+#ifdef _GDS_CHECK_LIST_
+  printf("CHECK [list]\n");
+  return test_list();
 #endif
-#ifdef _CHECK_RADIX_TREE_
-  test_radix_tree();
+#ifdef _GDS_CHECK_RADIX_TREE_
+  printf("CHECK [radix_tree]\n");
+  return test_radix_tree();
 #endif
-#ifdef _CHECK_TOKENIZER_
-  test_tokenizer();
+#ifdef _GDS_CHECK_TOKENIZER_
+  printf("CHECK [tokenizer]\n");
+  return test_tokenizer();
 #endif
-#ifdef _CHECK_FIFO_
-  test_fifo();
+#ifdef _GDS_CHECK_FIFO_
+  printf("CHECK [fifo]\n");
+  return test_fifo();
 #endif
-#ifdef _CHECK_MEMORY_
-  test_memory();
+#ifdef _GDS_CHECK_MEMORY_
+  printf("CHECK [memory]\n");
+  return test_memory();
 #endif
 
-  return 0;
+  fprintf(stderr, "Error: no test requested.\n");
+  return -1;
 }
