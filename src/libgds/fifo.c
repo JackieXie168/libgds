@@ -73,14 +73,16 @@ int fifo_grow(SFIFO * pFIFO)
 
   if (uNewDepth > pFIFO->uMaxDepth) {
 
-    // Re-allocete FIFO space
+    // Re-allocate FIFO space
     pFIFO->ppItems= REALLOC(pFIFO->ppItems,
 			    (sizeof(void *)*uNewDepth));
 
     // Move exiting items
-    // (start+depth % max_depth) items must be moved in newly allocated space
-    memcpy(&pFIFO->ppItems[pFIFO->uMaxDepth], pFIFO->ppItems,
-	   (pFIFO->uStartIndex + pFIFO->uCurrentDepth) % pFIFO->uMaxDepth);
+    if (pFIFO->uCurrentDepth > pFIFO->uMaxDepth-pFIFO->uStartIndex)
+      memcpy(&pFIFO->ppItems[pFIFO->uMaxDepth], &pFIFO->ppItems[0],
+	     (pFIFO->uCurrentDepth-(pFIFO->uMaxDepth-pFIFO->uStartIndex))*
+	     sizeof(void *));
+    
     pFIFO->uMaxDepth= uNewDepth;
     
   }
