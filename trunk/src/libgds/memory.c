@@ -3,19 +3,24 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 29/11/2002
-// @lastdate 04/03/2004
+// @lastdate 26/05/2004
 // ==================================================================
 
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <libgds/memory.h>
+
 // ----- uAllocCount -----
-// uAllocCount tracks the balance of calls to memalloc/memfree. The
-// allocation count is initialized to -1 and re-initialized to 0 by
-// the global ctor function _memory_init. If memalloc detects that the
-// allocation counter is -1, this means that the ctor function has not
-// yet been called (problem during linking process ?)
+/* uAllocCount tracks the balance of calls to memalloc/memfree. The
+ * allocation count is initialized to -1 and re-initialized to 0 by
+ * the global ctor function _memory_init. If memalloc detects that the
+ * allocation counter is -1, this means that the ctor function has not
+ * yet been called (problem during linking process ?) */
 static unsigned long int uAllocCount= -1;
+
+// ----- uFlags -----
+static uint8_t uFlags= 0;
 
 // ----- memalloc ---------------------------------------------------
 /**
@@ -73,6 +78,36 @@ void memfree(void * pPtr)
   free(pPtr);
 }
 
+// ----- mem_alloc_cnt ----------------------------------------------
+/**
+ *
+ */
+unsigned long int mem_alloc_cnt()
+{
+  return uAllocCount;
+}
+
+// ----- mem_flag_set -----------------------------------------------
+/**
+ *
+ */
+void mem_flag_set(uint8_t uFlag, int iState)
+{
+  if (iState)
+    uFlags|= uFlag;
+  else
+    uFlags&= ~uFlag;
+}
+
+// ----- mem_flag_get -----------------------------------------------
+/**
+ *
+ */
+int mem_flag_get(uint8_t uFlag)
+{
+  return (uFlags & uFlag);
+}
+
 /////////////////////////////////////////////////////////////////////
 // INITIALIZATION AND FINALIZATION FUNCTIONS
 /////////////////////////////////////////////////////////////////////
@@ -95,6 +130,6 @@ void _memory_init()
  */
 void _memory_destroy()
 {
-  if (uAllocCount > 0)
+  if (mem_flag_get(MEM_FLAG_WARN_LEAK) && (uAllocCount > 0))
     fprintf(stderr, "WARNING: memory leak (%lu) !\n", uAllocCount);
 }
