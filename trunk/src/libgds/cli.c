@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 28/01/2005
+// @lastdate 31/03/2005
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -148,6 +148,7 @@ SCliCmd * cli_cmd_create_ctx(char * pcName,
   pCmd->fCtxCreate= fCtxCreate;
   pCmd->fCtxDestroy= fCtxDestroy;
   pCmd->fCommand= NULL;
+  pCmd->pcHelp= NULL;
   return pCmd;
 }
 
