@@ -462,6 +462,10 @@ int cli_execute_ctx(SCli * pCli, char * pcCmd, void * pContext)
       break;
     }
   }
+  
+  if (iResult < 0)
+    cli_context_restore_depth(pCli->pExecContext);
+
   return iResult;
 }
 
