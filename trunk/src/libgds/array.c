@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 10/04/2003
-// @lastdate 27/01/2005
+// @lastdate 08/02/2005
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -253,6 +253,24 @@ int _array_append(SArray * pArray, void * pData)
 
   _array_set_at(pArray, ((SRealArray *) pArray)->uLength-1, pData);
   return ((SRealArray *) pArray)->uLength-1;
+}
+
+// ----- _array_for_each --------------------------------------------
+/**
+ *
+ */
+int _array_for_each(SArray * pArray, FArrayForEach fForEach,
+		    void * pContext)
+{
+  unsigned int uIndex;
+  int iResult;
+  
+  for (uIndex= 0; uIndex < _array_length(pArray); uIndex++) {
+    iResult= fForEach(_array_elt_pos(pArray, uIndex), pContext);
+    if (iResult != 0)
+      return iResult;
+  }
+  return 0;
 }
 
 // ----- _array_copy ------------------------------------------------

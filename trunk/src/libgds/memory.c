@@ -4,7 +4,7 @@
 // @author  Bruno Quoitin (bqu@info.ucl.ac.be), 
 //	    Sebastien Tandel (standel@info.ucl.ac.be)
 // @date 29/11/2002
-// @lastdate 03/02/2005
+// @lastdate 08/02/2005
 // ==================================================================
 
 #include <stdio.h>
@@ -235,13 +235,14 @@ void memfree(void * pPtr,
   }
 #endif
   if (dAllocCount > 0)
-    dAllocCount--;
+    free(pPtr);
   else {
-    fprintf(stderr, "memfree: alloc-count == 0\n");
-    exit(EXIT_FAILURE);
+    fprintf(stderr, "memfree: alloc-count == %ld : %s (line %d)\n",
+	    dAllocCount, pcFileName, iLineNumber);
+    //exit(EXIT_FAILURE);
   }
+  dAllocCount--;
 
-  free(pPtr);
 }
 
 // ----- mem_alloc_cnt ----------------------------------------------

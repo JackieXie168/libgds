@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 10/04/2003
-// @lastdate 20/04/2004
+// @lastdate 08/02/2005
 // ==================================================================
 
 #ifndef __ARRAY_H__
@@ -20,7 +20,7 @@ typedef int (*FArrayCompare)(void * pItem1, void * pItem2,
 // ----- FArrayDestroy ----------------------------------------------
 typedef void (*FArrayDestroy) (void * pItem);
 // ----- FArrayForEach ----------------------------------------------
-typedef void (*FArrayForEach) (void * pItem, void * pContext);
+typedef int (*FArrayForEach) (void * pItem, void * pContext);
 // ----- FArrayCopyItem ---------------------------------------------
 typedef void * (*FArrayCopyItem) (void * pItem);
 
@@ -120,6 +120,9 @@ extern int _array_sorted_find_index(SArray * pArray, void * pData,
 extern int _array_add(SArray * pArray, void * pData);
 // ----- _array_append ----------------------------------------------
 extern int _array_append(SArray * pArray, void * pData);
+// ----- _array_for_each --------------------------------------------
+extern int _array_for_each(SArray * pArray, FArrayForEach fForEach,
+			   void * pContext);
 // ----- _array_copy ------------------------------------------------
 extern SArray * _array_copy(SArray * pArray);
 // ----- _array_remove_at -------------------------------------------
