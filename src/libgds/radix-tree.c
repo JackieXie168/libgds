@@ -6,7 +6,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 21/10/2002
-// @lastdate 27/01/2005
+// @lastdate 03/02/2005
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -36,55 +36,47 @@ SRadixTreeItem * radix_tree_item_create(void * pItem)
 
 // ----- radix_tree_item_destroy ------------------------------------
 /**
- *
+ * Remove an item. Remove also all its children if the parameter
+ * 'iSingle' is 1.
  */
 void radix_tree_item_destroy(SRadixTreeItem ** ppTreeItem,
-			     FRadixTreeDestroy fDestroy)
-{
-  if (*ppTreeItem != NULL) {
-    if ((*ppTreeItem)->pLeft != NULL)
-      radix_tree_item_destroy(&(*ppTreeItem)->pLeft, fDestroy);
-    if ((*ppTreeItem)->pRight != NULL)
-      radix_tree_item_destroy(&(*ppTreeItem)->pRight, fDestroy);
-    if (((*ppTreeItem)->pItem != NULL) &&(fDestroy != NULL))
-      fDestroy(&(*ppTreeItem)->pItem);
-    FREE(*ppTreeItem);
-    *ppTreeItem= NULL;
-  }
-}
-
-// ----- radix_tree_item_destroy2 -----------------------------------
-/**
- *
- */
-void radix_tree_item_destroy2(SRadixTreeItem ** ppTreeItem,
-			      FRadixTreeDestroy fDestroy)
+			     FRadixTreeDestroy fDestroy,
+			     int iSingle)
 {
   SStack * pStack= stack_create(32);
   SRadixTreeItem * pTreeItem= *ppTreeItem;
-  SRadixTreeItem * pTemp;
 
   while (pTreeItem != NULL) {
+
+    /* If all children are to be removed, push them onto stack. */
+    if (!iSingle) {
+      if (pTreeItem->pLeft != NULL)
+	stack_push(pStack, pTreeItem->pLeft);
+      if (pTreeItem->pRight != NULL)
+	stack_push(pStack, pTreeItem->pRight);
+    }
+
+    /* Destroy the item. */
     if ((pTreeItem->pItem != NULL) && (fDestroy != NULL)) {
       fDestroy(&pTreeItem->pItem);
+      pTreeItem->pItem= NULL;
     }
-    pTemp= pTreeItem;
-    if (pTreeItem->pLeft != NULL) {
-      if (pTreeItem->pRight != NULL) {
-	stack_push(pStack, pTreeItem->pRight);
-      }
-      pTreeItem= pTreeItem->pLeft;
-    } else if (pTreeItem->pRight != NULL) {
-      pTreeItem= pTreeItem->pRight;
-    } else {
-      if (stack_depth(pStack) > 0)
-	pTreeItem= (SRadixTreeItem *) stack_pop(pStack);
-      else
-	pTreeItem= NULL;
+
+    /* If the current item is empty (no child) or if we delete all
+       child, then free the item's memory. */
+    if (((pTreeItem->pLeft == NULL) && (pTreeItem->pRight == NULL)) ||
+	!iSingle) {
+      FREE(pTreeItem);
+      *ppTreeItem= NULL;
     }
-    FREE(pTemp);
+
+    /* Any other child to be removed ? */
+    if (stack_depth(pStack) > 0)
+      pTreeItem= (SRadixTreeItem *) stack_pop(pStack);
+    else
+      pTreeItem= NULL;
+
   }
-  *ppTreeItem= NULL;
   stack_destroy(&pStack);
 }
 
@@ -110,7 +102,7 @@ void radix_tree_destroy(SRadixTree ** ppTree)
 {
   if (*ppTree != NULL) {
     if ((*ppTree)->pRoot != NULL)
-      radix_tree_item_destroy2(&(*ppTree)->pRoot, (*ppTree)->fDestroy);
+      radix_tree_item_destroy(&(*ppTree)->pRoot, (*ppTree)->fDestroy, 0);
     FREE(*ppTree);
     *ppTree= NULL;
   }
@@ -159,13 +151,18 @@ int radix_tree_add(SRadixTree * pTree, uint32_t uKey,
 /**
  * Remove the item at position 'key/Len' as well as all the empty
  * nodes that are on the way.
+ *
+ * Parameters:
+ * - iSingle, if 1 remove a single key otherwise, remove the key and
+ *   all the keys under.
  */
 int radix_tree_remove(SRadixTree * pTree, uint32_t uKey,
-		      uint8_t uKeyLen)
+		      uint8_t uKeyLen, int iSingle)
 {
   SStack * pStack= stack_create(pTree->uKeyLen);
   uint8_t uLen= uKeyLen;
   SRadixTreeItem ** ppTreeItem= &pTree->pRoot;
+  int iEmpty;
   
   while (uLen > 0) {
     if (*ppTreeItem == NULL)
@@ -187,13 +184,24 @@ int radix_tree_remove(SRadixTree * pTree, uint32_t uKey,
   }
   if ((*ppTreeItem == NULL) || ((*ppTreeItem)->pItem == NULL))
     return -1;
-  radix_tree_item_destroy2(ppTreeItem, pTree->fDestroy);
-  while (stack_depth(pStack) > 0) {
+
+  /* Keep information on the current key's emptiness. The key is
+     considered empty if it has no child and has no item. */
+  iEmpty= (((*ppTreeItem)->pLeft == NULL)
+	   && ((*ppTreeItem)->pRight == NULL));
+
+  radix_tree_item_destroy(ppTreeItem, pTree->fDestroy, iSingle);
+
+  /* If the current item is empty (no key below, go up towards the
+     radix-tree's root and clear keys until a non-empty is found. */
+  while (iEmpty && (stack_depth(pStack) > 0)) {
     ppTreeItem= (SRadixTreeItem **) stack_pop(pStack);
+
+    /* If the key is empty (no child and no item), remove it. */
     if (((*ppTreeItem)->pLeft == NULL) &&
 	((*ppTreeItem)->pRight == NULL) &&
 	((*ppTreeItem)->pItem == NULL)) {
-      radix_tree_item_destroy2(ppTreeItem, pTree->fDestroy);
+      radix_tree_item_destroy(ppTreeItem, pTree->fDestroy, 1);
     } else
       break;
   }
