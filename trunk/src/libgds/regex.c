@@ -13,7 +13,8 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <pcre.h>
+
+#include <pcre/pcre.h>
 
 #include <libgds/memory.h>
 #include <libgds/regex.h>

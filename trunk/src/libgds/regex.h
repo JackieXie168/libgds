@@ -3,11 +3,13 @@
 //
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @date 29/09/2004
-// @lastdate 01/10/2004
+// @lastdate 16/11/2004
 // ==================================================================
 
 #ifndef __GDS_REGEX_H__
 #define __GDS_REGEX_H__
+
+#include <pcre/pcre.h>
 
 typedef struct {
   pcre * pRegEx;

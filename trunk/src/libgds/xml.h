@@ -3,11 +3,13 @@
 //
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @date 26/08/2004
-// @lastdate 26/08/2004
+// @lastdate 16/11/2004
 // ==================================================================
 
 #ifndef __GDS_XML_H__
 #define __GDS_XML_H__
+
+#include <libgds/config.h>
 
 #ifdef HAVE_LIBXML
 
