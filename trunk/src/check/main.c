@@ -4,7 +4,7 @@
 // Generic Data Structures (libgds): validation application.
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
-// @lastdate 03/02/2005
+// @lastdate 05/04/2005
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -19,10 +19,22 @@
 #include <libgds/fifo.h>
 #include <libgds/list.h>
 #include <libgds/memory.h>
+#include <libgds/patricia-tree.h>
 #include <libgds/radix-tree.h>
 #include <libgds/str_util.h>
 #include <libgds/tokenizer.h>
 #include <libgds/tokens.h>
+
+#define IPV4_TO_INT(A,B,C,D) ((((A)*256 + B)*256 + C)*256 + D)
+
+static char acAddress[16];
+char * INT_TO_IPV4(unsigned int uAddress)
+{
+  snprintf(acAddress, sizeof(acAddress), "%u.%u.%u.%u",
+	   (uAddress >> 24), (uAddress >> 16) & 255,
+	   (uAddress >> 8) & 255, uAddress & 255);
+  return acAddress;
+}
 
 #define MSG_CHECKING(MSG) \
   printf("\033[37;1m%s\033[0m", MSG)
@@ -274,8 +286,6 @@ int test_radix_tree()
 {
   SRadixTree * pTree;
 
-#define IPV4_TO_INT(A,B,C,D) ((((A)*256 + B)*256 + C)*256 + D)
-
   MSG_CHECKING("* Basic use");
 
   pTree= radix_tree_create(32, NULL);
@@ -322,12 +332,32 @@ int test_radix_tree()
 
   radix_tree_add(pTree, IPV4_TO_INT(12,0,0,0), 8, (void *) 1);
   radix_tree_add(pTree, IPV4_TO_INT(12,148,170,0), 24, (void *) 2);
+  radix_tree_add(pTree, IPV4_TO_INT(199,165,16,0), 20, (void *) 3);
+  radix_tree_add(pTree, IPV4_TO_INT(199,165,16,0), 24, (void *) 4);
 
   radix_tree_for_each(pTree, radix_tree_for_each_function, NULL);
 
   radix_tree_remove(pTree, IPV4_TO_INT(12,0,0,0), 8, 1);
 
   radix_tree_for_each(pTree, radix_tree_for_each_function, NULL);
+
+  fprintf(stderr, "exact(199.165.16.0/20): %d\n",
+	  radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 20));
+  fprintf(stderr, "exact(199.165.16.0/24): %d\n",
+	  radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 24));
+  fprintf(stderr, "best(199.165.16.0/32): %d\n",
+	  radix_tree_get_best(pTree, IPV4_TO_INT(199,165,16,0), 32));
+
+  radix_tree_remove(pTree, IPV4_TO_INT(199,165,16,0), 24, 1);
+
+  radix_tree_for_each(pTree, radix_tree_for_each_function, NULL);
+
+  fprintf(stderr, "exact(199.165.16.0/20): %d\n",
+	  radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 20));
+  fprintf(stderr, "exact(199.165.16.0/24): %d\n",
+	  radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 24));
+  fprintf(stderr, "best(199.165.16.0/32): %d\n",
+	  radix_tree_get_best(pTree, IPV4_TO_INT(199,165,16,0), 32));
 
   radix_tree_destroy(&pTree);
 
@@ -524,6 +554,136 @@ int test_memory()
 }
 
 /////////////////////////////////////////////////////////////////////
+// GDS_CHECK_PATRICIA_TREE
+/////////////////////////////////////////////////////////////////////
+
+// -----[ destroy ]--------------------------------------------------
+void destroy(void * pData)
+{
+  //fprintf(stdout, "destroy %u\n", (int) pData);
+}
+
+// -----[ dump ]-----------------------------------------------------
+void dump(trie_key_t uKey, trie_key_len_t uKeyLen,
+	  void * pData, void * pContext)
+{
+  printf("  %s/%u => ", INT_TO_IPV4(uKey), uKeyLen);
+  if (pData != NULL) {
+    printf("%u\n", (int) pData);
+  } else
+    printf("(null)\n", uKey, uKeyLen);
+}
+
+// -----[ dump_exact ]-----------------------------------------------
+void dump_exact(STrie * pTrie, trie_key_t uKey, trie_key_len_t uKeyLen)
+{
+  void * pData= trie_find_exact(pTrie, uKey, uKeyLen);
+  printf("exact %s/%u => ", INT_TO_IPV4(uKey), uKeyLen);
+  if (pData == NULL)
+    printf("(null)\n");
+  else
+    printf("%u\n", (int) pData);
+}
+
+// -----[ dump_best ]------------------------------------------------
+void dump_best(STrie * pTrie, trie_key_t uKey, trie_key_len_t uKeyLen)
+{
+  void * pData= trie_find_best(pTrie, uKey, uKeyLen);
+  printf("best %s/%u => ", INT_TO_IPV4(uKey), uKeyLen);
+  if (pData == NULL)
+    printf("(null)\n");
+  else
+    printf("%u\n", (int) pData);
+}
+
+// ----- test_patricia_tree -----------------------------------------
+int test_patricia_tree()
+{
+  STrie * pTrie= trie_create(destroy);
+
+  MSG_CHECKING("* Insertion");
+  trie_insert(pTrie, IPV4_TO_INT(0, 128, 0, 0), 16, (void *) 100);
+  trie_insert(pTrie, IPV4_TO_INT(0, 192, 0, 0), 15, (void *) 200);
+  trie_insert(pTrie, IPV4_TO_INT(0, 0, 0, 0), 16, (void *) 1);
+  trie_insert(pTrie, IPV4_TO_INT(0, 0, 0, 0), 15, (void *) 2);
+  trie_insert(pTrie, IPV4_TO_INT(0, 0, 0, 0), 16, (void *) -1);
+  trie_insert(pTrie, IPV4_TO_INT(0, 1, 0, 0), 16, (void *) 3);
+  trie_insert(pTrie, IPV4_TO_INT(0, 2, 0, 0), 16, (void *) 4);
+  trie_insert(pTrie, IPV4_TO_INT(0, 1, 1, 1), 24, (void *) 5);
+  trie_insert(pTrie, IPV4_TO_INT(0, 1, 1, 128), 25, (void *) 6);
+  trie_insert(pTrie, IPV4_TO_INT(0, 128, 128, 128), 9, (void *) 300);
+  MSG_RESULT_SUCCESS();
+
+  MSG_CHECKING("* Exact matching");
+  dump_exact(pTrie, IPV4_TO_INT(0, 0, 0, 0), 16);
+  dump_exact(pTrie, IPV4_TO_INT(0, 0, 0, 0), 15);
+  dump_exact(pTrie, IPV4_TO_INT(0, 1, 0, 0), 16);
+  dump_exact(pTrie, IPV4_TO_INT(0, 2, 0, 0), 16);
+  dump_exact(pTrie, IPV4_TO_INT(0, 1, 1, 0), 24);
+  dump_exact(pTrie, IPV4_TO_INT(0, 1, 1, 128), 25);
+  dump_exact(pTrie, IPV4_TO_INT(0, 128, 0, 0), 9);
+  dump_exact(pTrie, IPV4_TO_INT(0, 192, 0, 0), 15);
+  dump_exact(pTrie, IPV4_TO_INT(0, 192, 128, 128), 9);
+  dump_exact(pTrie, IPV4_TO_INT(0, 192, 0, 0), 10);
+  MSG_RESULT_SUCCESS();
+
+  MSG_CHECKING("* Best matching");
+  dump_best(pTrie, IPV4_TO_INT(0, 192, 0, 0), 32);
+  dump_best(pTrie, IPV4_TO_INT(0, 192, 128, 128), 32);
+  dump_best(pTrie, IPV4_TO_INT(0, 128, 128, 128), 32);
+  dump_best(pTrie, IPV4_TO_INT(0, 1, 0, 0), 16);
+  dump_best(pTrie, IPV4_TO_INT(0, 2, 0, 0), 16);
+  dump_best(pTrie, IPV4_TO_INT(0, 0, 0, 0), 23);
+  dump_best(pTrie, IPV4_TO_INT(0, 0, 0, 0), 15);
+  MSG_RESULT_SUCCESS();
+
+  MSG_CHECKING("* Removal");
+  fprintf(stdout, "DUMP: {\n");
+  trie_for_each(pTrie, dump, NULL);
+  fprintf(stdout, "}\n");
+  assert(!trie_remove(pTrie, IPV4_TO_INT(0, 0, 0, 0), 16));
+  fprintf(stdout, "DUMP: {\n");
+  trie_for_each(pTrie, dump, NULL);
+  fprintf(stdout, "}\n");
+  assert(!trie_remove(pTrie, IPV4_TO_INT(0, 0, 0, 0), 15));
+  fprintf(stdout, "DUMP: {\n");
+  trie_for_each(pTrie, dump, NULL);
+  fprintf(stdout, "}\n");
+  assert(!trie_remove(pTrie, IPV4_TO_INT(0, 1, 0, 0), 16));
+  fprintf(stdout, "DUMP: {\n");
+  trie_for_each(pTrie, dump, NULL);
+  fprintf(stdout, "}\n");
+  assert(!trie_remove(pTrie, IPV4_TO_INT(0, 2, 0, 0), 16));
+  fprintf(stdout, "DUMP: {\n");
+  trie_for_each(pTrie, dump, NULL);
+  fprintf(stdout, "}\n");
+  assert(!trie_remove(pTrie, IPV4_TO_INT(0, 1, 1, 0), 24));
+  fprintf(stdout, "DUMP: {\n");
+  trie_for_each(pTrie, dump, NULL);
+  fprintf(stdout, "}\n");
+  assert(!trie_remove(pTrie, IPV4_TO_INT(0, 1, 1, 128), 25));
+  fprintf(stdout, "DUMP: {\n");
+  trie_for_each(pTrie, dump, NULL);
+  fprintf(stdout, "}\n");
+  assert(!trie_remove(pTrie, IPV4_TO_INT(0, 128, 0, 0), 9));
+  fprintf(stdout, "DUMP: {\n");
+  trie_for_each(pTrie, dump, NULL);
+  fprintf(stdout, "}\n");
+  assert(!trie_remove(pTrie, IPV4_TO_INT(0, 192, 0, 0), 15));
+  fprintf(stdout, "DUMP: {\n");
+  trie_for_each(pTrie, dump, NULL);
+  fprintf(stdout, "}\n");
+  assert(!trie_remove(pTrie, IPV4_TO_INT(0, 128, 0, 0), 16));
+  fprintf(stdout, "DUMP: {\n");
+  trie_for_each(pTrie, dump, NULL);
+  fprintf(stdout, "}\n");
+  MSG_RESULT_SUCCESS();
+
+  trie_destroy(&pTrie);
+  return 0;
+}
+
+/////////////////////////////////////////////////////////////////////
 // MAIN PART
 /////////////////////////////////////////////////////////////////////
 
@@ -560,6 +720,10 @@ int main(int argc, char * argv[])
 #ifdef _GDS_CHECK_MEMORY_
   printf("CHECK [memory]\n");
   return test_memory();
+#endif
+#ifdef _GDS_CHECK_PATRICIA_TREE_
+  printf("CHECK [patricia-tree]\n");
+  return test_patricia_tree();
 #endif
 
   fprintf(stderr, "Error: no test requested.\n");
