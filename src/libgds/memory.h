@@ -27,7 +27,7 @@ extern void * memrealloc(void * pPtr, size_t size, char * pcFileName,
 			int iLineNumber);
 // ----- memfree ----------------------------------------------------
 extern void memfree(void * pPtr, char * pcFileName, 
-			int iLineNumber);
+		    int iLineNumber);
 // ----- mem_alloc_cnt ----------------------------------------------
 extern long int mem_alloc_cnt();
 // ----- mem_flag_set -----------------------------------------------
