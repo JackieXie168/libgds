@@ -531,6 +531,7 @@ void cli_perror_details(FILE * pStream, int iResult, SCli * pCli,
 
   fprintf(pStream, "*** command: \"%s\"\n", pcLine);
   if ((iResult == CLI_ERROR_UNKNOWN_COMMAND) ||
+      (iResult == CLI_ERROR_NOT_A_COMMAND) ||
       (iResult == CLI_ERROR_MISSING_PARAMETER) ||
       (iResult == CLI_ERROR_BAD_PARAMETER)) {
     fprintf(pStream, "*** error  : \"");
@@ -538,7 +539,8 @@ void cli_perror_details(FILE * pStream, int iResult, SCli * pCli,
     for (iIndex= 0; iIndex < pCli->iExecTokenIndex; iIndex++)
       fprintf(pStream, "%s ", tokens_get_string_at(pTokens, iIndex));
     fprintf(pStream, "^^^\"\n");
-    if ((iResult == CLI_ERROR_UNKNOWN_COMMAND) &&
+    if (((iResult == CLI_ERROR_UNKNOWN_COMMAND) ||
+	(iResult == CLI_ERROR_NOT_A_COMMAND)) &&
 	(pCli->pExecCmd != NULL)) {
       fprintf(pStream, "*** expect : ");
 
