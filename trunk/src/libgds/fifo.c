@@ -1,11 +1,12 @@
 // ==================================================================
 // @(#)fifo.c
 //
-// @author Bruno Quoitin (bqu@infonet.fundp.ac.be)
+// @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 28/11/2002
-// @lastdate 30/11/2002
+// @lastdate 08/03/2004
 // ==================================================================
 
+#include <stdio.h>
 #include <stdlib.h>
 
 #include <libgds/fifo.h>
@@ -47,19 +48,61 @@ void fifo_destroy(SFIFO ** ppFIFO)
   }
 }
 
+// ----- fifo_set_option ------------------------------------------
+/**
+ *
+ */
+void fifo_set_option(SFIFO * pFIFO, uint8_t uOption, int iState)
+{
+  if (iState)
+    pFIFO->uOptions|= uOption;
+  else
+    pFIFO->uOptions&= ~uOption;
+}
+
+// ----- fifo_grow ------------------------------------------------
+/**
+ *
+ */
+int fifo_grow(SFIFO * pFIFO)
+{
+  uint32_t uNewDepth= 0;
+
+  if (pFIFO->uOptions & FIFO_OPTION_GROW_EXPONENTIAL)
+    uNewDepth= pFIFO->uMaxDepth * 2;
+
+  if (uNewDepth > pFIFO->uMaxDepth) {
+
+    // Re-allocete FIFO space
+    pFIFO->ppItems= REALLOC(pFIFO->ppItems,
+			    (sizeof(void *)*uNewDepth));
+
+    // Move exiting items
+    // (start+depth % max_depth) items must be moved in newly allocated space
+    memcpy(&pFIFO->ppItems[pFIFO->uMaxDepth], pFIFO->ppItems,
+	   (pFIFO->uStartIndex + pFIFO->uCurrentDepth) % pFIFO->uMaxDepth);
+    pFIFO->uMaxDepth= uNewDepth;
+    
+  }
+  return 0;
+}
+
 // ----- fifo_push --------------------------------------------------
 /**
  *
  */
 int fifo_push(SFIFO * pFIFO, void * pItem)
 {
-  if (pFIFO->uCurrentDepth < pFIFO->uMaxDepth) {
-    pFIFO->ppItems[(pFIFO->uStartIndex+
-		    pFIFO->uCurrentDepth) % pFIFO->uMaxDepth]= pItem;
-    pFIFO->uCurrentDepth++;
-    return 0;
-  } else
-    return -1;
+
+  // If there is not enough space in the queue, try to grow it
+  if (pFIFO->uCurrentDepth >= pFIFO->uMaxDepth)
+    if (fifo_grow(pFIFO))
+      return -1;
+
+  pFIFO->ppItems[(pFIFO->uStartIndex+
+		  pFIFO->uCurrentDepth) % pFIFO->uMaxDepth]= pItem;
+  pFIFO->uCurrentDepth++;
+  return 0;
 }
 
 // ----- fifo_pop ---------------------------------------------------
