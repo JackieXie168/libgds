@@ -253,9 +253,6 @@ void * radix_tree_get_best(SRadixTree * pTree,
      traversed prefixes and as deep as the requested key length... */
   while (uLen > 0) {
 
-    if ((pTreeItem != NULL) && (pTreeItem->pItem != NULL))
-      pResult= pTreeItem->pItem;
-
     if (uKey & (1 << (pTree->uKeyLen-(uKeyLen+1-uLen)))) {
       // Bit is 1
       if (pTreeItem->pRight != NULL)
@@ -271,6 +268,8 @@ void * radix_tree_get_best(SRadixTree * pTree,
     }
     uLen--;
 
+    if ((pTreeItem != NULL) && (pTreeItem->pItem != NULL))
+      pResult= pTreeItem->pItem;
   }
   
   return pResult;
