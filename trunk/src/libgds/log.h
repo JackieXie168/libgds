@@ -2,7 +2,7 @@
 // @(#)log.h
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be), Sebastien Tandel
-// @date 05/06/2003
+// @date 17/05/2005
 // @lastdate 24/01/2005
 // ==================================================================
 
@@ -94,5 +94,10 @@ extern void log_write(SLog *pLog, uint8_t uLevel, char * pcFormat, ...);
 extern void log_perror(SLog * pLog, char * pcFormat, ...);
 // ----- log_str2level ----------------------------------------------
 extern uint8_t log_str2level(char * pcStr);
+
+// ----- _log_init --------------------------------------------------
+extern void _log_init();
+// ----- _log_destroy -----------------------------------------------
+extern void _log_destroy();
 
 #endif

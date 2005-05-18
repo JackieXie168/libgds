@@ -3,7 +3,7 @@
 //
 // @author  Bruno Quoitin (bqu@info.ucl.ac.be), 
 //	    Sebastien Tandel (standel@info.ucl.ac.be)
-// @date 29/11/2002
+// @date 17/05/2005
 // @lastdate 08/02/2005
 // ==================================================================
 
@@ -278,9 +278,6 @@ int mem_flag_get(uint8_t uFlag)
 /////////////////////////////////////////////////////////////////////
 // INITIALIZATION AND FINALIZATION FUNCTIONS
 /////////////////////////////////////////////////////////////////////
-
-void _memory_init() __attribute__((constructor));
-void _memory_destroy() __attribute__((destructor));
 
 // ----- _memory_init -----------------------------------------------
 /**

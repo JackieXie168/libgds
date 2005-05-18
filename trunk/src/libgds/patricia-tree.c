@@ -4,7 +4,7 @@
 // Patricia tree implementation.
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
-// @date 05/04/2005
+// @date 17/05/2005
 // @lastdate 06/04/2005
 // ==================================================================
 
@@ -500,8 +500,6 @@ int trie_for_each(STrie * pTrie, FTrieForEach fForEach, void * pContext)
 // INITIALIZATION PART
 //
 /////////////////////////////////////////////////////////////////////
-
-void _patricia_tree_init() __attribute__((constructor));
 
 // -----[ patricia_tree_init ]---------------------------------------
 void _patricia_tree_init()

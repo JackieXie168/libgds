@@ -4,7 +4,7 @@
 // Patricia tree implementation.
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
-// @date 05/04/2005
+// @date 17/05/2005
 // @lastdate 05/04/2005
 // ==================================================================
 
@@ -62,6 +62,10 @@ extern "C" {
   // -----[ trie_for_each ]------------------------------------------
   extern int trie_for_each(STrie * pTrie, FTrieForEach fForEach,
 			   void * pContext);
+
+  // -----[ patricia_tree_init ]-------------------------------------
+  extern void _patricia_tree_init();
+
   
 #ifdef __cplusplus
 }
