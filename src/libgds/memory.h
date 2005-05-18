@@ -2,7 +2,7 @@
 // @(#)memory.h
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
-// @date 29/11/2002
+// @date 17/05/2005
 // @lastdate 26/05/2004
 // ==================================================================
 
@@ -38,5 +38,10 @@ extern int mem_flag_get(uint8_t uFlag);
 #define MALLOC(s) memalloc(s, __FILE__, __LINE__)
 #define REALLOC(p, s) memrealloc(p, s, __FILE__, __LINE__)
 #define FREE(p) memfree(p, __FILE__, __LINE__)
+
+// ----- _memory_init -----------------------------------------------
+extern void _memory_init();
+// ----- _memory_destroy --------------------------------------------
+extern void _memory_destroy();
 
 #endif

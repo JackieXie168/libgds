@@ -2,7 +2,7 @@
 // @(#)log.c
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be), Sebastien Tandel
-// @date 05/06/2003
+// @date 17/05/2005
 // @lastdate 24/01/2005
 // ==================================================================
 
@@ -163,9 +163,6 @@ uint8_t log_str2level(char * pcStr)
 /////////////////////////////////////////////////////////////////////
 // INITIALIZATION AND FINALIZATION SECTION
 /////////////////////////////////////////////////////////////////////
-
-void _log_init() __attribute__((constructor));
-void _log_destroy() __attribute__((destructor));
 
 // ----- _log_init --------------------------------------------------
 /**
