@@ -2,8 +2,9 @@
 // @(#)hash.c
 //
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
+// @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 03/12/2004
-// @lastdate 27/01/2005
+// @lastdate 27/06/2005
 // ==================================================================
 
 /* This code implements a hash table structure. We can insert same 
@@ -124,23 +125,27 @@ SHashElt * hash_element_init(void * pElt, uint32_t uKeyNonModulo,
 
 // ----- hash_element_search -----------------------------------------
 /**
- *
- *
+ * RETURNS:
+ *   -1 if element could not be found.
+ *   0 if element was found. In this case, *puIndex will contain the
+ *      index of the element.
  */
 int hash_element_search(SPtrArray * aHashElts, void * pElt, 
-			SHashFunctions * pFunctions)
+			SHashFunctions * pFunctions,
+			unsigned int * puIndex)
 {
-  int iIndex;
+  unsigned int uIndex;
   SHashElt * pHashElt = MALLOC(sizeof(SHashElt));
 
   pHashElt->pElt = pElt;
   pHashElt->pFunctions = pFunctions;
-  if (ptr_array_sorted_find_index(aHashElts, &pHashElt, &iIndex) == -1)
-    iIndex = -1;
+  if (ptr_array_sorted_find_index(aHashElts, &pHashElt, &uIndex) == -1)
+    return -1;
 
   FREE(pHashElt);
 
-  return iIndex;
+  *puIndex= uIndex;
+  return 0;
 }
 
 // ----- hash_element_add --------------------------------------------
@@ -234,7 +239,7 @@ void hash_rehash(SHash * pHash)
 int hash_add(SHash * pHash, void * pElt)
 {
   uint32_t uHashKey, uKeyNonModulo;
-  int iIndex = 0;
+  unsigned int uIndex= 0;
   SHashElt * pHashElt;
   SPtrArray * aHashElt;
 
@@ -244,22 +249,24 @@ int hash_add(SHash * pHash, void * pElt)
     return -1;
   }
   
-  if ( (aHashElt = pHash->aHash[uHashKey]) == NULL)  
-    aHashElt = pHash->aHash[uHashKey] = ptr_array_create(ARRAY_OPTION_UNIQUE|ARRAY_OPTION_SORTED,
-							hash_element_compare,
-							hash_element_destroy);
+  if ((aHashElt= pHash->aHash[uHashKey]) == NULL)
+    aHashElt= pHash->aHash[uHashKey]=
+      ptr_array_create(ARRAY_OPTION_UNIQUE|ARRAY_OPTION_SORTED,
+		       hash_element_compare,
+		       hash_element_destroy);
 
-  if ( (iIndex = hash_element_search(aHashElt, pElt, pHash->pFunctions)) == -1) {
-    if (++pHash->uEltCount > (uint32_t)((float)pHash->uHashSize*pHash->fResizeThreshold)) {
+  if (hash_element_search(aHashElt, pElt, pHash->pFunctions, &uIndex) == -1) {
+    if (++pHash->uEltCount >
+	(uint32_t)((float)pHash->uHashSize*pHash->fResizeThreshold)) {
       hash_rehash(pHash);
     }
-    pHashElt = hash_element_add(aHashElt, pElt, uKeyNonModulo, pHash->pFunctions);
+    pHashElt= hash_element_add(aHashElt, pElt, uKeyNonModulo,
+			       pHash->pFunctions);
   } else {
-    pHashElt = aHashElt->data[iIndex];
+    pHashElt= aHashElt->data[uIndex];
   }
 
   hash_element_ref(pHashElt);
-
   
   return uHashKey;
 }
@@ -271,15 +278,17 @@ int hash_add(SHash * pHash, void * pElt)
  */
 void * hash_search(SHash * pHash, void * pElt)
 {
-  int iIndex;
+  unsigned int uIndex;
   SPtrArray * aHashElts;
   SHashElt * pHashEltSearched = NULL;
   uint32_t uHashKey = pHash->pFunctions->fHashCompute(pElt)%pHash->uHashSize;
 
   if ( (aHashElts = pHash->aHash[uHashKey]) != NULL) {
-    if ( (iIndex = hash_element_search(aHashElts, pElt, pHash->pFunctions)) != -1) 
-      pHashEltSearched = aHashElts->data[iIndex];
+    if (hash_element_search(aHashElts, pElt, pHash->pFunctions,
+			    &uIndex) != -1) 
+      pHashEltSearched= aHashElts->data[uIndex];
   }
+
   return (pHashEltSearched == NULL) ? NULL : pHashEltSearched->pElt;
 }
 
@@ -293,15 +302,17 @@ int hash_del(SHash * pHash, void * pElt)
 {
   uint32_t uHashKey = pHash->pFunctions->fHashCompute(pElt)%pHash->uHashSize;
   SPtrArray * aHashElt;
-  int iRet = 0, iIndex;
+  int iRet = 0;
+  unsigned int uIndex;
   
   if ( (aHashElt = pHash->aHash[uHashKey]) != NULL) {
-    if ( (iIndex = hash_element_search(aHashElt, pElt, pHash->pFunctions)) != -1) {
-      iRet = 1;
-      if (hash_element_unref(&aHashElt->data[iIndex]) <= 0){
-	iRet = 2;
+    if (hash_element_search(aHashElt, pElt, pHash->pFunctions,
+			    &uIndex) != -1) {
+      iRet= 1;
+      if (hash_element_unref(&aHashElt->data[uIndex]) <= 0){
+	iRet= 2;
 	pHash->uEltCount--;
-	ptr_array_remove_at(aHashElt, iIndex);
+	ptr_array_remove_at(aHashElt, uIndex);
       }
     }
   }
