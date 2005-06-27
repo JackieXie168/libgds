@@ -3,7 +3,7 @@
 //
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @date 03/12/2004
-// @lastdate 03/12/2004
+// @lastdate 27/06/2005
 // ==================================================================
 
 #ifndef __GDS_HASH_H__

@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 31/03/2005
+// @lastdate 27/06/2005
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -295,11 +295,11 @@ int cli_cmds_add(SCliCmds * pCmds, SCliCmd * pCmd)
 SCliCmd * cli_cmd_find_subcmd(SCliCmd * pCmd, char * pcName)
 {
   char ** x= &pcName;
-  int iIndex;
+  unsigned int uIndex;
 
   if (pCmd->pSubCmds != NULL)
-    if (!ptr_array_sorted_find_index(pCmd->pSubCmds, &x, &iIndex))
-      return pCmd->pSubCmds->data[iIndex];
+    if (!ptr_array_sorted_find_index(pCmd->pSubCmds, &x, &uIndex))
+      return pCmd->pSubCmds->data[uIndex];
   return NULL;
 }
 
