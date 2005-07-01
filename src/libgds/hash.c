@@ -139,8 +139,10 @@ int hash_element_search(SPtrArray * aHashElts, void * pElt,
 
   pHashElt->pElt = pElt;
   pHashElt->pFunctions = pFunctions;
-  if (ptr_array_sorted_find_index(aHashElts, &pHashElt, &uIndex) == -1)
+  if (ptr_array_sorted_find_index(aHashElts, &pHashElt, &uIndex) == -1) {
+    FREE(pHashElt);
     return -1;
+  }
 
   FREE(pHashElt);
 
@@ -256,10 +258,10 @@ int hash_add(SHash * pHash, void * pElt)
 		       hash_element_destroy);
 
   if (hash_element_search(aHashElt, pElt, pHash->pFunctions, &uIndex) == -1) {
-    if (++pHash->uEltCount >
-	(uint32_t)((float)pHash->uHashSize*pHash->fResizeThreshold)) {
-      hash_rehash(pHash);
-    }
+  //  if (++pHash->uEltCount >
+  //      (uint32_t)((float)pHash->uHashSize*pHash->fResizeThreshold)) {
+  //    hash_rehash(pHash);
+  //  }
     pHashElt= hash_element_add(aHashElt, pElt, uKeyNonModulo,
 			       pHash->pFunctions);
   } else {
