@@ -150,7 +150,7 @@ int _array_set_at(SArray * pArray, unsigned int uIndex, void * pData)
     return -1;
   memcpy(_array_elt_pos(pArray, uIndex), pData,
   	 ((SRealArray *) pArray)->uEltSize);
-  return 0;
+  return ((SRealArray *) pArray)->uLength-1;
 }
 
 // ----- array_get_at -----------------------------------------------
