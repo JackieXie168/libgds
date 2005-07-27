@@ -124,7 +124,6 @@ void * memalloc(size_t size, char * pcFileName, int iLineNumber)
   SMemAlloc * pAlloc = NULL;
 #endif
 
-  //printf("memalloc:debug %ld\n", dAllocCount);
 
   if (dAllocCount < 0) {
     fprintf(stderr, "memalloc: dtor function _memory_init has not yet ");
