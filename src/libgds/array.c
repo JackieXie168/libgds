@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 10/04/2003
-// @lastdate 08/02/2005
+// @lastdate 10/08/2005
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include <libgds/array.h>
+#include <libgds/enumerator.h>
 #include <libgds/memory.h>
 
 #define _array_elt_pos(A,i) (((char *) A->data)+ \
@@ -429,4 +430,51 @@ void uint16_array_destroy(SUInt16Array ** ppArray)
 void ptr_array_destroy(SPtrArray ** ppArray)
 {
   _array_destroy((SArray **) ppArray);
+}
+
+
+/////////////////////////////////////////////////////////////////////
+//
+// ENUMERATION
+//
+/////////////////////////////////////////////////////////////////////
+
+// -----[ SArrayEnumContext ]----------------------------------------
+typedef struct {
+  unsigned int uIndex;
+  SArray * pArray;
+} SArrayEnumContext;
+
+// -----[ _array_get_enum_has_next ]---------------------------------
+int _array_get_enum_has_next(void * pContext)
+{
+  SArrayEnumContext * pArrayContext= (SArrayEnumContext *) pContext;
+  return (pArrayContext->uIndex < _array_length(pArrayContext->pArray));
+}
+
+// -----[ _array_get_enum_get_next ]---------------------------------
+void * _array_get_enum_get_next(void * pContext)
+{
+  SArrayEnumContext * pArrayContext= (SArrayEnumContext *) pContext;
+  return _array_elt_pos(pArrayContext->pArray, pArrayContext->uIndex++);
+}
+
+// -----[ _array_get_enum_destroy ]----------------------------------
+void _array_get_enum_destroy(void * pContext)
+{
+  SArrayEnumContext * pArrayContext= (SArrayEnumContext *) pContext;
+  FREE(pArrayContext);
+}
+
+// -----[ _array_get_enum ]------------------------------------------
+SEnumerator * _array_get_enum(SArray * pArray)
+{
+  SArrayEnumContext * pContext=
+    (SArrayEnumContext *) MALLOC(sizeof(SArrayEnumContext));
+  pContext->pArray= pArray;
+  pContext->uIndex= 0;
+  return enum_create(pContext,
+		     _array_get_enum_has_next,
+		     _array_get_enum_get_next,
+		     _array_get_enum_destroy);
 }

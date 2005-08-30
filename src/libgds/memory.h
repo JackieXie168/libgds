@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 17/05/2005
-// @lastdate 26/05/2004
+// @lastdate 10/08/2004
 // ==================================================================
 
 #ifndef __MEMORY_H__
@@ -13,11 +13,12 @@
 
 #include <libgds/types.h>
 
-#define MEM_FLAG_WARN_LEAK 0x01 /* Display a warning in case of memory
-				   leak when the memory.o object is
-				   destroyed (note that memory.o must
-				   be the last object in the .DTOR
-				   list) */
+#define MEM_FLAG_WARN_LEAK  0x01 /* Display a warning in case of memory
+				    leak when the memory.o object is
+				    destroyed (note that memory.o must
+				    be the last object in the .DTOR
+				    list) */
+#define MEM_FLAG_TRACK_LEAK 0x02
 
 // ----- memalloc ---------------------------------------------------
 extern void * memalloc(size_t size, char * pcFileName, 

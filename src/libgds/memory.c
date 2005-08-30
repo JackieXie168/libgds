@@ -1,10 +1,10 @@
 // ==================================================================
 // @(#)memory.c
 //
-// @author  Bruno Quoitin (bqu@info.ucl.ac.be), 
-//	    Sebastien Tandel (standel@info.ucl.ac.be)
+// @author Bruno Quoitin (bqu@info.ucl.ac.be), 
+// @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @date 17/05/2005
-// @lastdate 08/02/2005
+// @lastdate 10/08/2005
 // ==================================================================
 
 #include <stdio.h>
@@ -137,16 +137,16 @@ void * memalloc(size_t size, char * pcFileName, int iLineNumber)
   }
 
 #ifdef HAVE_MEMORY_DEBUG
-  if (plMemAlloc != NULL) {
-    pAlloc = memory_alloc_init(pNewPtr, size, 
-				pcFileName, iLineNumber);
+  if ((plMemAlloc != NULL) && mem_flag_get(MEM_FLAG_TRACK_LEAK)) {
+    pAlloc= memory_alloc_init(pNewPtr, size, 
+			      pcFileName, iLineNumber);
     if (list_add(plMemAlloc, pAlloc) == -1) {
       fprintf(stderr, "allocation already made\n");
       exit(EXIT_FAILURE);
     }
     iAllocatedBytes += size;
     if (iMaxAllocatedAtOneTime < iAllocatedBytes-iFreedBytes)
-      iMaxAllocatedAtOneTime = iAllocatedBytes-iFreedBytes;
+      iMaxAllocatedAtOneTime= iAllocatedBytes-iFreedBytes;
   }
 #endif
   
@@ -174,7 +174,7 @@ extern void * memrealloc(void * pPtr, size_t size, char * pcFileName, int iLineN
   }
     
 #ifdef HAVE_MEMORY_DEBUG
-  if (plMemAlloc != NULL) {
+  if ((plMemAlloc != NULL) && mem_flag_get(MEM_FLAG_TRACK_LEAK)) {
     if (pNewPtr != pPtr) {
       pAlloc = memory_alloc_init(pPtr, 0, "", 0);
       if (list_find_index(plMemAlloc, pAlloc, &iIndex) == 0) {
@@ -217,7 +217,7 @@ void memfree(void * pPtr,
   SMemAlloc * pAlloc = NULL, * pAllocSearched = NULL;
   int iIndex = 0;
 
-  if (plMemAlloc != NULL) {
+  if ((plMemAlloc != NULL) && mem_flag_get(MEM_FLAG_TRACK_LEAK)) {
     pAlloc = memory_alloc_init(pPtr, 0, "", 0);
     if (list_find_index(plMemAlloc, pAlloc, &iIndex) != -1) {
       //some stat
@@ -303,9 +303,11 @@ void _memory_destroy()
   if (plMemAlloc != NULL) {
     list_for_each(plMemAlloc, memory_alloc_for_each, NULL);
     list_destroy(&plMemAlloc);
-    fprintf(stderr, "total allocated bytes : %li\n", iAllocatedBytes);
-    fprintf(stderr, "total freed bytes     : %li\n", iFreedBytes);
-    fprintf(stderr, "max allocated         : %li\n", iMaxAllocatedAtOneTime);
+    if (mem_flag_get(MEM_FLAG_TRACK_LEAK)) {
+      fprintf(stderr, "total allocated bytes : %li\n", iAllocatedBytes);
+      fprintf(stderr, "total freed bytes     : %li\n", iFreedBytes);
+      fprintf(stderr, "max allocated         : %li\n", iMaxAllocatedAtOneTime);
+    }
   }
 #endif
 }

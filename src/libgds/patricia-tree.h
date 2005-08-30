@@ -5,11 +5,13 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 17/05/2005
-// @lastdate 05/04/2005
+// @lastdate 10/08/2005
 // ==================================================================
 
 #ifndef __PATRICIA_TREE_H__
 #define __PATRICIA_TREE_H__
+
+#include <libgds/array.h>
 
 typedef uint32_t trie_key_t;
 typedef uint8_t trie_key_len_t;
@@ -62,6 +64,10 @@ extern "C" {
   // -----[ trie_for_each ]------------------------------------------
   extern int trie_for_each(STrie * pTrie, FTrieForEach fForEach,
 			   void * pContext);
+  // -----[ trie_get_array ]-------------------------------------------
+  extern SPtrArray * trie_get_array(STrie * pTrie);
+  // -----[ trie_get_enum ]--------------------------------------------
+  extern SEnumerator * trie_get_enum(STrie * pTrie);
 
   // -----[ patricia_tree_init ]-------------------------------------
   extern void _patricia_tree_init();

@@ -3,12 +3,13 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 10/04/2003
-// @lastdate 08/02/2005
+// @lastdate 10/08/2005
 // ==================================================================
 
 #ifndef __ARRAY_H__
 #define __ARRAY_H__
 
+#include <libgds/enumerator.h>
 #include <libgds/types.h>
 
 #define ARRAY_OPTION_SORTED  0x01
@@ -139,5 +140,7 @@ extern void _array_add_all(SArray * pArray, SArray * pSrcArray);
 extern void _array_trim(SArray * pArray, unsigned uMaxLength);
 // ----- _array_sort ------------------------------------------------
 extern int _array_sort(SArray * pArray, FArrayCompare fCompare);
+// ----- _array_get_enum --------------------------------------------
+extern SEnumerator * _array_get_enum(SArray * pArray);
 
 #endif
