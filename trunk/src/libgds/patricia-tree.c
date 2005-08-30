@@ -5,7 +5,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 17/05/2005
-// @lastdate 06/04/2005
+// @lastdate 10/08/2005
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -14,6 +14,7 @@
 
 #include <stdio.h>
 
+#include <libgds/array.h>
 #include <libgds/memory.h>
 #include <libgds/patricia-tree.h>
 
@@ -493,6 +494,78 @@ int trie_for_each(STrie * pTrie, FTrieForEach fForEach, void * pContext)
   if (pTrie->pRoot != NULL)
     return trie_item_for_each(pTrie->pRoot, fForEach, pContext);
   return 0;
+}
+
+/////////////////////////////////////////////////////////////////////
+//
+// ENUMERATION
+//
+/////////////////////////////////////////////////////////////////////
+
+// -----[ _trie_get_array_for_each ]---------------------------------
+int _trie_get_array_for_each(uint32_t uKey, uint8_t uKeyLen,
+			     void * pItem, void * pContext)
+{
+  SPtrArray * pArray= (SPtrArray *) pContext;
+  if (ptr_array_append(pArray, pItem) < 0)
+    return -1;
+  return 0;
+}
+
+// -----[ trie_get_array ]-------------------------------------------
+SPtrArray * trie_get_array(STrie * pTrie)
+{
+  SPtrArray * pArray= ptr_array_create_ref(0);
+  if (trie_for_each(pTrie,
+		    _trie_get_array_for_each,
+		    pArray)) {
+    ptr_array_destroy(&pArray);
+    pArray= NULL;
+  }
+  return pArray;
+}
+
+// ----- STrieEnumContext -------------------------------------------
+typedef struct {
+  SPtrArray * pArray;
+  SEnumerator * pEnum;
+} STrieEnumContext;
+
+// -----[ _trie_get_enum_has_next ]----------------------------------
+int _trie_get_enum_has_next(void * pContext)
+{
+  STrieEnumContext * pTrieContext= (STrieEnumContext *) pContext;
+  return enum_has_next(pTrieContext->pEnum);
+}
+
+// -----[ _trie_get_enum_get_next ]----------------------------------
+void * _trie_get_enum_get_next(void * pContext)
+{
+  STrieEnumContext * pTrieContext= (STrieEnumContext *) pContext;
+  return enum_get_next(pTrieContext->pEnum);
+}
+
+// -----[ _trie_get_enum_destroy ]-----------------------------------
+void _trie_get_enum_destroy(void * pContext)
+{
+  STrieEnumContext * pTrieContext= (STrieEnumContext *) pContext;
+  enum_destroy(&pTrieContext->pEnum);
+  ptr_array_destroy(&pTrieContext->pArray);
+  FREE(pTrieContext);
+}
+
+// -----[ trie_get_enum ]--------------------------------------------
+SEnumerator * trie_get_enum(STrie * pTrie)
+{
+  STrieEnumContext * pContext=
+    (STrieEnumContext *) MALLOC(sizeof(STrieEnumContext));
+  pContext->pArray= trie_get_array(pTrie);
+  pContext->pEnum= _array_get_enum((SArray *) pContext->pArray);
+
+  return enum_create(pContext,
+		     _trie_get_enum_has_next,
+		     _trie_get_enum_get_next,
+		     _trie_get_enum_destroy);
 }
 
 /////////////////////////////////////////////////////////////////////
