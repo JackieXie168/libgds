@@ -2,8 +2,9 @@
 // @(#)hash.h
 //
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
+// @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 03/12/2004
-// @lastdate 27/06/2005
+// @lastdate 11/10/2005
 // ==================================================================
 
 #ifndef __GDS_HASH_H__
@@ -20,22 +21,32 @@ typedef void (*FHashEltDestroy) (void * pElt);
 //is just a value to begin with but will change with time.
 typedef uint32_t (*FHashCompute) (void * pElt);
 
-typedef void (*FHashForEach) (void * pElt, void * pContext);
+typedef int (*FHashForEach) (void * pElt, void * pContext);
 
 typedef struct HashTable SHash;
 
 // ----- hash_init ---------------------------------------------------
-SHash * hash_init(const uint32_t uHashSize, float fResizeThreshold,
-					    FHashEltCompare fEltCompare, 
-					    FHashEltDestroy fEltDestroy, 
-					    FHashCompute fHashCompute);
+extern SHash * hash_init(const uint32_t uHashSize,
+			 float fResizeThreshold,
+			 FHashEltCompare fEltCompare, 
+			 FHashEltDestroy fEltDestroy, 
+			 FHashCompute fHashCompute);
 // ----- hash_add ----------------------------------------------------
-int hash_add(SHash * pHash, void * pElt);
+extern int hash_add(SHash * pHash, void * pElt);
 // ----- hash_del ----------------------------------------------------
-int hash_del(SHash * pHash, void * pElt);
+extern int hash_del(SHash * pHash, void * pElt);
 // ----- hash_search -------------------------------------------------
-void * hash_search(SHash * pHash, void * pElt);
+extern void * hash_search(SHash * pHash, void * pElt);
 // ---- hash_destroy -------------------------------------------------
-void hash_destroy(SHash ** pHash);
+extern void hash_destroy(SHash ** pHash);
 
-#endif //__GDS_HASH_H
+// -----[ hash_info ]-------------------------------------------------
+extern uint32_t hash_info(SHash * pHash, void * pItem);
+// -----[ hash_for_each ]---------------------------------------------
+extern int hash_for_each(SHash * pHash, FHashForEach fHashForEach, 
+			 void * pContext);
+// -----[ hash_for_each_key ]----------------------------------------
+extern int hash_for_each_key(SHash * pHash, FHashForEach fHashForEach, 
+			     void * pContext);
+
+#endif //__GDS_HASH_H__

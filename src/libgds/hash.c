@@ -4,7 +4,7 @@
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 03/12/2004
-// @lastdate 27/06/2005
+// @lastdate 11/10/2005
 // ==================================================================
 
 /* This code implements a hash table structure. We can insert same 
@@ -324,24 +324,80 @@ int hash_del(SHash * pHash, void * pElt)
   return iRet;
 }
 
-// ----- hash_for_each -----------------------------------------------
+// -----[ hash_info ]------------------------------------------------
 /**
- *
- *
+ * Return number of references on the given item.
  */
-void hash_for_each(SHash * pHash, FHashForEach fHashForEach, 
+uint32_t hash_info(SHash * pHash, void * pItem)
+{
+  unsigned int uIndex;
+  SPtrArray * pHashItems;
+  SHashElt * pSearched= NULL;
+  uint32_t uHashKey;
+
+  uHashKey= pHash->pFunctions->fHashCompute(pItem)%pHash->uHashSize;
+  pHashItems= pHash->aHash[uHashKey];
+  if (pHashItems == NULL)
+    return 0;
+
+  if (hash_element_search(pHashItems, pItem, pHash->pFunctions,
+			  &uIndex) == -1)
+    return 0;
+
+  pSearched= pHashItems->data[uIndex];
+  return pSearched->uRef;
+}
+
+// -----[ hash_for_each_key ]----------------------------------------
+/**
+ * Call the given callback function foreach key in the hash table. The
+ * item which is passed to the callback function is the array at the
+ * given key. This makes possible to evaluate the hash function. If
+ * the distribution is quite uniform, the hash function is
+ * good. Otherwise, it is time to look for another one.
+ *
+ * Note: the callback can be called with an item which is NULL.
+ */
+int hash_for_each_key(SHash * pHash, FHashForEach fHashForEach, 
 		      void * pContext)
 {
-  uint32_t uHashKey, uArrayIter;
-  SPtrArray * aHashElt;
+  int iResult;
+  uint32_t uHashKey;
+  SPtrArray * pHashItems;
 
-  for (uHashKey = 0; uHashKey < pHash->uHashSize; uHashKey++) {
-    if ( (aHashElt = pHash->aHash[uHashKey]) != NULL) {
-      for (uArrayIter = 0; uArrayIter < ptr_array_length(aHashElt); uArrayIter++) {
-	fHashForEach((*(SHashElt **)aHashElt->data[uArrayIter])->pElt, pContext);
+  for (uHashKey= 0; uHashKey < pHash->uHashSize; uHashKey++) {
+    pHashItems= pHash->aHash[uHashKey];
+    iResult= fHashForEach(pHashItems, pContext);
+    if (iResult < 0)
+      return iResult;
+  }
+  return 0;
+}
+
+// -----[ hash_for_each ]--------------------------------------------
+/**
+ * Call the given callback function foreach item in the hash table.
+ */
+int hash_for_each(SHash * pHash, FHashForEach fHashForEach, 
+		  void * pContext)
+{
+  int iResult;
+  uint32_t uHashKey, uIndex;
+  SPtrArray * pHashItems;
+  void * pItem;
+
+  for (uHashKey= 0; uHashKey < pHash->uHashSize; uHashKey++) {
+    pHashItems= pHash->aHash[uHashKey];
+    if (pHashItems != NULL) {
+      for (uIndex= 0; uIndex < ptr_array_length(pHashItems); uIndex++) {
+	pItem= ((SHashElt *) pHashItems->data[uIndex])->pElt;
+	iResult= fHashForEach(pItem, pContext);
+	if (iResult < 0)
+	  return iResult;
       }
     }
   }
+  return 0;
 }
 
 // ----- hash_destroy ------------------------------------------------
