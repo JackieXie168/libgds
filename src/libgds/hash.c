@@ -4,7 +4,7 @@
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 03/12/2004
-// @lastdate 11/10/2005
+// @lastdate 17/10/2005
 // ==================================================================
 
 /* This code implements a hash table structure. We can insert same 
@@ -12,6 +12,7 @@
  * counter.
  */
 
+#include <assert.h>
 #include <string.h>
 
 #include <config.h>
@@ -36,159 +37,149 @@ struct HashTable {
 
 typedef struct {
   SHashFunctions * pFunctions;
-  uint32_t uKeyNonModulo;
   void * pElt;
   uint32_t uRef;
 }SHashElt;
 
-// ----- hash_element_compare ----------------------------------------
+// ----- _hash_element_compare --------------------------------------
 /**
  *
- *
  */
-int hash_element_compare(void * pHElt1, void * pHElt2, uint32_t uEltSize)
+static int _hash_element_compare(void * pHElt1, void * pHElt2,
+				 uint32_t uEltSize)
 {
-  SHashElt * pHashElt1 = *((SHashElt **)pHElt1);
-  SHashElt * pHashElt2 = *((SHashElt **)pHElt2);
+  SHashElt * pHashElt1= *((SHashElt **) pHElt1);
+  SHashElt * pHashElt2= *((SHashElt **) pHElt2);
 
-  return pHashElt1->pFunctions->fEltCompare(pHashElt1->pElt, pHashElt2->pElt, uEltSize);
+  return pHashElt1->pFunctions->fEltCompare(pHashElt1->pElt,
+					    pHashElt2->pElt, uEltSize);
 }
 
-// ----- hash_element_remove -----------------------------------------
+// ----- _hash_element_remove ---------------------------------------
 /**
  *
- *
  */
-void hash_element_remove(void * pHelt)
+/*static void _hash_element_remove(void * pHelt)
 {
-  SHashElt * pHashElt = *((SHashElt **)pHelt);
+  SHashElt * pHashElt= *((SHashElt **)pHelt);
 
   if (pHashElt != NULL)
     FREE(pHashElt);
-}
+    }*/
 
-// ----- hash_element_destroy ----------------------------------------
+// ----- _hash_element_destroy --------------------------------------
 /**
  *
- *
  */
-void hash_element_destroy(void * pHElt)
+static void _hash_element_destroy(void * pHElt)
 {
-  SHashElt * pHashElt = *((SHashElt **)pHElt);
+  SHashElt * pHashElt= *((SHashElt **)pHElt);
 
   if (pHashElt->pFunctions->fEltDestroy != NULL)
     pHashElt->pFunctions->fEltDestroy(pHashElt->pElt);
   FREE(pHashElt);
 }
 
-// ----- hash_element_destroy ----------------------------------------
+// ----- _hash_element_unref ----------------------------------------
 /**
  *
- *
  */
-int hash_element_unref(void * pHElt)
+static int _hash_element_unref(void * pHElt)
 {
-  SHashElt * pHashElt = *((SHashElt **)pHElt);
+  SHashElt * pHashElt= *((SHashElt **)pHElt);
 
   pHashElt->uRef--;
   return pHashElt->uRef;
 }
 
-// ----- hash_element_ref --------------------------------------------
+// ----- _hash_element_ref ------------------------------------------
 /**
  *
- *
  */
-int hash_element_ref(SHashElt * pHashElt)
+static int _hash_element_ref(SHashElt * pHashElt)
 {
   pHashElt->uRef++;
   return pHashElt->uRef;
 }
 
-// ----- hash_element_init -------------------------------------------
+// ----- _hash_element_init -----------------------------------------
 /**
  *
- *
  */
-SHashElt * hash_element_init(void * pElt, uint32_t uKeyNonModulo, 
-			      SHashFunctions * pFunctions)
+static SHashElt * _hash_element_init(void * pElt, SHashFunctions * pFunctions)
 {
-  SHashElt * pHashElt = MALLOC(sizeof(SHashElt));
+  SHashElt * pHashElt= MALLOC(sizeof(SHashElt));
 
-  pHashElt->pFunctions = pFunctions;
-  pHashElt->pElt = pElt;
-  pHashElt->uRef = 0;
-  pHashElt->uKeyNonModulo = uKeyNonModulo;
-
+  pHashElt->pFunctions= pFunctions;
+  pHashElt->pElt= pElt;
+  pHashElt->uRef= 0;
   return pHashElt;
 }
 
-// ----- hash_element_search -----------------------------------------
+// ----- _hash_element_search ---------------------------------------
 /**
  * RETURNS:
  *   -1 if element could not be found.
  *   0 if element was found. In this case, *puIndex will contain the
  *      index of the element.
  */
-int hash_element_search(SPtrArray * aHashElts, void * pElt, 
-			SHashFunctions * pFunctions,
-			unsigned int * puIndex)
+static int _hash_element_search(SPtrArray * aHashElts, void * pElt, 
+				SHashFunctions * pFunctions,
+				unsigned int * puIndex)
 {
   unsigned int uIndex;
-  SHashElt * pHashElt = MALLOC(sizeof(SHashElt));
+  SHashElt * pHashElt= MALLOC(sizeof(SHashElt));
 
-  pHashElt->pElt = pElt;
-  pHashElt->pFunctions = pFunctions;
+  pHashElt->pElt= pElt;
+  pHashElt->pFunctions= pFunctions;
   if (ptr_array_sorted_find_index(aHashElts, &pHashElt, &uIndex) == -1) {
     FREE(pHashElt);
     return -1;
   }
-
+  
   FREE(pHashElt);
 
   *puIndex= uIndex;
   return 0;
 }
 
-// ----- hash_element_add --------------------------------------------
+// ----- _hash_element_add ------------------------------------------
 /**
  *
- *
  */
-SHashElt * hash_element_add(SPtrArray * aHashElt, void * pElt, 
-		      uint32_t uKeyNonModulo, SHashFunctions * pFunctions)
+static SHashElt * _hash_element_add(SPtrArray * aHashElt, void * pElt, 
+				    SHashFunctions * pFunctions)
 {
-    SHashElt * pHashElt = hash_element_init(pElt, uKeyNonModulo, pFunctions);
-    ptr_array_add(aHashElt, &pHashElt);
-    return pHashElt;
+  SHashElt * pHashElt= _hash_element_init(pElt, pFunctions);
+  ptr_array_add(aHashElt, &pHashElt);
+  return pHashElt;
 }
 
 // ----- hash_init ---------------------------------------------------
 /**
  *
- *
  */
 SHash * hash_init(const uint32_t uHashSize, float fResizeThreshold, 
-		    FHashEltCompare fEltCompare, 
-		    FHashEltDestroy fEltDestroy, 
-		    FHashCompute fHashCompute)
+		  FHashEltCompare fEltCompare, 
+		  FHashEltDestroy fEltDestroy, 
+		  FHashCompute fHashCompute)
 {
-  SHash * pHash = MALLOC(sizeof(SHash));
+  SHash * pHash= MALLOC(sizeof(SHash));
 
-  pHash->aHash = MALLOC(sizeof(uint32_t)*uHashSize);
+  pHash->aHash= MALLOC(sizeof(uint32_t)*uHashSize);
   memset(pHash->aHash, 0, sizeof(uint32_t)*uHashSize);
 
   if (fHashCompute == NULL)
     LOG_WARNING("hash_init> Hash Key Computation function unitialized !");
 
-  pHash->pFunctions = MALLOC(sizeof(SHashFunctions));
-  pHash->pFunctions->fEltCompare = fEltCompare;
-  pHash->pFunctions->fEltDestroy = fEltDestroy;
-  pHash->pFunctions->fHashCompute = fHashCompute;
+  pHash->pFunctions= MALLOC(sizeof(SHashFunctions));
+  pHash->pFunctions->fEltCompare= fEltCompare;
+  pHash->pFunctions->fEltDestroy= fEltDestroy;
+  pHash->pFunctions->fHashCompute= fHashCompute;
 
-  pHash->uHashSize = uHashSize;
-  pHash->fResizeThreshold = fResizeThreshold;
-  pHash->uEltCount = 0;
+  pHash->uHashSize= uHashSize;
+  pHash->fResizeThreshold= fResizeThreshold;
+  pHash->uEltCount= 0;
 
   return pHash;
 }
@@ -197,9 +188,8 @@ SHash * hash_init(const uint32_t uHashSize, float fResizeThreshold,
 // ----- hash_rehash -------------------------------------------------
 /**
  *
- *
  */
-void hash_rehash(SHash * pHash)
+/*void hash_rehash(SHash * pHash)
 {
   uint32_t uHashKey, uArrayIter, uNewHashSize;
   SPtrArray * aHashElt;
@@ -231,7 +221,7 @@ void hash_rehash(SHash * pHash)
     }
   }
 
-}
+  }*/
 
 // ----- hash_add ----------------------------------------------------
 /**
@@ -240,42 +230,36 @@ void hash_rehash(SHash * pHash)
  */
 int hash_add(SHash * pHash, void * pElt)
 {
-  uint32_t uHashKey, uKeyNonModulo;
+  uint32_t uHashKey;
   unsigned int uIndex= 0;
   SHashElt * pHashElt;
   SPtrArray * aHashElt;
 
-  uKeyNonModulo = pHash->pFunctions->fHashCompute(pElt);
-  if ( (uHashKey = uKeyNonModulo%pHash->uHashSize) >= pHash->uHashSize) {
-    LOG_WARNING("hash_add> Key size too large.\n");
-    return -1;
-  }
+  uHashKey= pHash->pFunctions->fHashCompute(pElt, pHash->uHashSize);
+  assert(uHashKey < pHash->uHashSize);
   
   if ((aHashElt= pHash->aHash[uHashKey]) == NULL)
     aHashElt= pHash->aHash[uHashKey]=
       ptr_array_create(ARRAY_OPTION_UNIQUE|ARRAY_OPTION_SORTED,
-		       hash_element_compare,
-		       hash_element_destroy);
+		       _hash_element_compare,
+		       _hash_element_destroy);
 
-  if (hash_element_search(aHashElt, pElt, pHash->pFunctions, &uIndex) == -1) {
+  if (_hash_element_search(aHashElt, pElt, pHash->pFunctions, &uIndex) == -1) {
   //  if (++pHash->uEltCount >
   //      (uint32_t)((float)pHash->uHashSize*pHash->fResizeThreshold)) {
   //    hash_rehash(pHash);
   //  }
-    pHashElt= hash_element_add(aHashElt, pElt, uKeyNonModulo,
-			       pHash->pFunctions);
+    pHashElt= _hash_element_add(aHashElt, pElt, pHash->pFunctions);
   } else {
     pHashElt= aHashElt->data[uIndex];
   }
 
-  hash_element_ref(pHashElt);
-  
+  _hash_element_ref(pHashElt);
   return uHashKey;
 }
 
 // ----- hash_search -------------------------------------------------
 /**
- *
  * returns NULL if no elt found else the pointer to this elt
  */
 void * hash_search(SHash * pHash, void * pElt)
@@ -283,10 +267,10 @@ void * hash_search(SHash * pHash, void * pElt)
   unsigned int uIndex;
   SPtrArray * aHashElts;
   SHashElt * pHashEltSearched = NULL;
-  uint32_t uHashKey = pHash->pFunctions->fHashCompute(pElt)%pHash->uHashSize;
+  uint32_t uHashKey= pHash->pFunctions->fHashCompute(pElt, pHash->uHashSize);
 
-  if ( (aHashElts = pHash->aHash[uHashKey]) != NULL) {
-    if (hash_element_search(aHashElts, pElt, pHash->pFunctions,
+  if ((aHashElts = pHash->aHash[uHashKey]) != NULL) {
+    if (_hash_element_search(aHashElts, pElt, pHash->pFunctions,
 			    &uIndex) != -1) 
       pHashEltSearched= aHashElts->data[uIndex];
   }
@@ -296,22 +280,21 @@ void * hash_search(SHash * pHash, void * pElt)
 
 // ----- hash_del ----------------------------------------------------
 /**
- *
  *  returns 0 if no elt deleted (unreferenced) else 1 if unreferenced 
  *  otherwise 2 if deleted
  */
 int hash_del(SHash * pHash, void * pElt)
 {
-  uint32_t uHashKey = pHash->pFunctions->fHashCompute(pElt)%pHash->uHashSize;
+  uint32_t uHashKey= pHash->pFunctions->fHashCompute(pElt, pHash->uHashSize);
   SPtrArray * aHashElt;
   int iRet = 0;
   unsigned int uIndex;
   
   if ( (aHashElt = pHash->aHash[uHashKey]) != NULL) {
-    if (hash_element_search(aHashElt, pElt, pHash->pFunctions,
+    if (_hash_element_search(aHashElt, pElt, pHash->pFunctions,
 			    &uIndex) != -1) {
       iRet= 1;
-      if (hash_element_unref(&aHashElt->data[uIndex]) <= 0){
+      if (_hash_element_unref(&aHashElt->data[uIndex]) <= 0){
 	iRet= 2;
 	pHash->uEltCount--;
 	ptr_array_remove_at(aHashElt, uIndex);
@@ -335,13 +318,13 @@ uint32_t hash_info(SHash * pHash, void * pItem)
   SHashElt * pSearched= NULL;
   uint32_t uHashKey;
 
-  uHashKey= pHash->pFunctions->fHashCompute(pItem)%pHash->uHashSize;
+  uHashKey= pHash->pFunctions->fHashCompute(pItem, pHash->uHashSize);
   pHashItems= pHash->aHash[uHashKey];
   if (pHashItems == NULL)
     return 0;
 
-  if (hash_element_search(pHashItems, pItem, pHash->pFunctions,
-			  &uIndex) == -1)
+  if (_hash_element_search(pHashItems, pItem, pHash->pFunctions,
+			   &uIndex) == -1)
     return 0;
 
   pSearched= pHashItems->data[uIndex];

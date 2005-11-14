@@ -4,7 +4,7 @@
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 03/12/2004
-// @lastdate 11/10/2005
+// @lastdate 17/10/2005
 // ==================================================================
 
 #ifndef __GDS_HASH_H__
@@ -19,7 +19,7 @@ typedef void (*FHashEltDestroy) (void * pElt);
 //because the hash table is dynamic. Thus, the maximum value of a key will grow
 //as the size of the hash will grow. The initial value of the size of the hash 
 //is just a value to begin with but will change with time.
-typedef uint32_t (*FHashCompute) (void * pElt);
+typedef uint32_t (*FHashCompute) (void * pElt, uint32_t uHashSize);
 
 typedef int (*FHashForEach) (void * pElt, void * pContext);
 

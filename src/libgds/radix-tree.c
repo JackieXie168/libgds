@@ -6,7 +6,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 21/10/2002
-// @lastdate 03/02/2005
+// @lastdate 08/11/2005
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -346,4 +346,24 @@ int radix_tree_for_each(SRadixTree * pTree,
   }
   stack_destroy(&pStack);
   return 0;
+}
+
+// ----- _radix_tree_item_num_nodes ---------------------------------
+int _radix_tree_item_num_nodes(SRadixTreeItem * pTreeItem)
+{
+  if (pTreeItem != NULL) {
+    return 1 + _radix_tree_item_num_nodes(pTreeItem->pLeft)+
+      _radix_tree_item_num_nodes(pTreeItem->pRight);
+  }
+  return 0;
+}
+
+// ----- radix_tree_num_nodes ---------------------------------------
+/**
+ * Count the number of nodes in the tree. The algorithm uses a
+ * divide-and-conquer recursive approach.
+ */
+int radix_tree_num_nodes(SRadixTree * pTree)
+{
+  return _radix_tree_item_num_nodes(pTree->pRoot);
 }

@@ -6,7 +6,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 22/10/2002
-// @lastdate 21/05/2003
+// @lastdate 08/11/2005
 // ==================================================================
 
 #ifndef __RADIX_TREE_H__
@@ -57,5 +57,8 @@ extern void * radix_tree_get_best(SRadixTree * pTree,
 extern int radix_tree_for_each(SRadixTree * pTree,
 			       FRadixTreeForEach fForEach,
 			       void * pContext);
+
+// ----- radix_tree_num_nodes ---------------------------------------
+extern int radix_tree_num_nodes(SRadixTree * pTree);
 
 #endif

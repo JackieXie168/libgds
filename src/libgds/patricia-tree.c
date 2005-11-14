@@ -5,7 +5,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 17/05/2005
-// @lastdate 10/08/2005
+// @lastdate 08/11/2005
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -494,6 +494,26 @@ int trie_for_each(STrie * pTrie, FTrieForEach fForEach, void * pContext)
   if (pTrie->pRoot != NULL)
     return trie_item_for_each(pTrie->pRoot, fForEach, pContext);
   return 0;
+}
+
+// -----[ _trie_item_num_nodes ]-------------------------------------
+int _trie_item_num_nodes(STrieItem * pTrieItem)
+{
+  if (pTrieItem != NULL) {
+    return 1 + _trie_item_num_nodes(pTrieItem->pLeft) +
+      _trie_item_num_nodes(pTrieItem->pRight);
+  }
+  return 0;
+}
+
+// -----[ trie_num_nodes ]-------------------------------------------
+/**
+ * Count the number of nodes in the trie. The algorithm uses a
+ * divide-and-conquer recursive approach.
+ */
+int trie_num_nodes(STrie * pTrie)
+{
+  return _trie_item_num_nodes(pTrie->pRoot);
 }
 
 /////////////////////////////////////////////////////////////////////
