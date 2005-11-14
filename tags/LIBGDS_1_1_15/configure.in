@@ -1,0 +1,86 @@
+dnl =================================================================
+dnl configure.in for libgds
+dnl
+dnl @author Bruno Quoitin (bqu@info.ucl.ac.be)
+dnl @version 2005-01-27
+dnl =================================================================
+
+AC_INIT([libgds], [1.1.9])
+AC_CONFIG_SRCDIR(src/libgds/fifo.h)
+AC_PREREQ(2.57)
+AC_PREFIX_DEFAULT(/usr/local)
+
+dnl Version setting up for Automake
+AM_INIT_AUTOMAKE([no-define])
+AM_CONFIG_HEADER(src/config.h)
+dnl AM_MAINTAINER_MODE
+
+dnl Checks for programs.
+AC_PROG_CC
+AC_PROG_INSTALL
+
+dnl Checks for header files.
+AC_HEADER_STDC
+AC_CHECK_HEADER(limits.h)
+AC_CHECK_HEADER(inttypes.h)
+
+dnl Checks for typedefs, structures, and compiler characteristics.
+AC_C_CONST
+AC_TYPE_SIZE_T
+
+dnl Now arrange the build libtool
+AC_PROG_LIBTOOL
+
+dnl Test for POSIX thread
+#ACX_PTHREAD([pthread_ok=yes], [pthread_ok=no])
+#AC_MSG_NOTICE($pthread_ok)
+#if test "x$pthread_ok" == "xyes"; then
+#  LIBS="$LIBS $PTHREAD_LIBS"
+#  CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+#  CPPFLAGS="$CPPFLAGS $PTHREAD_CFLAGS"
+#  AC_MSG_NOTICE($LIBS);
+#  AC_MSG_NOTICE($CFLAGS);
+#  AC_MSG_NOTICE($CPPFLAGS);
+#else
+#  AC_MSG_ERROR([pthreads required to compile libgds]);
+#fi
+
+dnl Test for libxml2 usability (library + headers)
+AC_ARG_ENABLE(xml,
+              AC_HELP_STRING([--enable-xml],
+                             [enable XML support]),
+              gds_config_xml="$enableval",
+              )
+if test "x$gds_config_xml" == "xyes"; then
+  dnl Check for existence of 'xml2-config'
+  AM_PATH_XML2(2.0.0,
+                [ LIBS="${LIBS} ${XML_LIBS}" ]
+		[ CPPFLAGS="${CPPFLAGS} ${XML_CFLAGS} ${XML_CPPFLAGS}" ],
+		)
+   AC_CHECK_LIB([xml2], [xmlNodeGetContent], [xml_ok=yes], [xml_ok=no])
+   if test "x$xml_ok" != "xyes"; then
+      AC_MSG_ERROR([libxml2 is needed to compile xml.* of libgds])
+   else
+      dnl Check for headers
+      AC_CHECK_HEADER([libxml/tree.h], [xml_header_ok=yes], [xml_header_ok=no])
+      if test "x$xml_header_ok" != "xyes"; then
+         AC_MSG_ERROR([libxml2 headers are needed to compile xml.* of libgds])
+      else
+         AC_DEFINE(HAVE_LIBXML, 1, [Define to 1 if you have the 'xml2' library])
+      fi
+   fi
+fi
+
+dnl Enable the memory debugging
+AC_ARG_ENABLE(memory-debug,
+    AC_HELP_STRING([--enable-memory-debug],
+      [helps to track down memory allocation errors]),
+    gds_config_memory_debug="$enableval",
+)
+if test "x$gds_config_memory_debug" == "xyes"; then
+  AC_DEFINE(HAVE_MEMORY_DEBUG, 1, [Define to 1 if memory debug needed])
+fi
+AM_CONDITIONAL([WITH_MEMORY_DEBUG], [test "x$gds_config_memory_debug" == "xyes"])
+
+AC_OUTPUT(Makefile src/Makefile src/libgds/Makefile src/check/Makefile)
+
