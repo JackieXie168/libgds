@@ -5,12 +5,8 @@
 //
 // @author Bruno Quoitin
 // @date 21/03/2003
-// @lastdate 27/01/2005
+// @lastdate 18/07/2003
 // ==================================================================
-
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
 
 #include <libgds/memory.h>
 #include <libgds/stack.h>
@@ -21,7 +17,7 @@
  */
 SStack * stack_create(int iMaxDepth)
 {
-  SStack * pStack= (SStack *) MALLOC(sizeof(SStack)+
+  SStack * pStack= (SStack *) memalloc(sizeof(SStack)+
 				      iMaxDepth*sizeof(void *));
   pStack->iMaxDepth= iMaxDepth;
   pStack->iDepth= 0;
@@ -35,7 +31,7 @@ SStack * stack_create(int iMaxDepth)
 void stack_destroy(SStack ** ppStack)
 {
   if (*ppStack != NULL) {
-    FREE(*ppStack);
+    memfree(*ppStack);
     *ppStack= NULL;
   }
 }

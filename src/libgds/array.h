@@ -3,13 +3,12 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 10/04/2003
-// @lastdate 10/08/2005
+// @lastdate 24/11/2003
 // ==================================================================
 
 #ifndef __ARRAY_H__
 #define __ARRAY_H__
 
-#include <libgds/enumerator.h>
 #include <libgds/types.h>
 
 #define ARRAY_OPTION_SORTED  0x01
@@ -21,7 +20,7 @@ typedef int (*FArrayCompare)(void * pItem1, void * pItem2,
 // ----- FArrayDestroy ----------------------------------------------
 typedef void (*FArrayDestroy) (void * pItem);
 // ----- FArrayForEach ----------------------------------------------
-typedef int (*FArrayForEach) (void * pItem, void * pContext);
+typedef void (*FArrayForEach) (void * pItem, void * pContext);
 // ----- FArrayCopyItem ---------------------------------------------
 typedef void * (*FArrayCopyItem) (void * pItem);
 
@@ -57,22 +56,6 @@ typedef struct {
 #define uint16_array_create(O) \
           (SUInt16Array *) _array_create(sizeof(uint16_t), O, \
           _array_compare, NULL)
-#define uint16_array_length(A) _array_length((SArray *) A)
-extern void uint16_array_destroy(SUInt16Array ** ppArray);
-
-typedef struct {
-  double * data;
-} SDoubleArray;
-#define double_array_create(O) \
-          (SDoubleArray *) _array_create(sizeof(double), O, \
-          _array_compare, NULL)
-#define double_array_destroy(A) _array_destroy((SArray **) A)
-#define double_array_length(A) _array_length((SArray *) A)
-#define double_array_set_length(A, L) _array_set_length((SArray *) A, L)
-#define double_array_get_at(A, I, E) _array_get_at((SArray *) A, I, E)
-#define double_array_remove_at(A, I) _array_remove_at((SArray *)A, I)
-#define double_array_add(A, E) _array_add((SArray *)A, E)
-#define double_array_sorted_find_index(A, E, I) _array_sorted_find_index(A, E, I)
 
 typedef struct {
   void ** data;
@@ -82,6 +65,7 @@ typedef struct {
           _array_compare, NULL)
 #define ptr_array_create(O, FC, FD) \
           (SPtrArray *) _array_create(sizeof(void *), O, FC, FD)
+#define ptr_array_destroy(A) _array_destroy((SArray **) A)
 #define ptr_array_length(A) _array_length((SArray *) A)
 #define ptr_array_set_length(A, L) _array_set_length((SArray *) A, L)
 #define ptr_array_sorted_find_index(A, D, I) \
@@ -89,18 +73,12 @@ typedef struct {
 #define ptr_array_add(A, D) _array_add((SArray *) A, D)
 #define ptr_array_append(A, D) _array_append((SArray *) A, &D)
 #define ptr_array_remove_at(A, I) _array_remove_at((SArray *) A, I)
-#define ptr_array_get_at(A, I, E) _array_get_at((SArray *) A, I, E)
-#define ptr_array_set_fdestroy(A, F) _array_set_fdestroy((SArray *)A, F)
-
-extern void ptr_array_destroy(SPtrArray ** ppArray);
 
 // ----- _array_create ----------------------------------------------
 extern SArray * _array_create(unsigned int uEltSize,
 			      uint8_t uOptions,
 			      FArrayCompare fCompare,
 			      FArrayDestroy fDestroy);
-// ----- _array_set_fdestroy ----------------------------------------
-void _array_set_fdestroy(SArray * pArray, FArrayDestroy fDestroy);
 // ----- _array_destroy ---------------------------------------------
 extern void _array_destroy(SArray ** ppArray);
 // ----- _array_length ----------------------------------------------
@@ -121,9 +99,6 @@ extern int _array_sorted_find_index(SArray * pArray, void * pData,
 extern int _array_add(SArray * pArray, void * pData);
 // ----- _array_append ----------------------------------------------
 extern int _array_append(SArray * pArray, void * pData);
-// ----- _array_for_each --------------------------------------------
-extern int _array_for_each(SArray * pArray, FArrayForEach fForEach,
-			   void * pContext);
 // ----- _array_copy ------------------------------------------------
 extern SArray * _array_copy(SArray * pArray);
 // ----- _array_remove_at -------------------------------------------
@@ -140,7 +115,5 @@ extern void _array_add_all(SArray * pArray, SArray * pSrcArray);
 extern void _array_trim(SArray * pArray, unsigned uMaxLength);
 // ----- _array_sort ------------------------------------------------
 extern int _array_sort(SArray * pArray, FArrayCompare fCompare);
-// ----- _array_get_enum --------------------------------------------
-extern SEnumerator * _array_get_enum(SArray * pArray);
 
 #endif

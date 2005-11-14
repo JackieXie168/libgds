@@ -3,12 +3,8 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 27/06/2005
+// @lastdate 25/02/2004
 // ==================================================================
-
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
 
 #include <assert.h>
 #include <libgds/cli.h>
@@ -33,7 +29,6 @@ SCliCmdParam * cli_cmd_param_create(char * pcName,
   pParam->pcName= (char *) MALLOC(sizeof(char)*(strlen(pcName)+1));
   strcpy(pParam->pcName, pcName);
   pParam->fCheckParam= fCheckParam;
-  pParam->fEnumParam= NULL;
   return pParam;
 }
 
@@ -97,16 +92,6 @@ int cli_params_add(SCliParams * pParams, char * pcName,
   return ptr_array_add((SPtrArray *) pParams, &pParam);
 }
 
-// ----- cli_params_add ---------------------------------------------
-int cli_params_add2(SCliParams * pParams, char * pcName,
-		    FCliCheckParam fCheckParam,
-		    FCliEnumParam fEnumParam)
-{
-  SCliCmdParam * pParam= cli_cmd_param_create(pcName, fCheckParam);
-  pParam->fEnumParam= fEnumParam;
-  return ptr_array_add((SPtrArray *) pParams, &pParam);
-}
-
 // ----- cli_cmd_create ---------------------------------------------
 /**
  *
@@ -125,7 +110,6 @@ SCliCmd * cli_cmd_create(char * pcName,
   pCmd->fCtxCreate= NULL;
   pCmd->fCtxDestroy= NULL;
   pCmd->fCommand= fCommand;
-  pCmd->pcHelp= NULL;
   return pCmd;
 }
 
@@ -148,7 +132,6 @@ SCliCmd * cli_cmd_create_ctx(char * pcName,
   pCmd->fCtxCreate= fCtxCreate;
   pCmd->fCtxDestroy= fCtxDestroy;
   pCmd->fCommand= NULL;
-  pCmd->pcHelp= NULL;
   return pCmd;
 }
 
@@ -198,10 +181,6 @@ void cli_cmd_dump(FILE * pStream, char * pcPrefix, SCliCmd * pCmd)
 }
 
 // ----- cli_cmds_item_compare --------------------------------------
-/**
- * Compare two commands based on their names. The alphanumeric
- * ordering is used for the comparison.
- */
 int cli_cmds_item_compare(void * pItem1, void * pItem2,
 			  uint32_t EltSize)
 {
@@ -212,9 +191,6 @@ int cli_cmds_item_compare(void * pItem1, void * pItem2,
 }
 
 // ----- cli_cmds_item_destroy --------------------------------------
-/**
- * Free a command in a list of commands.
- */
 void cli_cmds_item_destroy(void * pItem)
 {
   cli_cmd_destroy((SCliCmd **) pItem);
@@ -222,9 +198,7 @@ void cli_cmds_item_destroy(void * pItem)
 
 // ----- cli_cmds_create --------------------------------------------
 /**
- * Create a list of command. The commands in the list are sorted based
- * on the alphanumeric ordering (thanks to the cli_cmds_item_compare
- * function).
+ *
  */
 SCliCmds * cli_cmds_create()
 {
@@ -235,53 +209,16 @@ SCliCmds * cli_cmds_create()
 
 // ----- cli_cmds_destroy -------------------------------------------
 /**
- * Destroy a list of commands.
  *
- * NOTE: all the commands in the list are also freed thanks to the
- * underlying array's destroy command. It is also safe to use this
- * function on lists returned by the cli_matching_cmds function since
- * in this case, the underlying array's destroy function is NULL.
  */
 void cli_cmds_destroy(SCliCmds ** ppCmds)
 {
   ptr_array_destroy((SPtrArray **) ppCmds);
 }
 
-// ----- cli_matching_cmds ------------------------------------------
-/**
- * Create a sublist of the commands included in the list (pCmds). Only
- * the commands that match the given text (pcText) are included.
- *
- * IMPORTANT NOTE: the returned list is not a classical command list,
- * since the commands that it includes are only references to the
- * commands from the original list. However, the returned list of
- * commands can be freed using the cli_cmds_destroy function, since
- * the underlying array's destroy function is NULL.
- */
-SCliCmds * cli_matching_cmds(SCliCmds * pCmds, const char * pcText)
-{
-  int iIndex;
-  int iTextLen= strlen(pcText);
-  SCliCmds * pMatchingCmds=
-    (SCliCmds *) ptr_array_create(ARRAY_OPTION_SORTED,
-				  cli_cmds_item_compare, NULL);
-
-  if (pCmds == NULL) {
-    return pMatchingCmds;
-  }
-  for (iIndex= 0; iIndex < ptr_array_length(pCmds); iIndex++) {
-    if (strncmp(pcText, ((SCliCmd *) pCmds->data[iIndex])->pcName,
-		iTextLen) == 0) {
-      ptr_array_add(pMatchingCmds, &pCmds->data[iIndex]);
-    }
-  }
-  return pMatchingCmds;
-}
-
-
 // ----- cli_cmds_add -----------------------------------------------
 /**
- * Add a command (pCmd) in the list (pCmds).
+ *
  */
 int cli_cmds_add(SCliCmds * pCmds, SCliCmd * pCmd)
 {
@@ -295,11 +232,11 @@ int cli_cmds_add(SCliCmds * pCmds, SCliCmd * pCmd)
 SCliCmd * cli_cmd_find_subcmd(SCliCmd * pCmd, char * pcName)
 {
   char ** x= &pcName;
-  unsigned int uIndex;
+  int iIndex;
 
   if (pCmd->pSubCmds != NULL)
-    if (!ptr_array_sorted_find_index(pCmd->pSubCmds, &x, &uIndex))
-      return pCmd->pSubCmds->data[uIndex];
+    if (!ptr_array_sorted_find_index(pCmd->pSubCmds, &x, &iIndex))
+      return pCmd->pSubCmds->data[iIndex];
   return NULL;
 }
 
@@ -364,45 +301,6 @@ int cli_cmd_get_num_params(SCliCmd * pCmd)
 SCliCmdParam * cli_cmd_get_param_at(SCliCmd * pCmd, uint32_t uIndex)
 {
   return (SCliCmdParam *) pCmd->pParams->data[uIndex];
-}
-
-// ----- cli_cmd_match_subcmds --------------------------------------
-/**
- *
- */
-SCliCmd * cli_cmd_match_subcmds(SCli * pCli, SCliCmd * pCmd,
-				char * pcStartCmd,
-				int * piParamIndex)
-{
-  STokens * pTokens;
-  int iTokenIndex= 0;
-  char * pcToken;
-  SCliCmd * pSubCmd= NULL;
-
-  if (tokenizer_run(pCli->pTokenizer, pcStartCmd) < 0) {
-    return NULL;
-  }
-
-  pTokens= tokenizer_get_tokens(pCli->pTokenizer);
-
-  // Match all tokens...
-  while (iTokenIndex < tokens_get_num(pTokens)) {
-    pcToken= tokens_get_string_at(pTokens, iTokenIndex);
-    pSubCmd= cli_cmd_find_subcmd(pCmd, pcToken);
-    if (pSubCmd == NULL)
-      break;
-    iTokenIndex++;
-    pCmd= pSubCmd;
-    *piParamIndex= 0;
-    // Match params...
-    while ((iTokenIndex < tokens_get_num(pTokens)) &&
-	   (*piParamIndex < cli_cmd_get_num_params(pSubCmd))) {
-      iTokenIndex++;
-      (*piParamIndex)++;
-    }
-  }
-
-  return pSubCmd;
 }
 
 // ----- cli_create -------------------------------------------------
@@ -527,10 +425,6 @@ int cli_execute_ctx(SCli * pCli, char * pcCmd, void * pContext)
     cli_context_backtrack(pCli->pExecContext);
     return CLI_SUCCESS;
   }
-  // Ends with "?" token ?
-  if (!strcmp("?", tokens_get_string_at(pTokens, tokens_get_num(pTokens)-1))) {
-    return CLI_SUCCESS_HELP;
-  }
   // Context available ?
   if (!cli_context_is_empty(pCli->pExecContext)) {
     pCtxItem= cli_context_top(pCli->pExecContext);
@@ -637,7 +531,6 @@ void cli_perror_details(FILE * pStream, int iResult, SCli * pCli,
 
   fprintf(pStream, "*** command: \"%s\"\n", pcLine);
   if ((iResult == CLI_ERROR_UNKNOWN_COMMAND) ||
-      (iResult == CLI_ERROR_NOT_A_COMMAND) ||
       (iResult == CLI_ERROR_MISSING_PARAMETER) ||
       (iResult == CLI_ERROR_BAD_PARAMETER)) {
     fprintf(pStream, "*** error  : \"");
@@ -645,10 +538,10 @@ void cli_perror_details(FILE * pStream, int iResult, SCli * pCli,
     for (iIndex= 0; iIndex < pCli->iExecTokenIndex; iIndex++)
       fprintf(pStream, "%s ", tokens_get_string_at(pTokens, iIndex));
     fprintf(pStream, "^^^\"\n");
-    if (((iResult == CLI_ERROR_UNKNOWN_COMMAND) ||
-	(iResult == CLI_ERROR_NOT_A_COMMAND)) &&
+    if ((iResult == CLI_ERROR_UNKNOWN_COMMAND) &&
 	(pCli->pExecCmd != NULL)) {
       fprintf(pStream, "*** expect : ");
+
 
       for (iIndex= 0;
 	   iIndex < cli_cmd_get_num_subcmds(pCli->pExecCmd);
@@ -683,10 +576,9 @@ int cli_execute_line(SCli * pCli, char * pcLine)
       pcLine[iLen-1]= '\0';
     // Parse and execute command
     iResult= cli_execute(pCli, pcLine);
-    if (iResult < 0) {
-      fprintf(stderr, "\033[0;31;1mError: ");
+    if (iResult != CLI_SUCCESS) {
+      fprintf(stderr, "Error: ");
       cli_perror(stderr, iResult);
-      fprintf(stderr, "\033[0m");
       cli_perror_details(stderr, iResult, pCli, pcLine);
     }
   }
@@ -695,9 +587,7 @@ int cli_execute_line(SCli * pCli, char * pcLine)
 
 // ----- cli_execute_file -------------------------------------------
 /**
- * Execute all the lines from the given input stream.
  *
- * NOTE: The execution fo the script will stop at the first error.
  */
 int cli_execute_file(SCli * pCli, FILE * pStream)
 {
@@ -705,18 +595,13 @@ int cli_execute_file(SCli * pCli, FILE * pStream)
   int iResult;
   uint32_t uLineNumber= 1;
 
-  /* Execute all lines in the input file... */
   while (fgets(acLine, sizeof(acLine), pStream) != NULL) {
     iResult= cli_execute_line(pCli, acLine);
-    if (iResult < 0) {
+    if (iResult) {
       fprintf(stderr, "Error: in script file, line %u\n", uLineNumber);
       return iResult;
     }
     uLineNumber++;
   }
-
-  /* Clear the context (if required) */
-  cli_context_clear(pCli->pExecContext);
-
   return CLI_SUCCESS;
 }

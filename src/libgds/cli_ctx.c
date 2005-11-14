@@ -3,12 +3,8 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 27/01/2005
+// @lastdate 29/07/2003
 // ==================================================================
-
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
 
 #include <libgds/cli.h>
 #include <libgds/cli_ctx.h>

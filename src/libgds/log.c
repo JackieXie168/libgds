@@ -2,13 +2,11 @@
 // @(#)log.c
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be), Sebastien Tandel
-// @date 17/05/2005
-// @lastdate 24/01/2005
+// @date 05/06/2003
+// @lastdate 04/11/2003
 // ==================================================================
 
 #include <assert.h>
-#include <errno.h>
-#include <config.h>
 #include <libgds/memory.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -127,19 +125,6 @@ void log_write(SLog * pLog, uint8_t uLevel, char * pcFormat, ...)
   }
 }
 
-// ----- log_perror -------------------------------------------------
-/**
- *
- */
-void log_perror(SLog * pLog, char * pcFormat, ...)
-{
-  va_list ap;
-
-  va_start(ap, pcFormat);
-  log_write(pLog, LOG_LEVEL_SEVERE, pcFormat, ap);
-  log_write(pLog, LOG_LEVEL_SEVERE, "%s\n", strerror(errno));
-}
-
 // ----- log_str2level ----------------------------------------------
 /**
  *
@@ -163,6 +148,9 @@ uint8_t log_str2level(char * pcStr)
 /////////////////////////////////////////////////////////////////////
 // INITIALIZATION AND FINALIZATION SECTION
 /////////////////////////////////////////////////////////////////////
+
+void _log_init() __attribute__((constructor));
+void _log_destroy() __attribute__((destructor));
 
 // ----- _log_init --------------------------------------------------
 /**

@@ -3,19 +3,14 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 10/04/2003
-// @lastdate 10/08/2005
+// @lastdate 24/11/2003
 // ==================================================================
-
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
 
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
 #include <libgds/array.h>
-#include <libgds/enumerator.h>
 #include <libgds/memory.h>
 
 #define _array_elt_pos(A,i) (((char *) A->data)+ \
@@ -62,18 +57,6 @@ SArray * _array_create(unsigned int uEltSize, uint8_t uOptions,
   pRealArray->fCompare= fCompare;
   pRealArray->fDestroy= fDestroy;
   return (SArray *) pRealArray;
-}
-
-// ----- _array_set_fdestroy -----------------------------------------
-/**
- *
- *
- */
-void _array_set_fdestroy(SArray * pArray, FArrayDestroy fDestroy)
-{
-  SRealArray * pRealArray = (SRealArray *)pArray;
-
-  pRealArray->fDestroy = fDestroy;
 }
 
 // ----- _array_destroy ----------------------------------------------
@@ -151,7 +134,7 @@ int _array_set_at(SArray * pArray, unsigned int uIndex, void * pData)
     return -1;
   memcpy(_array_elt_pos(pArray, uIndex), pData,
   	 ((SRealArray *) pArray)->uEltSize);
-  return ((SRealArray *) pArray)->uLength-1;
+  return 0;
 }
 
 // ----- array_get_at -----------------------------------------------
@@ -253,24 +236,6 @@ int _array_append(SArray * pArray, void * pData)
   _array_resize_if_required(pArray, ((SRealArray *) pArray)->uLength+1);
 
   _array_set_at(pArray, ((SRealArray *) pArray)->uLength-1, pData);
-  return ((SRealArray *) pArray)->uLength-1;
-}
-
-// ----- _array_for_each --------------------------------------------
-/**
- *
- */
-int _array_for_each(SArray * pArray, FArrayForEach fForEach,
-		    void * pContext)
-{
-  unsigned int uIndex;
-  int iResult;
-  
-  for (uIndex= 0; uIndex < _array_length(pArray); uIndex++) {
-    iResult= fForEach(_array_elt_pos(pArray, uIndex), pContext);
-    if (iResult != 0)
-      return iResult;
-  }
   return 0;
 }
 
@@ -413,68 +378,5 @@ int _array_quicksort(SArray * pArray, FArrayCompare fCompare)
   return 0;
 }
 
-// ----- uint16_array_destroy ---------------------------------------
-/**
- *
- */
-void uint16_array_destroy(SUInt16Array ** ppArray)
-{
-  _array_destroy((SArray **) ppArray);
-}
 
 
-// ----- ptr_array_destroy ------------------------------------------
-/**
- *
- */
-void ptr_array_destroy(SPtrArray ** ppArray)
-{
-  _array_destroy((SArray **) ppArray);
-}
-
-
-/////////////////////////////////////////////////////////////////////
-//
-// ENUMERATION
-//
-/////////////////////////////////////////////////////////////////////
-
-// -----[ SArrayEnumContext ]----------------------------------------
-typedef struct {
-  unsigned int uIndex;
-  SArray * pArray;
-} SArrayEnumContext;
-
-// -----[ _array_get_enum_has_next ]---------------------------------
-int _array_get_enum_has_next(void * pContext)
-{
-  SArrayEnumContext * pArrayContext= (SArrayEnumContext *) pContext;
-  return (pArrayContext->uIndex < _array_length(pArrayContext->pArray));
-}
-
-// -----[ _array_get_enum_get_next ]---------------------------------
-void * _array_get_enum_get_next(void * pContext)
-{
-  SArrayEnumContext * pArrayContext= (SArrayEnumContext *) pContext;
-  return _array_elt_pos(pArrayContext->pArray, pArrayContext->uIndex++);
-}
-
-// -----[ _array_get_enum_destroy ]----------------------------------
-void _array_get_enum_destroy(void * pContext)
-{
-  SArrayEnumContext * pArrayContext= (SArrayEnumContext *) pContext;
-  FREE(pArrayContext);
-}
-
-// -----[ _array_get_enum ]------------------------------------------
-SEnumerator * _array_get_enum(SArray * pArray)
-{
-  SArrayEnumContext * pContext=
-    (SArrayEnumContext *) MALLOC(sizeof(SArrayEnumContext));
-  pContext->pArray= pArray;
-  pContext->uIndex= 0;
-  return enum_create(pContext,
-		     _array_get_enum_has_next,
-		     _array_get_enum_get_next,
-		     _array_get_enum_destroy);
-}

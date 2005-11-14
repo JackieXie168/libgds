@@ -4,9 +4,9 @@
 // A library of function that handles radix-trees intended to store
 // IPv4 prefixes.
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bqu@infonet.fundp.ac.be)
 // @date 22/10/2002
-// @lastdate 08/11/2005
+// @lastdate 21/05/2003
 // ==================================================================
 
 #ifndef __RADIX_TREE_H__
@@ -44,7 +44,7 @@ extern int radix_tree_add(SRadixTree * pTree, uint32_t uKey,
 			  uint8_t uKeyLen, void * pItem);
 // ----- radix_tree_remove ------------------------------------------
 extern int radix_tree_remove(SRadixTree * pTree, uint32_t uKey,
-			     uint8_t uKeyLen, int iSingle);
+			     uint8_t uKeyLen);
 // ----- radix_tree_get_exact ---------------------------------------
 extern void * radix_tree_get_exact(SRadixTree * pTree,
 				   uint32_t uKey,
@@ -57,8 +57,5 @@ extern void * radix_tree_get_best(SRadixTree * pTree,
 extern int radix_tree_for_each(SRadixTree * pTree,
 			       FRadixTreeForEach fForEach,
 			       void * pContext);
-
-// ----- radix_tree_num_nodes ---------------------------------------
-extern int radix_tree_num_nodes(SRadixTree * pTree);
 
 #endif
