@@ -1,0 +1,19 @@
+# configure.in for libgds
+#
+#
+AC_INIT(src/check/main.c)
+PACKAGE=libgds
+VERSION="1.1.0"
+AC_PREFIX_DEFAULT(/usr/local)
+
+#
+# Version setting up for Automake
+#
+AM_INIT_AUTOMAKE(libgds, $VERSION, no-define)
+AM_CONFIG_HEADER(src/libgds/config.h)
+
+AC_PROG_CC
+AC_PROG_LIBTOOL
+AC_PROG_INSTALL
+AC_OUTPUT(Makefile src/Makefile src/libgds/Makefile src/check/Makefile)
+
