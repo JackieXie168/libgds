@@ -5,7 +5,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 17/05/2005
-// @lastdate 10/08/2005
+// @lastdate 08/11/2005
 // ==================================================================
 
 #ifndef __PATRICIA_TREE_H__
@@ -25,8 +25,8 @@ typedef void (*FTrieDestroy)(void ** ppData);
 // -----[ STrieItem ]------------------------------------------------
 typedef struct TTrieItem STrieItem;
 struct TTrieItem {
-  STrieItem * pLeft; // 0
-  STrieItem * pRight; // 1
+  STrieItem * pLeft;
+  STrieItem * pRight;
   trie_key_t uKey;
   trie_key_len_t uKeyLen;
   void * pData;
@@ -68,6 +68,8 @@ extern "C" {
   extern SPtrArray * trie_get_array(STrie * pTrie);
   // -----[ trie_get_enum ]--------------------------------------------
   extern SEnumerator * trie_get_enum(STrie * pTrie);
+  // -----[ trie_num_nodes ]-------------------------------------------
+  extern int trie_num_nodes(STrie * pTrie);
 
   // -----[ patricia_tree_init ]-------------------------------------
   extern void _patricia_tree_init();
