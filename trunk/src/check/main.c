@@ -4,7 +4,7 @@
 // Generic Data Structures (libgds): validation application.
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
-// @lastdate 05/04/2005
+// @lastdate 22/11/2005
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -16,7 +16,9 @@
 #include <stdlib.h>
 
 #include <libgds/array.h>
+#include <libgds/cli.h>
 #include <libgds/fifo.h>
+#include <libgds/gds.h>
 #include <libgds/list.h>
 #include <libgds/memory.h>
 #include <libgds/patricia-tree.h>
@@ -25,7 +27,7 @@
 #include <libgds/tokenizer.h>
 #include <libgds/tokens.h>
 
-#define IPV4_TO_INT(A,B,C,D) ((((A)*256 + B)*256 + C)*256 + D)
+#define IPV4_TO_INT(A,B,C,D) (((((uint32_t)(A))*256 +(uint32_t)(B))*256 +(uint32_t)( C))*256 +(uint32_t)(D))
 
 static char acAddress[16];
 char * INT_TO_IPV4(unsigned int uAddress)
@@ -685,8 +687,114 @@ int test_patricia_tree()
 }
 
 /////////////////////////////////////////////////////////////////////
+// GDS_CHECK_CLI
+/////////////////////////////////////////////////////////////////////
+
+// -----[ _cli_cmd1 ]------------------------------------------------
+int _cli_cmd1(SCliContext * pContext, STokens * pTokens)
+{
+  int iIndex;
+
+  printf("cli_cmd1:");
+  for (iIndex= 0; iIndex < tokens_get_num(pTokens); iIndex++) {
+    printf(" %s", tokens_get_string_at(pTokens, iIndex));
+  }
+  printf("\n");
+  return CLI_SUCCESS;
+}
+
+// -----[ _cli_cmd2 ]------------------------------------------------
+int _cli_cmd2(SCliContext * pContext, STokens * pTokens)
+{
+  int iIndex;
+  printf("cli_cmd2:");
+  for (iIndex= 0; iIndex < tokens_get_num(pTokens); iIndex++) {
+    printf(" %s", tokens_get_string_at(pTokens, iIndex));
+  }
+  printf("\n");
+  return CLI_SUCCESS;
+}
+
+// -----[ test_cli ]-------------------------------------------------
+int test_cli()
+{
+  SCli * pCli;
+  SCliCmds * pCmds;
+  SCliParams * pParams;
+  int iResult;
+
+  pCli= cli_create();
+  pCmds= cli_cmds_create();
+  pParams= cli_params_create();
+  cli_params_add(pParams, "<param1>", NULL);
+  cli_params_add(pParams, "<param2>", NULL);
+  cli_params_add_vararg(pParams, "<param3>", 5, NULL);
+  // Adding an additional parameter should abort() the program
+  // cli_params_add(pParams, "<param4>", NULL);
+  cli_cmds_add(pCmds, cli_cmd_create("cmd1", _cli_cmd1, NULL, pParams));
+  pParams= cli_params_create();
+  cli_params_add(pParams, "<param1>", NULL);
+  cli_cmds_add(pCmds, cli_cmd_create("cmd2", _cli_cmd2, NULL, pParams));
+  cli_register_cmd(pCli, cli_cmd_create("test", NULL, pCmds, NULL));
+
+  // Dump registered commands
+  cli_cmd_dump(stdout, "", pCli->pBaseCommand);
+
+  // Call cmd1 with 3 varargs
+  if (cli_execute(pCli, "test cmd1 arg1 arg2 vararg1 vararg2 vararg3") != CLI_SUCCESS) {
+    printf("error: could not execute command\n");
+    return -1;
+  }
+
+  // Call cmd1 with no varargs (this is allowed)
+  if (cli_execute(pCli, "test cmd1 arg1 arg2") != CLI_SUCCESS) {
+    printf("error: could not execute command\n");
+    return -1;
+  }
+  
+  // Call cmd1 with too many varargs
+  iResult= cli_execute(pCli, "test cmd1 arg1 arg2 va1 va2 va3 va4 va5 va6");
+  if (iResult != CLI_ERROR_TOO_MANY_PARAMETERS) {
+    fprintf(stderr, "error: wrong error reported: ");
+    cli_perror(stderr, iResult);
+    return -1;
+  } else {
+    fprintf(stderr, "reported error: ");
+    cli_perror(stderr, iResult);
+  }
+  
+  // Standard call for cmd2
+  if (cli_execute(pCli, "test cmd2 arg1") != CLI_SUCCESS) {
+    printf("error: could not execute command\n");
+    return -1;
+  }
+
+  cli_destroy(&pCli);
+  return 0;
+}
+
+/////////////////////////////////////////////////////////////////////
 // MAIN PART
 /////////////////////////////////////////////////////////////////////
+
+// -----[ definition of tests ]--------------------------------------
+typedef int (*FTest)();
+typedef struct {
+  FTest fTest;
+  char * pcName;
+} STest;
+#define NUM_TESTS 9
+STest TEST_LIST[]= {
+  {test_memory, "Memory management"},
+  {test_array, "Basic arrays"},
+  {test_ptr_array, "Arrays of pointers"},
+  {test_list, "Lists"},
+  {test_fifo, "FIFO"},
+  {test_radix_tree, "Radix trees"},
+  {test_patricia_tree, "Patricia trees"},
+  {test_tokenizer, "Tokenizers"},
+  {test_cli, "Command-line interface"},
+};
 
 // ----- main -------------------------------------------------------
 /**
@@ -694,39 +802,21 @@ int test_patricia_tree()
  */
 int main(int argc, char * argv[])
 {
-#ifdef _GDS_CHECK_ARRAY_
-  printf("CHECK [array]\n");
-  return test_array();
-#endif
-#ifdef _GDS_CHECK_PTR_ARRAY_
-  printf("CHECK [ptr_array]\n");
-  return test_ptr_array();
-#endif
-#ifdef _GDS_CHECK_LIST_
-  printf("CHECK [list]\n");
-  return test_list();
-#endif
-#ifdef _GDS_CHECK_RADIX_TREE_
-  printf("CHECK [radix_tree]\n");
-  return test_radix_tree();
-#endif
-#ifdef _GDS_CHECK_TOKENIZER_
-  printf("CHECK [tokenizer]\n");
-  return test_tokenizer();
-#endif
-#ifdef _GDS_CHECK_FIFO_
-  printf("CHECK [fifo]\n");
-  return test_fifo();
-#endif
-#ifdef _GDS_CHECK_MEMORY_
-  printf("CHECK [memory]\n");
-  return test_memory();
-#endif
-#ifdef _GDS_CHECK_PATRICIA_TREE_
-  printf("CHECK [patricia-tree]\n");
-  return test_patricia_tree();
-#endif
+  int iIndex;
+  int iResult;
 
-  fprintf(stderr, "Error: no test requested.\n");
-  return -1;
+  gds_init(0);
+  for (iIndex= 0; iIndex < NUM_TESTS; iIndex++) {
+    iResult= TEST_LIST[iIndex].fTest();
+    printf("Testing [\033[1m%s\033[0m]", TEST_LIST[iIndex].pcName);
+    if (iResult != 0) {
+      printf("\033[70G[\033[33;1mFAIL\033[0m]\n");
+      break;
+    } else {
+      printf("\033[70G[\033[32;1mSUCCESS\033[0m]\n");
+    }
+  }
+  gds_destroy();
+
+  return iResult;
 }

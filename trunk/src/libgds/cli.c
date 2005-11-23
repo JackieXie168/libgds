@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 27/06/2005
+// @lastdate 22/11/2005
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -21,9 +21,16 @@
 #define CLI_OPENING_QUOTES "\""
 #define CLI_CLOSING_QUOTES "\""
 
+
+/////////////////////////////////////////////////////////////////////
+//
+// PARAMETERS MANAGMENT FUNCTIONS
+//
+/////////////////////////////////////////////////////////////////////
+
 // ----- cli_cmd_param_create ---------------------------------------
 /**
- *
+ * Create a parameter with default attributes.
  */
 SCliCmdParam * cli_cmd_param_create(char * pcName,
 				    FCliCheckParam fCheckParam)
@@ -34,12 +41,13 @@ SCliCmdParam * cli_cmd_param_create(char * pcName,
   strcpy(pParam->pcName, pcName);
   pParam->fCheckParam= fCheckParam;
   pParam->fEnumParam= NULL;
+  pParam->tType= CLI_PARAM_TYPE_STD;
   return pParam;
 }
 
 // ----- cli_cmd_param_destroy --------------------------------------
 /**
- *
+ * Destroy a parameter.
  */
 void cli_cmd_param_destroy(SCliCmdParam ** ppParam)
 {
@@ -50,9 +58,12 @@ void cli_cmd_param_destroy(SCliCmdParam ** ppParam)
   }
 }
 
-// ----- cli_params_item_compare ------------------------------------
-int cli_params_item_compare(void * pItem1, void * pItem2,
-			    uint32_t uEltSize)
+// -----[ _cli_params_item_compare ----------------------------------
+/**
+ * Private helper function used to compare 2 parameters in a list.
+ */
+static int _cli_params_item_compare(void * pItem1, void * pItem2,
+				    uint32_t uEltSize)
 {
   SCliCmdParam * pParam1= *((SCliCmdParam **) pItem1);
   SCliCmdParam * pParam2= *((SCliCmdParam **) pItem2);
@@ -60,26 +71,47 @@ int cli_params_item_compare(void * pItem1, void * pItem2,
   return strcmp(pParam1->pcName, pParam2->pcName);
 }
 
-// ----- cli_params_item_destroy ------------------------------------
-void cli_params_item_destroy(void * pItem)
+// -----[ _cli_params_item_destroy ]---------------------------------
+/**
+ * Private helper function used to destroy each parameter in a list.
+ */
+static void _cli_params_item_destroy(void * pItem)
 {
   cli_cmd_param_destroy((SCliCmdParam **) pItem);
 }
 
 // ----- cli_params_create ------------------------------------------
 /**
- *
+ * Create a list of parameters. A list of parameters is a sequence,
+ * i.e. the ordering of parameters is the ordering of their insertion
+ * in the list.
  */
 SCliParams * cli_params_create()
 {
   return (SCliParams *) ptr_array_create(0,
-					 cli_params_item_compare,
-					 cli_params_item_destroy);
+					 _cli_params_item_compare,
+					 _cli_params_item_destroy);
+}
+
+// -----[ _cli_params_check_latest ]---------------------------------
+/**
+ * Check that the latest parameter on the list is not of type
+ * CLI_PARAM_TYPE_VARARG. This function should be called before adding
+ * any new parameter.
+ */
+static void _cli_params_check_latest(SCliParams * pParams)
+{
+  int iLength= ptr_array_length(pParams);
+  if ((iLength > 0) &&
+      (((SCliCmdParam *) pParams->data[iLength-1])->tType == CLI_PARAM_TYPE_VARARG)) {
+    fprintf(stderr, "Error: can not add a parameter after a vararg parameter.\n");
+    abort();
+  }
 }
 
 // ----- cli_params_destroy -----------------------------------------
 /**
- *
+ * Destroy a list of parameters.
  */
 void cli_params_destroy(SCliParams ** ppParams)
 {
@@ -88,24 +120,60 @@ void cli_params_destroy(SCliParams ** ppParams)
 
 // ----- cli_params_add ---------------------------------------------
 /**
+ * Add a parameter to the list of parameters.
  *
+ * Parameter type: CLI_PARAM_TYPE_STD
  */
 int cli_params_add(SCliParams * pParams, char * pcName,
 		   FCliCheckParam fCheckParam)
 {
   SCliCmdParam * pParam= cli_cmd_param_create(pcName, fCheckParam);
+  _cli_params_check_latest(pParams);
   return ptr_array_add((SPtrArray *) pParams, &pParam);
 }
 
 // ----- cli_params_add ---------------------------------------------
+/**
+ * Add a parameter to the list of parameters. An enumeration function
+ * can be attached to this parameter. An enumeration function is
+ * called by the command-line system in interactive mode.
+ *
+ * Parameter type: CLI_PARAM_TYPE_STD
+ */
 int cli_params_add2(SCliParams * pParams, char * pcName,
 		    FCliCheckParam fCheckParam,
 		    FCliEnumParam fEnumParam)
 {
   SCliCmdParam * pParam= cli_cmd_param_create(pcName, fCheckParam);
+  _cli_params_check_latest(pParams);
   pParam->fEnumParam= fEnumParam;
   return ptr_array_add((SPtrArray *) pParams, &pParam);
 }
+
+// ----- cli_params_add_vararg --------------------------------------
+/**
+ * Add a parameter that accepts a variable number of tokens. This type
+ * of parameter must always be the last parameter of a command.
+ *
+ * Parameter type: CLI_PARAM_TYPE_VARARG
+ */
+int cli_params_add_vararg(SCliParams * pParams, char * pcName,
+			  uint8_t uMaxArgs,
+			  FCliCheckParam fCheckParam)
+{
+  SCliCmdParam * pParam= cli_cmd_param_create(pcName, fCheckParam);
+  _cli_params_check_latest(pParams);
+  pParam->tType= CLI_PARAM_TYPE_VARARG;
+  pParam->uMaxArgs= uMaxArgs;
+  return ptr_array_add((SPtrArray *) pParams, &pParam);
+}
+
+
+/////////////////////////////////////////////////////////////////////
+//
+// COMMANDS MANAGMENT FUNCTIONS
+//
+/////////////////////////////////////////////////////////////////////
 
 // ----- cli_cmd_create ---------------------------------------------
 /**
@@ -183,6 +251,12 @@ void cli_cmd_dump(FILE * pStream, char * pcPrefix, SCliCmd * pCmd)
     for (iIndex= 0; iIndex < ptr_array_length(pCmd->pParams); iIndex++) {
       pParam= (SCliCmdParam *) pCmd->pParams->data[iIndex];
       fprintf(pStream, " %s", pParam->pcName);
+      if (pParam->tType == CLI_PARAM_TYPE_VARARG) {
+	if (pParam->uMaxArgs > 0)
+	  fprintf(pStream, "[0-%d]", pParam->uMaxArgs);
+	else
+	  fprintf(pStream, "[0-any]");
+      }
     }
   fprintf(pStream, "\n");
   if (pCmd->pSubCmds != NULL) {
@@ -441,7 +515,15 @@ void cli_destroy(SCli ** ppCli)
 
 // ----- cli_execute_cmd --------------------------------------------
 /**
+ * This function executes a CLI command.
  *
+ * The function modifies the following state variable of the CLI:
+ *   - pExecParam
+ *   - iExecTokenIndex
+ *   - pExecCmd: CHECK THAT pCmd AND pCli->pExecCmd ARE THE SAME. IF
+ *               SO, REMOVE ARGUMENT pCmd
+ *   - pExecContext: will push context on the stack if the current
+ *                   command produces context
  */
 int cli_execute_cmd(SCli * pCli, SCliCmd * pCmd)
 {
@@ -450,28 +532,50 @@ int cli_execute_cmd(SCli * pCli, SCliCmd * pCmd)
   char * pcParamValue;
   STokens * pTokens= tokenizer_get_tokens(pCli->pTokenizer);
   void * pContextItem;
+  int iNumTokenToEat;
 
-  // Match all the command's parameters
-  for (iParamIndex= 0;
-       iParamIndex < cli_cmd_get_num_params(pCli->pExecCmd);
-       iParamIndex++) {
+  // --------------------------------------------
+  // Step (1): Match all the command's parameters
+  // --------------------------------------------
+  iParamIndex= 0;
+  while (iParamIndex < cli_cmd_get_num_params(pCli->pExecCmd)) {    
     pCli->pExecParam= cli_cmd_get_param_at(pCli->pExecCmd, iParamIndex);
-    // Still enough parameters in command-line ?
-    if (pCli->iExecTokenIndex >= tokens_get_num(pTokens))
-      return CLI_ERROR_MISSING_PARAMETER;
-    pcParamValue= tokens_get_string_at(pTokens, pCli->iExecTokenIndex);
 
-    // Check the parameter's value (if required)
-    if (pCli->pExecParam->fCheckParam != NULL) {
-      iResult= pCli->pExecParam->fCheckParam(pcParamValue);
-      if (iResult)
-	return iResult; // parameter error !!!
+    // If the parameter is of type vararg (CLI_PARAM_TYPE_VARARG), it
+    // will eat all the remaining arguments. In the other case, we
+    // must check if there is still enough parameters.
+    if (pCli->pExecParam->tType == CLI_PARAM_TYPE_VARARG) {
+      // Eat all the remaining arguments (0 args is allowed)
+      iNumTokenToEat= tokens_get_num(pTokens) - pCli->iExecTokenIndex;
+      if ((pCli->pExecParam->uMaxArgs > 0) &&
+	  (iNumTokenToEat > pCli->pExecParam->uMaxArgs))
+	return CLI_ERROR_TOO_MANY_PARAMETERS;
+    } else {
+      // Still enough parameters in command-line ?
+      if (pCli->iExecTokenIndex >= tokens_get_num(pTokens))
+	return CLI_ERROR_MISSING_PARAMETER;
+      iNumTokenToEat= 1;
     }
-    cli_context_add_token_copy(pCli->pExecContext, pcParamValue);
-    pCli->iExecTokenIndex++;
+
+    // Eat the parameters...
+    while (iNumTokenToEat > 0) {
+      pcParamValue= tokens_get_string_at(pTokens, pCli->iExecTokenIndex);
+      // Check the parameter's value (if required)
+      if (pCli->pExecParam->fCheckParam != NULL) {
+	iResult= pCli->pExecParam->fCheckParam(pcParamValue);
+	if (iResult)
+	  return iResult; // parameter error !!!
+      }
+      cli_context_add_token_copy(pCli->pExecContext, pcParamValue);
+      pCli->iExecTokenIndex++;
+      iNumTokenToEat--;
+    }
+    iParamIndex++;
   }
 
-  // Produce context ?
+  // --------------------------------------------
+  // Step (2): Produce context ?
+  // --------------------------------------------
   if (pCli->pExecCmd->fCtxCreate != NULL) {
     pContextItem= NULL;
     iResult= pCli->pExecCmd->fCtxCreate(pCli->pExecContext, &pContextItem);
@@ -480,7 +584,9 @@ int cli_execute_cmd(SCli * pCli, SCliCmd * pCmd)
     cli_context_push(pCli->pExecContext, pContextItem, pCli->pExecCmd);
   }
 
-  // Execute command ?
+  // --------------------------------------------
+  // Step (3): Execute command ?
+  // --------------------------------------------
   if (pCli->iExecTokenIndex == tokens_get_num(pTokens)) {
     if (pCli->pExecCmd->fCommand != NULL) {
       iResult= pCli->pExecCmd->fCommand(pCli->pExecContext,
@@ -610,6 +716,8 @@ void cli_perror(FILE * pStream, int iErrorCode)
     fprintf(pStream, "unknown command\n"); break;
   case CLI_ERROR_MISSING_PARAMETER:
     fprintf(pStream, "missing parameter\n"); break;
+  case CLI_ERROR_TOO_MANY_PARAMETERS:
+    fprintf(pStream, "too many parameters (vararg)\n"); break;
   case CLI_ERROR_NOT_A_COMMAND:
     fprintf(pStream, "not a command\n"); break;
   case CLI_ERROR_COMMAND_FAILED:

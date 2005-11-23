@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 28/01/2005
+// @lastdate 22/11/2005
 // ==================================================================
 
 #ifndef __GDS_CLI_H__
@@ -14,20 +14,25 @@
 #include <stdio.h>
 #include <libgds/tokenizer.h>
 
-#define CLI_SUCCESS                  0
-#define CLI_ERROR_UNEXPECTED        -1
-#define CLI_ERROR_UNKNOWN_COMMAND   -2
-#define CLI_ERROR_MISSING_PARAMETER -3
-#define CLI_ERROR_NOT_A_COMMAND     -4
-#define CLI_ERROR_COMMAND_FAILED    -5
-#define CLI_ERROR_BAD_PARAMETER     -6
-#define CLI_ERROR_CTX_CREATE        -7
-#define CLI_WARNING_EMPTY_COMMAND    1
-#define CLI_SUCCESS_TERMINATE        2
-#define CLI_SUCCESS_HELP             3
+#define CLI_SUCCESS                    0
+#define CLI_ERROR_UNEXPECTED          -1
+#define CLI_ERROR_UNKNOWN_COMMAND     -2
+#define CLI_ERROR_MISSING_PARAMETER   -3
+#define CLI_ERROR_NOT_A_COMMAND       -4
+#define CLI_ERROR_COMMAND_FAILED      -5
+#define CLI_ERROR_BAD_PARAMETER       -6
+#define CLI_ERROR_CTX_CREATE          -7
+#define CLI_ERROR_TOO_MANY_PARAMETERS -8
+#define CLI_WARNING_EMPTY_COMMAND      1
+#define CLI_SUCCESS_TERMINATE          2
+#define CLI_SUCCESS_HELP               3
 
 typedef SPtrArray SCliCmds;
 typedef SPtrArray SCliParams;
+typedef enum {
+  CLI_PARAM_TYPE_STD,
+  CLI_PARAM_TYPE_VARARG,
+} cli_param_type_t;
 
 typedef struct {
   SStack * pStack;   // Stack with current contexts
@@ -61,6 +66,8 @@ typedef struct {
 
 typedef struct {
   char * pcName;
+  cli_param_type_t tType;
+  uint8_t uMaxArgs;
   FCliCheckParam fCheckParam;
   FCliEnumParam fEnumParam;
 } SCliCmdParam;
@@ -99,6 +106,10 @@ extern int cli_params_add(SCliParams * pParams, char * pcName,
 extern int cli_params_add2(SCliParams * pParams, char * pcName,
 			   FCliCheckParam fCheckParam,
 			   FCliEnumParam fEnumParam);
+// ----- cli_params_add_vararg --------------------------------------
+extern int cli_params_add_vararg(SCliParams * pParams, char * pcName,
+				 uint8_t uMaxArgs,
+				 FCliCheckParam fCheckParam);
 // ----- cli_cmd_create ---------------------------------------------
 extern SCliCmd * cli_cmd_create(char * pcName, FCliCommand fCommand,
 				SCliCmds * pSubCmds,
