@@ -4,12 +4,13 @@
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 03/12/2004
-// @lastdate 17/10/2005
+// @lastdate 12/12/2005
 // ==================================================================
 
 #ifndef __GDS_HASH_H__
 #define __GDS_HASH_H__
 
+#include <libgds/enumerator.h>
 #include <libgds/types.h>
 
 typedef int (*FHashEltCompare) (void * pElt1, void * pElt2, uint32_t uEltSize);
@@ -48,5 +49,7 @@ extern int hash_for_each(SHash * pHash, FHashForEach fHashForEach,
 // -----[ hash_for_each_key ]----------------------------------------
 extern int hash_for_each_key(SHash * pHash, FHashForEach fHashForEach, 
 			     void * pContext);
+// -----[ hash_get_enum ]--------------------------------------------
+extern SEnumerator * hash_get_enum(SHash * pHash);
 
 #endif //__GDS_HASH_H__

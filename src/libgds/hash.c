@@ -4,7 +4,7 @@
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 03/12/2004
-// @lastdate 17/10/2005
+// @lastdate 09/11/2005
 // ==================================================================
 
 /* This code implements a hash table structure. We can insert same 
@@ -404,4 +404,66 @@ void hash_destroy(SHash ** pHash)
     FREE( (*pHash) );
     (*pHash) = NULL;
   } 
+}
+
+/////////////////////////////////////////////////////////////////////
+//
+// ENUMERATION
+//
+/////////////////////////////////////////////////////////////////////
+
+// -----[ SHashEnumContext ]-----------------------------------------
+typedef struct {
+  unsigned int uIndex1;
+  unsigned int uIndex2;
+  SHash * pHash;
+} SHashEnumContext;
+
+// -----[ _hash_get_enum_has_next ]----------------------------------
+int _hash_get_enum_has_next(void * pContext)
+{
+  SHashEnumContext * pHashContext= (SHashEnumContext *) pContext;
+  SPtrArray * pHashItems;
+  if (pHashContext->uIndex1 >= pHashContext->pHash->uHashSize )
+    return 0;
+  pHashItems= pHashContext->pHash->aHash[pHashContext->uIndex1];
+  if (pHashItems == NULL)
+    return 0;
+  return (pHashContext->uIndex2 < ptr_array_length(pHashItems));
+}
+
+// -----[ _hash_get_enum_get_next ]----------------------------------
+void * _hash_get_enum_get_next(void * pContext)
+{
+  SHashEnumContext * pHashContext= (SHashEnumContext *) pContext;
+  SPtrArray * pHashItems= pHashContext->pHash->aHash[pHashContext->uIndex1];
+  SHashElt * pItem= (SHashElt *) pHashItems->data[pHashContext->uIndex2];
+  if (pHashContext->uIndex2+1 < ptr_array_length(pHashItems)) {
+    pHashContext->uIndex2++;
+  } else {
+    pHashContext->uIndex1++;
+    pHashContext->uIndex2= 0;
+  }
+  return pItem->pElt;
+}
+
+// -----[ _hash_get_enum_destroy ]-----------------------------------
+void _hash_get_enum_destroy(void * pContext)
+{
+  SHashEnumContext * pHashContext= (SHashEnumContext *) pContext;
+  FREE(pHashContext);
+}
+
+// -----[ hash_get_enum ]--------------------------------------------
+SEnumerator * hash_get_enum(SHash * pHash)
+{
+  SHashEnumContext * pContext=
+    (SHashEnumContext *) MALLOC(sizeof(SHashEnumContext));
+  pContext->uIndex1= 0;
+  pContext->uIndex2= 0;
+  pContext->pHash= pHash;
+  return enum_create(pContext,
+		     _hash_get_enum_has_next,
+		     _hash_get_enum_get_next,
+		     _hash_get_enum_destroy);
 }
