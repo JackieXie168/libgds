@@ -4,7 +4,7 @@
 // Generic Data Structures (libgds): validation application.
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
-// @lastdate 22/11/2005
+// @lastdate 09/12/2005
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -17,8 +17,10 @@
 
 #include <libgds/array.h>
 #include <libgds/cli.h>
+#include <libgds/enumerator.h>
 #include <libgds/fifo.h>
 #include <libgds/gds.h>
+#include <libgds/hash.h>
 #include <libgds/list.h>
 #include <libgds/memory.h>
 #include <libgds/patricia-tree.h>
@@ -774,6 +776,58 @@ int test_cli()
 }
 
 /////////////////////////////////////////////////////////////////////
+// GDS_CHECK_HASH
+/////////////////////////////////////////////////////////////////////
+
+// -----[ _hash_cmp ]------------------------------------------------
+int _hash_cmp(void * pElt1, void * pElt2, uint32_t uEltSize)
+{
+  if ((unsigned int) pElt1 > (unsigned int) pElt2) {
+    return 1;
+  } else if ((unsigned int) pElt1 < (unsigned int) pElt2) {
+  } else
+    return 0;
+}
+
+// -----[ _hash_destroy ]-------------------------------------------
+void _hash_destroy(void * pElt)
+{
+}
+
+// -----[ _hash_fct ]------------------------------------------------
+uint32_t _hash_fct(void * pElt, uint32_t uHashSize)
+{
+  return ((unsigned int) pElt) % uHashSize;
+}
+
+// -----[ _hash_for_each ]-------------------------------------------
+int _hash_for_each(void * pElt, void * pContext)
+{
+  fprintf(stderr, "for-each-item: %d\n", (unsigned int) pElt);
+  return 0;
+}
+
+// -----[ test_hash ]------------------------------------------------
+int test_hash()
+{
+  SHash * pHash;
+  SEnumerator * pEnum;
+
+  pHash= hash_init(3, 0, _hash_cmp, _hash_destroy, _hash_fct);
+  hash_add(pHash, (void *) 33);
+  hash_add(pHash, (void *) 55);
+  hash_add(pHash, (void *) 77);
+  hash_add(pHash, (void *) 1111);
+  hash_for_each(pHash, _hash_for_each, NULL);
+  pEnum= hash_get_enum(pHash);
+  while (enum_has_next(pEnum)) {
+    printf("hash-item: %d\n", (unsigned int) enum_get_next(pEnum));
+  }
+  hash_destroy(&pHash);
+  return 0;
+}
+
+/////////////////////////////////////////////////////////////////////
 // MAIN PART
 /////////////////////////////////////////////////////////////////////
 
@@ -788,8 +842,9 @@ STest TEST_LIST[]= {
   {test_memory, "Memory management"},
   {test_array, "Basic arrays"},
   {test_ptr_array, "Arrays of pointers"},
-  {test_list, "Lists"},
   {test_fifo, "FIFO"},
+  {test_list, "Lists"},
+  {test_hash, "Hashs"},
   {test_radix_tree, "Radix trees"},
   {test_patricia_tree, "Patricia trees"},
   {test_tokenizer, "Tokenizers"},
