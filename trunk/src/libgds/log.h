@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be), Sebastien Tandel
 // @date 17/05/2005
-// @lastdate 24/01/2005
+// @lastdate 03/03/2006
 // ==================================================================
 
 #ifndef __GDS_LOG_H__
@@ -12,21 +12,110 @@
 #include <stdio.h>
 #include <libgds/types.h>
 
-#define LOG_LEVEL_EVERYTHING 0
-#define LOG_LEVEL_DEBUG      1
-#define LOG_LEVEL_INFO       2
-#define LOG_LEVEL_WARNING    3
-#define LOG_LEVEL_SEVERE     4
-#define LOG_LEVEL_FATAL      5
-#define LOG_LEVEL_MAX        255
+// -----[ ELogLevel ]----------------------------------------------
+typedef enum { LOG_LEVEL_EVERYTHING,
+	       LOG_LEVEL_DEBUG,
+	       LOG_LEVEL_INFO,
+	       LOG_LEVEL_WARNING,
+	       LOG_LEVEL_SEVERE,
+	       LOG_LEVEL_FATAL,
+	       LOG_LEVEL_MAX } ELogLevel;
 
-#define LOG_ENABLED_EVERYTHING() \
-  if (log_enabled(pMainLog, LOG_LEVEL_EVERYTHING))
-#define LOG_ENABLED_DEBUG() if (log_enabled(pMainLog, LOG_LEVEL_DEBUG))
-#define LOG_ENABLED_INFO() if (log_enabled(pMainLog, LOG_LEVEL_INFO))
-#define LOG_ENABLED_WARNING() if (log_enabled(pMainLog, LOG_LEVEL_WARNING))
-#define LOG_ENABLED_SEVERE() if (log_enabled(pMainLog, LOG_LEVEL_SEVERE))
-#define LOG_ENABLED_FATAL() if (log_enabled(pMainLog, LOG_LEVEL_FATAL))
+// -----[ ELogType ]-------------------------------------------------
+typedef enum { LOG_TYPE_STREAM,
+	       LOG_TYPE_FILE,
+	       LOG_TYPE_CALLBACK } ELogType;
+
+// -----[ FLogStreamCallback ]---------------------------------------
+/**
+ * The FLogStreamCallback function prototype is used to implement
+ * arbitrary log streams. The main motivation for defining such a
+ * callback is to send the log output to a Java application through
+ * the Java Native Interface (JNI).
+ */
+typedef void (*FLogStreamCallback)(void * pContext, char * pcOutput);
+
+// -----[ SLogCallback ]---------------------------------------------
+typedef struct {
+  FLogStreamCallback fCallback;
+  void * pContext;
+} SLogCallback;
+
+// -----[ SLogStream ]-----------------------------------------------
+/**
+ * The SLogStream data structure hold all the data related to a log
+ * stream.
+ */
+typedef struct {
+  ELogType eType;
+  ELogLevel eLevel;
+  union {
+    FILE * pStream;
+    SLogCallback sCallback;
+  };
+} SLogStream;
+
+// -----[ log_create_stream ]----------------------------------------
+extern SLogStream * log_create_stream(FILE * pStream);
+// -----[ log_create_file ]------------------------------------------
+extern SLogStream * log_create_file(char * pcFileName);
+// -----[ log_create_callback ]--------------------------------------
+extern SLogStream * log_create_callback(FLogStreamCallback fCallback,
+					void * pContext);
+// ----- log_destroy ------------------------------------------------
+extern void log_destroy(SLogStream ** ppLogStream);
+// ----- log_set_level ----------------------------------------------
+extern void log_set_level(SLogStream * pLogStream, ELogLevel eLevel);
+// -----[ log_str2level ]--------------------------------------------
+extern ELogLevel log_str2level(char * pcStr);
+
+// ----- log_get_stream ---------------------------------------------
+// SHOULD NOT BE USED extern FILE * log_get_stream(SLog * pLog);
+// ----- log_set_stream ---------------------------------------------
+// SHOULD NOT BE USED extern void log_set_stream(SLog * pLog, FILE * pStream);
+// ----- log_set_file -----------------------------------------------
+// SHOULD NOT BE USED extern void log_set_file(SLog * pLog, char * pcFileName);
+
+// ----- log_enabled ------------------------------------------------
+extern int log_enabled(SLogStream * pLogStream, ELogLevel eLevel);
+// ----- log_printf --------------------------------------------------
+extern void log_printf(SLogStream * pLogStream, char * pcFormat, ...);
+// -----[ log_flush ]------------------------------------------------
+extern void log_flush(SLogStream * pLogStream);
+// ----- log_perror --------------------------------------------------
+extern void log_perror(SLogStream * pLogStream, char * pcFormat, ...);
+
+
+/////////////////////////////////////////////////////////////////////
+//
+// INITIALIZATION AND FINALIZATION FUNCTIONS
+//
+/////////////////////////////////////////////////////////////////////
+
+// -----[ standard log streams ]-------------------------------------
+/**
+ * Definition of "standard" log streams. These log streams are
+ * initialized to send all their output.
+ *
+ * - pLogErr is initialized to send its output on stderr.
+ * - pLogOut is initialized to send its output on stdout.
+ * - pLogDebug is initialized to send its output on stderr.
+ */
+extern SLogStream * pLogErr;
+extern SLogStream * pLogOut;
+extern SLogStream * pLogDebug;
+
+// ----- _log_init --------------------------------------------------
+extern void _log_init();
+// ----- _log_destroy -----------------------------------------------
+extern void _log_destroy();
+
+
+/////////////////////////////////////////////////////////////////////
+//
+// LOG MACROS
+//
+/////////////////////////////////////////////////////////////////////
 
 /* Note about variadic macros:
  * ---------------------------
@@ -42,62 +131,31 @@
 #endif
 #endif
 
+#define LOG_DEBUG_ENABLED(LEVEL) \
+  if (log_enabled(pLogDebug, LEVEL))
+#define LOG_ERR_ENABLED(LEVEL) \
+  if (log_enabled(pLogErr, LEVEL))
+#define LOG_OUT_ENABLED(LEVEL) \
+  if (log_enabled(pLogOut, LEVEL))
+
 #ifdef __VARIADIC_ELLIPSIS__
 
-#define LOG_EVERYTHING(...) \
-  log_write(pMainLog, LOG_LEVEL_EVERYTHING, __VA_ARGS__)
-#define LOG_DEBUG(...) log_write(pMainLog, LOG_LEVEL_DEBUG, __VA_ARGS__)
-#define LOG_INFO(...) log_write(pMainLog, LOG_LEVEL_INFO, __VA_ARGS__)
-#define LOG_WARNING(...) log_write(pMainLog, LOG_LEVEL_WARNING, __VA_ARGS__)
-#define LOG_SEVERE(...) log_write(pMainLog, LOG_LEVEL_SEVERE, __VA_ARGS__)
-#define LOG_FATAL(...) log_write(pMainLog, LOG_LEVEL_FATAL, __VA_ARGS__)
-#define LOG_PERROR(...) log_perror(pMainLog, __VA_ARGS__)
+#define LOG_DEBUG(LEVEL, ...) \
+  if (log_enabled(pLogDebug, LEVEL)) log_printf(pLogDebug, __VA_ARGS__)
+#define LOG_ERR(LEVEL, ...) \
+  if (log_enabled(pLogErr, LEVEL)) log_printf(pLogErr, __VA_ARGS__)
+#define LOG_OUT(LEVEL, ...) \
+  if (log_enabled(pLogOut, LEVEL)) log_printf(pLogOut, __VA_ARGS__)
 
-# else /* __VARIADIC_ELLIPSIS__ */
+# else // __VARIADIC_ELLIPSIS__
 
-#define LOG_EVERYTHING(args...) \
-  log_write(pMainLog, LOG_LEVEL_EVERYTHING, args)
-#define LOG_DEBUG(args...) log_write(pMainLog, LOG_LEVEL_DEBUG, args)
-#define LOG_INFO(args...) log_write(pMainLog, LOG_LEVEL_INFO, args)
-#define LOG_WARNING(args...) log_write(pMainLog, LOG_LEVEL_WARNING, args)
-#define LOG_SEVERE(args...) log_write(pMainLog, LOG_LEVEL_SEVERE, args)
-#define LOG_FATAL(args...) log_write(pMainLog, LOG_LEVEL_FATAL, args)
-#define LOG_PERROR(args...) log_perror(pMainLog, args)
+#define LOG_DEBUG(LEVEL, args...) \
+  if (log_enabled(pLogDebug, LEVEL)) log_printf(pLogDebug, args)
+#define LOG_ERR(LEVEL, args...) \
+  if (log_enabled(pLogErr, LEVEL)) log_printf(pLogErr, args)
+#define LOG_OUT(LEVEL, args...) \
+  if (log_enabled(pLogOut, LEVEL)) log_printf(pLogOut, args)
 
 #endif
-
-typedef struct {
-  FILE * pStream;
-  uint8_t uLevel;
-  uint8_t uOutput;
-} SLog;
-
-extern SLog * pMainLog;
-
-// ----- log_create -------------------------------------------------
-extern SLog * log_create();
-// ----- log_destroy ------------------------------------------------
-extern void log_destroy(SLog ** ppLog);
-// ----- log_set_level ----------------------------------------------
-extern void log_set_level(SLog * pLog, uint8_t uLevel);
-// ----- log_get_stream ---------------------------------------------
-extern FILE * log_get_stream(SLog * pLog);
-// ----- log_set_stream ---------------------------------------------
-extern void log_set_stream(SLog * pLog, FILE * pStream);
-// ----- log_set_file -----------------------------------------------
-extern void log_set_file(SLog * pLog, char * pcFileName);
-// ----- log_enabled ------------------------------------------------
-extern int log_enabled(SLog * pLog, uint8_t uLevel);
-// ----- log_write --------------------------------------------------
-extern void log_write(SLog *pLog, uint8_t uLevel, char * pcFormat, ...);
-// ----- log_perror -------------------------------------------------
-extern void log_perror(SLog * pLog, char * pcFormat, ...);
-// ----- log_str2level ----------------------------------------------
-extern uint8_t log_str2level(char * pcStr);
-
-// ----- _log_init --------------------------------------------------
-extern void _log_init();
-// ----- _log_destroy -----------------------------------------------
-extern void _log_destroy();
 
 #endif
