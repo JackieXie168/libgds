@@ -4,7 +4,7 @@
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 03/12/2004
-// @lastdate 09/11/2005
+// @lastdate 02/03/2006
 // ==================================================================
 
 /* This code implements a hash table structure. We can insert same 
@@ -13,6 +13,7 @@
  */
 
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <config.h>
@@ -169,8 +170,7 @@ SHash * hash_init(const uint32_t uHashSize, float fResizeThreshold,
   pHash->aHash= MALLOC(sizeof(uint32_t)*uHashSize);
   memset(pHash->aHash, 0, sizeof(uint32_t)*uHashSize);
 
-  if (fHashCompute == NULL)
-    LOG_WARNING("hash_init> Hash Key Computation function unitialized !");
+  assert(fHashCompute != NULL);
 
   pHash->pFunctions= MALLOC(sizeof(SHashFunctions));
   pHash->pFunctions->fEltCompare= fEltCompare;
@@ -302,7 +302,7 @@ int hash_del(SHash * pHash, void * pElt)
     }
   }
   if (iRet == 0)
-    LOG_DEBUG("hash_del> No elt unreferenced.\n");
+    fprintf(stderr, "hash_del> No elt unreferenced.\n");
 
   return iRet;
 }
