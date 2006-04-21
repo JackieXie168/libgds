@@ -3,13 +3,14 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 22/11/2005
+// @lastdate 21/04/2006
 // ==================================================================
 
 #ifndef __GDS_CLI_H__
 #define __GDS_CLI_H__
 
 #include <libgds/array.h>
+#include <libgds/log.h>
 #include <libgds/stack.h>
 #include <stdio.h>
 #include <libgds/tokenizer.h>
@@ -123,7 +124,7 @@ extern SCliCmd * cli_cmd_create_ctx(char * pcName,
 // ----- cli_cmd_destroy --------------------------------------------
 extern void cli_cmd_destroy(SCliCmd ** ppCmd);
 // ----- cli_cmd_dump -----------------------------------------------
-extern void cli_cmd_dump(FILE * pStream, char * pcPrefix,
+extern void cli_cmd_dump(SLogStream * pStream, char * pcPrefix,
 			 SCliCmd * pCmd);
 // ----- cli_cmd_add_subcmd -----------------------------------------
 extern int cli_cmd_add_subcmd(SCliCmd * pCmd, SCliCmd * pSubCmd);
@@ -157,7 +158,7 @@ extern int cli_execute(SCli * pCli, char * pcCmd);
 // ----- cli_register_cmd -------------------------------------------
 extern int cli_register_cmd(SCli * pCli, SCliCmd * pCmd);
 // ----- cli_perror -------------------------------------------------
-extern void cli_perror(FILE * pStream, int iErrorCode);
+extern void cli_perror(SLogStream * pStream, int iErrorCode);
 // ----- cli_execute_file -------------------------------------------
 extern int cli_execute_file(SCli * pCli, FILE * pStream);
 // ----- cli_execute_line -------------------------------------------

@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 22/11/2005
+// @lastdate 21/04/2006
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -13,6 +13,7 @@
 #include <assert.h>
 #include <libgds/cli.h>
 #include <libgds/cli_ctx.h>
+#include <libgds/log.h>
 #include <libgds/memory.h>
 #include <stdlib.h>
 #include <string.h>
@@ -239,26 +240,26 @@ void cli_cmd_destroy(SCliCmd ** ppCmd)
 /**
  *
  */
-void cli_cmd_dump(FILE * pStream, char * pcPrefix, SCliCmd * pCmd)
+void cli_cmd_dump(SLogStream * pStream, char * pcPrefix, SCliCmd * pCmd)
 {
   int iIndex;
   SCliCmd * pSubCmd;
   SCliCmdParam * pParam;
   char * pcNewPrefix;
 
-  fprintf(pStream, "%s%s", pcPrefix, pCmd->pcName);
+  log_printf(pStream, "%s%s", pcPrefix, pCmd->pcName);
   if (pCmd->pParams != NULL)
     for (iIndex= 0; iIndex < ptr_array_length(pCmd->pParams); iIndex++) {
       pParam= (SCliCmdParam *) pCmd->pParams->data[iIndex];
-      fprintf(pStream, " %s", pParam->pcName);
+      log_printf(pStream, " %s", pParam->pcName);
       if (pParam->tType == CLI_PARAM_TYPE_VARARG) {
 	if (pParam->uMaxArgs > 0)
-	  fprintf(pStream, "[0-%d]", pParam->uMaxArgs);
+	  log_printf(pStream, "[0-%d]", pParam->uMaxArgs);
 	else
-	  fprintf(pStream, "[0-any]");
+	  log_printf(pStream, "[0-any]");
       }
     }
-  fprintf(pStream, "\n");
+  log_printf(pStream, "\n");
   if (pCmd->pSubCmds != NULL) {
     pcNewPrefix= (char *) MALLOC(sizeof(char)*(strlen(pcPrefix)+3));
     strcpy(pcNewPrefix, pcPrefix);
@@ -705,31 +706,31 @@ int cli_register_cmd(SCli * pCli, SCliCmd * pCmd)
 /**
  *
  */
-void cli_perror(FILE * pStream, int iErrorCode)
+void cli_perror(SLogStream * pStream, int iErrorCode)
 {
   switch (iErrorCode) {
   case CLI_SUCCESS:
-    fprintf(pStream, "success\n"); break;
+    log_printf(pStream, "success\n"); break;
   case CLI_ERROR_UNEXPECTED:
-	fprintf(pStream, "unexpected error\n"); break;
+    log_printf(pStream, "unexpected error\n"); break;
   case CLI_ERROR_UNKNOWN_COMMAND:
-    fprintf(pStream, "unknown command\n"); break;
+    log_printf(pStream, "unknown command\n"); break;
   case CLI_ERROR_MISSING_PARAMETER:
-    fprintf(pStream, "missing parameter\n"); break;
+    log_printf(pStream, "missing parameter\n"); break;
   case CLI_ERROR_TOO_MANY_PARAMETERS:
-    fprintf(pStream, "too many parameters (vararg)\n"); break;
+    log_printf(pStream, "too many parameters (vararg)\n"); break;
   case CLI_ERROR_NOT_A_COMMAND:
-    fprintf(pStream, "not a command\n"); break;
+    log_printf(pStream, "not a command\n"); break;
   case CLI_ERROR_COMMAND_FAILED:
-    fprintf(pStream, "command failed\n"); break;
+    log_printf(pStream, "command failed\n"); break;
   case CLI_ERROR_BAD_PARAMETER:
-    fprintf(pStream, "bad parameter value\n"); break;
+    log_printf(pStream, "bad parameter value\n"); break;
   case CLI_ERROR_CTX_CREATE:
-    fprintf(pStream, "unable to create context\n"); break;
+    log_printf(pStream, "unable to create context\n"); break;
   case CLI_WARNING_EMPTY_COMMAND:
-    fprintf(pStream, "empty command\n"); break;
+    log_printf(pStream, "empty command\n"); break;
   default:
-    fprintf(pStream, "unknown error\n");
+    log_printf(pStream, "unknown error\n");
   }
 }
 
@@ -737,40 +738,40 @@ void cli_perror(FILE * pStream, int iErrorCode)
 /**
  *
  */
-void cli_perror_details(FILE * pStream, int iResult, SCli * pCli,
+void cli_perror_details(SLogStream * pStream, int iResult, SCli * pCli,
 			char * pcLine)
 {
   STokens * pTokens;
   int iIndex;
 
-  fprintf(pStream, "*** command: \"%s\"\n", pcLine);
+  log_printf(pStream, "*** command: \"%s\"\n", pcLine);
   if ((iResult == CLI_ERROR_UNKNOWN_COMMAND) ||
       (iResult == CLI_ERROR_NOT_A_COMMAND) ||
       (iResult == CLI_ERROR_MISSING_PARAMETER) ||
       (iResult == CLI_ERROR_BAD_PARAMETER)) {
-    fprintf(pStream, "*** error  : \"");
+    log_printf(pStream, "*** error  : \"");
     pTokens= tokenizer_get_tokens(pCli->pTokenizer);
     for (iIndex= 0; iIndex < pCli->iExecTokenIndex; iIndex++)
-      fprintf(pStream, "%s ", tokens_get_string_at(pTokens, iIndex));
-    fprintf(pStream, "^^^\"\n");
+      log_printf(pStream, "%s ", tokens_get_string_at(pTokens, iIndex));
+    log_printf(pStream, "^^^\"\n");
     if (((iResult == CLI_ERROR_UNKNOWN_COMMAND) ||
 	(iResult == CLI_ERROR_NOT_A_COMMAND)) &&
 	(pCli->pExecCmd != NULL)) {
-      fprintf(pStream, "*** expect : ");
+      log_printf(pStream, "*** expect : ");
 
       for (iIndex= 0;
 	   iIndex < cli_cmd_get_num_subcmds(pCli->pExecCmd);
 	   iIndex++) {
 	if (iIndex > 0)
-	  fprintf(pStream, ", ");
-	fprintf(pStream, "%s",
+	  log_printf(pStream, ", ");
+	log_printf(pStream, "%s",
 		cli_cmd_get_subcmd_at(pCli->pExecCmd, iIndex)->pcName);
       }
-      fprintf(pStream, "\n");
+      log_printf(pStream, "\n");
     } else if (((iResult == CLI_ERROR_MISSING_PARAMETER) ||
 	 (iResult == CLI_ERROR_BAD_PARAMETER)) &&
 	(pCli->pExecParam != NULL))
-      fprintf(pStream, "*** expect : %s\n", pCli->pExecParam->pcName);
+      log_printf(pStream, "*** expect : %s\n", pCli->pExecParam->pcName);
   }
 }
 
@@ -792,10 +793,10 @@ int cli_execute_line(SCli * pCli, char * pcLine)
     // Parse and execute command
     iResult= cli_execute(pCli, pcLine);
     if (iResult < 0) {
-      fprintf(stderr, "\033[0;31;1mError: ");
-      cli_perror(stderr, iResult);
-      fprintf(stderr, "\033[0m");
-      cli_perror_details(stderr, iResult, pCli, pcLine);
+      log_printf(pLogErr, "\033[0;31;1mError: ");
+      cli_perror(pLogErr, iResult);
+      log_printf(pLogErr, "\033[0m");
+      cli_perror_details(pLogErr, iResult, pCli, pcLine);
     }
   }
   return iResult;
@@ -817,7 +818,7 @@ int cli_execute_file(SCli * pCli, FILE * pStream)
   while (fgets(acLine, sizeof(acLine), pStream) != NULL) {
     iResult= cli_execute_line(pCli, acLine);
     if (iResult < 0) {
-      fprintf(stderr, "Error: in script file, line %u\n", uLineNumber);
+      log_printf(pLogErr, "Error: in script file, line %u\n", uLineNumber);
       return iResult;
     }
     uLineNumber++;
