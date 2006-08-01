@@ -4,7 +4,7 @@
 // Generic Data Structures (libgds): validation application.
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
-// @lastdate 09/12/2005
+// @lastdate 31/07/2006
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -17,6 +17,7 @@
 
 #include <libgds/array.h>
 #include <libgds/cli.h>
+#include <libgds/dllist.h>
 #include <libgds/enumerator.h>
 #include <libgds/fifo.h>
 #include <libgds/gds.h>
@@ -258,6 +259,77 @@ int test_list()
   list_destroy(&pList);
 
   return 0;
+}
+
+/////////////////////////////////////////////////////////////////////
+// GDS_CHECK_DLLIST
+/////////////////////////////////////////////////////////////////////
+
+// ----- _test_dllist_for_each --------------------------------------
+static int _test_dllist_for_each(void * pUserData, void * pContext)
+{
+  fprintf(stdout, "for-each-dllist-item: %d\n", (int) pUserData);
+  return 0;
+}
+
+// ----- test_dllist ------------------------------------------------
+/**
+ * Purpose of the test:
+ * - test compilation (function calls syntax)
+ * - test basic list construction/modification (insertion  & removal)
+ * - test for_each function
+ * - test destruction
+ */
+int test_dllist()
+{
+  int iResult= 0;
+  SDLList * pList;
+  int iValue;
+
+  pList= dllist_create(NULL);
+
+  // initial list => (1, 2, 3)
+  dllist_append(pList, (void *) 1);
+  dllist_append(pList, (void *) 2);
+  dllist_append(pList, (void *) 3);
+
+  // insert @0 => (55, 1, 2, 3)
+  dllist_insert(pList, 0, (void *) 55);
+
+  // insert @2 => (55, 1, 110, 2, 3)
+  dllist_insert(pList, 2, (void *) 110);
+
+  // insert @5 (end-of-list) => (55, 1, 110, 2, 3, 666)
+  dllist_insert(pList, 5, (void *) 666);
+
+  // remove @0 (start-of-list) => (1, 110, 2, 3, 666)
+  dllist_remove(pList, 0);
+
+  // remove @2 (in-list) => (1, 110, 3, 666)
+  dllist_remove(pList, 2);
+
+  // remove @3 (end-of-list) => (1, 110, 3)
+  dllist_remove(pList, 3);
+
+  // list should contain: (1, 110, 3)
+  dllist_for_each(pList, NULL, _test_dllist_for_each);
+
+  // Check list size and content...
+  if (dllist_size(pList) != 3)
+    iResult= -1;
+  if ((dllist_get(pList, 0, (void **) &iValue) != 0) ||
+      iValue != 1)
+    iResult= -1;
+  if ((dllist_get(pList, 1, (void **) &iValue) != 0) ||
+      iValue != 110)
+    iResult= -1;
+  if ((dllist_get(pList, 2, (void **) &iValue) != 0) ||
+      iValue != 3)
+    iResult= -1;
+
+  dllist_destroy(&pList);
+
+  return iResult;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -740,7 +812,7 @@ int test_cli()
   cli_register_cmd(pCli, cli_cmd_create("test", NULL, pCmds, NULL));
 
   // Dump registered commands
-  cli_cmd_dump(stdout, "", pCli->pBaseCommand);
+  cli_cmd_dump(pLogOut, "", pCli->pBaseCommand);
 
   // Call cmd1 with 3 varargs
   if (cli_execute(pCli, "test cmd1 arg1 arg2 vararg1 vararg2 vararg3") != CLI_SUCCESS) {
@@ -758,11 +830,11 @@ int test_cli()
   iResult= cli_execute(pCli, "test cmd1 arg1 arg2 va1 va2 va3 va4 va5 va6");
   if (iResult != CLI_ERROR_TOO_MANY_PARAMETERS) {
     fprintf(stderr, "error: wrong error reported: ");
-    cli_perror(stderr, iResult);
+    cli_perror(pLogErr, iResult);
     return -1;
   } else {
     fprintf(stderr, "reported error: ");
-    cli_perror(stderr, iResult);
+    cli_perror(pLogErr, iResult);
   }
   
   // Standard call for cmd2
@@ -837,13 +909,14 @@ typedef struct {
   FTest fTest;
   char * pcName;
 } STest;
-#define NUM_TESTS 9
+#define NUM_TESTS 11
 STest TEST_LIST[]= {
   {test_memory, "Memory management"},
   {test_array, "Basic arrays"},
   {test_ptr_array, "Arrays of pointers"},
   {test_fifo, "FIFO"},
   {test_list, "Lists"},
+  {test_dllist, "Doubly-linked lists"},
   {test_hash, "Hashs"},
   {test_radix_tree, "Radix trees"},
   {test_patricia_tree, "Patricia trees"},
@@ -862,13 +935,13 @@ int main(int argc, char * argv[])
 
   gds_init(0);
   for (iIndex= 0; iIndex < NUM_TESTS; iIndex++) {
+    printf("Testing [\033[1m%s\033[0m]\n", TEST_LIST[iIndex].pcName);
     iResult= TEST_LIST[iIndex].fTest();
-    printf("Testing [\033[1m%s\033[0m]", TEST_LIST[iIndex].pcName);
     if (iResult != 0) {
-      printf("\033[70G[\033[33;1mFAIL\033[0m]\n");
+      printf("=> Result:\033[70G[\033[33;1mFAIL\033[0m]\n");
       break;
     } else {
-      printf("\033[70G[\033[32;1mSUCCESS\033[0m]\n");
+      printf("=> Result:\033[70G[\033[32;1mSUCCESS\033[0m]\n");
     }
   }
   gds_destroy();
