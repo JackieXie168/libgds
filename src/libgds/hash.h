@@ -13,7 +13,8 @@
 #include <libgds/enumerator.h>
 #include <libgds/types.h>
 
-typedef int (*FHashEltCompare) (void * pElt1, void * pElt2, uint32_t uEltSize);
+typedef int (*FHashEltCompare) (void * pElt1, void * pElt2,
+                                unsigned int uEltSize);
 typedef void (*FHashEltDestroy) (void * pElt);
 //Do not have to return the key but only some value on which the implementation
 //will do the modulo to obtain the real key. In fact, we can't return the real key
