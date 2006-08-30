@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 21/04/2006
+// @lastdate 30/08/2006
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -64,7 +64,7 @@ void cli_cmd_param_destroy(SCliCmdParam ** ppParam)
  * Private helper function used to compare 2 parameters in a list.
  */
 static int _cli_params_item_compare(void * pItem1, void * pItem2,
-				    uint32_t uEltSize)
+				    unsigned int uEltSize)
 {
   SCliCmdParam * pParam1= *((SCliCmdParam **) pItem1);
   SCliCmdParam * pParam2= *((SCliCmdParam **) pItem2);
@@ -278,7 +278,7 @@ void cli_cmd_dump(SLogStream * pStream, char * pcPrefix, SCliCmd * pCmd)
  * ordering is used for the comparison.
  */
 int cli_cmds_item_compare(void * pItem1, void * pItem2,
-			  uint32_t EltSize)
+			  unsigned int EltSize)
 {
   SCliCmd * pCmd1= *((SCliCmd **) pItem1);
   SCliCmd * pCmd2= *((SCliCmd **) pItem2);
