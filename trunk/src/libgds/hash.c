@@ -4,7 +4,7 @@
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 03/12/2004
-// @lastdate 02/03/2006
+// @lastdate 30/08/2006
 // ==================================================================
 
 /* This code implements a hash table structure. We can insert same 
@@ -47,7 +47,7 @@ typedef struct {
  *
  */
 static int _hash_element_compare(void * pHElt1, void * pHElt2,
-				 uint32_t uEltSize)
+				 unsigned int uEltSize)
 {
   SHashElt * pHashElt1= *((SHashElt **) pHElt1);
   SHashElt * pHashElt2= *((SHashElt **) pHElt2);
