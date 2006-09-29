@@ -1,0 +1,127 @@
+README.logging
+==============
+(10/04/2006, bqu@info.ucl.ac.be)
+
+In the latest version of libgds, the logging system has been changed
+in order to be more generic. The API has changed and modifications
+must be brought to existing code using the previous API.
+
+
+Standard log streams:
+---------------------
+
+First, the static pcMainLog stream has been removed. It has been
+replaced by 3 "standard" log streams. They are defined in libgds/log.h
+and are initialized automatically by gds_init():
+
+  extern SLogStream * pLogErr;
+  extern SLogStream * pLogOut;
+  extern SLogStream * pLogDebug;
+
+The default behavior of these log streams is as follows. pLogErr and
+pLogDebug are configured to send their output on stderr. pLogOut is
+configured to send its output on stdout.
+
+
+Additional log streams:
+-----------------------
+
+Additional log streams can be defined using the functions
+log_create_XXX(), where XXX is one of stream, file or callback.
+
+  log_create_stream(FILE * pStream)
+
+    creates a log stream that sends its output on an already opened
+    stream.
+
+  log_create_file(FILE * pcFileName)
+
+    creates a log stream that sends its output in a file. The file
+    will be created if required.
+
+  log_create_callback(FLogStreamCallbacl fCallback, void * pContext)
+
+    creates a log stream that sends its output to a callback function.
+
+Log streams created this way must be freed using the log_destroy()
+function.
+
+
+Writing to log:
+---------------
+
+The log_printf() function acts as the standard printf() function, except
+that its output is sent to the requested log stream instead of
+stdout. For instance:
+
+  log_printf(pLogDebug, "Function foo() called with argument %i\n",
+             iArgument);
+
+The above function will send the given message regardless of the log
+level. To test if writing on the log stream is allowed, use the
+function log_enabled():
+
+  if (log_enabled(pLogdebug, LOG_LEVEL_DEBUG))
+    log_printf(pLogDebug, "... %i\n", iArgument);
+
+For standard log streams, macros are defined in order to simplify the
+operation:
+
+  LOG_DEBUG(LOG_LEVEL_DEBUG, "... %i\n", iArgument);
+
+
+Logging level:
+--------------
+
+The logging level of each log stream can be changed independently,
+using the log_set_level() function. The lowest the level is, the more
+will be logged. There are 7 standard log levels defined. From the
+lowest log level to the highest:
+
+  LOG_LEVEL_EVERYTHING
+  LOG_LEVEL_DEBUG
+  LOG_LEVEL_INFO
+  LOG_LEVEL_WARNING
+  LOG_LEVEL_SEVERE
+  LOG_LEVEL_FATAL
+  LOG_LEVEL_MAX
+
+The default log level of the standard log streams (pLogOut,pLogErr and
+pLogDebug) is LOG_LEVEL_EVERYTHING.
+
+
+Guidelines:
+-----------
+
+  1). Use the different standard log streams for different usages:
+
+    pLogOut   : every information that must be transmitted to the user
+    pLogErr   : every warning/error
+    pLogDebug : messages useful for debugging purpose
+
+  2). Allow the log level of pLogDebug to be changed by the user.
+
+  3). Allow the user to specify a file as the destination of
+pLogDebug.
+
+  4). Use log_perror() instead of perror() to log the error message to
+      pLogErr and/or pLogDebug.
+      Note: log_perror() send error messages with a log level of
+      LOG_LEVEL_SEVERE. If the log level of the destination log stream
+      is higher, the message will not be sent.
+  
+  4). In order to write multiple lines log messages, follow the
+      following convention:
+
+      if log_enabled(pLogDebug, LOG_LEVEL_XXX) {
+        log_printf(...);
+        ...
+      }
+
+      Alternatively, you can use predefined macros for the standard
+      log streams (note that there is no 'if'):
+
+      LOG_DEBUG_ENABLED(LOG_LEVEL_XXX) {
+	log_printf(...);
+        ...
+      }
