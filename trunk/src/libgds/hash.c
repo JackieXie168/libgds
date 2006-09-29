@@ -168,7 +168,7 @@ SHash * hash_init(const uint32_t uHashSize, float fResizeThreshold,
   SHash * pHash= MALLOC(sizeof(SHash));
 
   pHash->aHash= MALLOC(sizeof(void *)*uHashSize);
-  memset(pHash->aHash, 0, sizeof(uint32_t)*uHashSize);
+  memset(pHash->aHash, 0, sizeof(void *)*uHashSize);
 
   assert(fHashCompute != NULL);
 
