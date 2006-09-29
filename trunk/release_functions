@@ -287,7 +287,7 @@ check_svn_status()
     if [ $? != 0 ]; then
 	error "could not get SVN status"
     fi
-    SVN_STATUS_MODIFIED=`echo -e "$SVN_STATUS" | grep -E '^[^ ]'`
+    SVN_STATUS_MODIFIED=`echo -e "$SVN_STATUS" | grep -v 'release.sh' | grep -E '^[^ ]'`
     if [ ! -z "$SVN_STATUS_MODIFIED" ]; then
 	echo -e "$SVN_STATUS_MODIFIED"
 	error "commit/update is needed before release"
