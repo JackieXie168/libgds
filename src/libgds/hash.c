@@ -4,7 +4,7 @@
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 03/12/2004
-// @lastdate 30/08/2006
+// @lastdate 29/09/2006
 // ==================================================================
 
 /* This code implements a hash table structure. We can insert same 
@@ -167,7 +167,7 @@ SHash * hash_init(const uint32_t uHashSize, float fResizeThreshold,
 {
   SHash * pHash= MALLOC(sizeof(SHash));
 
-  pHash->aHash= MALLOC(sizeof(uint32_t)*uHashSize);
+  pHash->aHash= MALLOC(sizeof(void *)*uHashSize);
   memset(pHash->aHash, 0, sizeof(uint32_t)*uHashSize);
 
   assert(fHashCompute != NULL);
