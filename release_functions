@@ -241,7 +241,7 @@ check_cvs_status()
     if [ $? != 0 ]; then
 	error "could not get CVS status"
     fi
-    CVS_STATUS_MODIFIED=`echo -e "$CVS_STATUS" | grep -v -i 'Up-to-date'`
+    CVS_STATUS_MODIFIED=`echo -e "$CVS_STATUS" | grep -v 'release.sh' | grep -v -i 'Up-to-date'`
     if [ ! -z "$CVS_STATUS_MODIFIED" ]; then
 	echo -e "$CVS_STATUS_MODIFIED"
 	error "commit/update is needed before release"
