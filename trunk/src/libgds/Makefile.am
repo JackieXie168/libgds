@@ -11,7 +11,7 @@ AM_CFLAGS = -Wall -Werror -O2 -L/usr/lib $(FLAG_MEMORY_DEBUG)
 lib_LTLIBRARIES = libgds.la
 libgds_la_LDFLAGS = -no-undefined -version-info 1:2:0
 libgds_la_LIBADD = -lm -lz #-lpthread
-libgdsinclude_HEADERS = array.h cli.h cli_ctx.h dllist.h enumerator.h fifo.h gds.h hash.h hash_utils.h list.h log.h patricia-tree.h memory.h radix-tree.h rand.h sequence.h stack.h str_util.h tokenizer.h tokens.h types.h xml.h 
+libgdsinclude_HEADERS = array.h cli.h cli_ctx.h dllist.h enumerator.h fifo.h gds.h hash.h hash_utils.h libgds-config.h list.h log.h patricia-tree.h memory.h radix-tree.h rand.h sequence.h stack.h str_util.h tokenizer.h tokens.h types.h xml.h 
 libgdsincludedir = $(includedir)/libgds
 
 libgds_la_SOURCES =\
