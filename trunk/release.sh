@@ -1,7 +1,7 @@
 #!/bin/bash
 # ===================================================================
 # Release script for libgds
-# Last modified: 15/09/2006 (bqu)
+# Last modified: 29/09/2006 (bqu)
 # ===================================================================
 
 . release_functions
@@ -39,7 +39,7 @@ RELEASE_VERSION=2
 # BUILD_VERSION (mandatory)
 #   is the build number
 #
-BUILD_VERSION=1
+BUILD_VERSION=2
 #
 # LIBRARY_VERSION (optional)
 #   is the library version
@@ -69,17 +69,15 @@ CONF_OPTIONS_COMMON=
 # PUBLISH_URL (optional)
 #   is the SCP URL where the distribution will be published
 #
-PUBLISH_URL="bqu@openresources.info.ucl.ac.be:/barbican/libgds/downloads"
+PUBLISH_URL="bqu@libgds.info.ucl.ac.be:/var/www/libgds/downloads"
 #
 # PUBLISH_FILES (optional)
 #   is the list of files that needs to be published
 #
-PUBLISH_FILES="$MODULE-$VERSION.tar.gz \
-    $MODULE-$VERSION-valid.html \
-    $MODULE-$VERSION-valid-doc.html"
+PUBLISH_FILES="$MODULE-$VERSION.tar.gz"
 #
 #####################################################################
 # ----->>>> YOU SHOULDN'T CHANGE THE SCRIPT PAST THIS LINE <<<<------
 #####################################################################
 
-make_release
+make_release $@
