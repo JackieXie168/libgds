@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 30/08/2006
+// @lastdate 25/10/2006
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -739,7 +739,7 @@ void cli_perror(SLogStream * pStream, int iErrorCode)
  *
  */
 void cli_perror_details(SLogStream * pStream, int iResult, SCli * pCli,
-			char * pcLine)
+			const char * pcLine)
 {
   STokens * pTokens;
   int iIndex;
@@ -779,19 +779,14 @@ void cli_perror_details(SLogStream * pStream, int iResult, SCli * pCli,
 /**
  *
  */
-int cli_execute_line(SCli * pCli, char * pcLine)
+int cli_execute_line(SCli * pCli, const char * pcLine)
 {
-  int iLen;
   int iResult= CLI_SUCCESS;
 
   // Skip commented lines
   if (pcLine[0] != '#') {
-    // Chop '\n' at end of line
-    iLen= strlen(pcLine);
-    if ((iLen >= 1) && (pcLine[iLen-1] == '\n'))
-      pcLine[iLen-1]= '\0';
     // Parse and execute command
-    iResult= cli_execute(pCli, pcLine);
+    iResult= cli_execute(pCli, (char *) pcLine);
     if (iResult < 0) {
       log_printf(pLogErr, "\033[0;31;1mError: ");
       cli_perror(pLogErr, iResult);
@@ -810,12 +805,17 @@ int cli_execute_line(SCli * pCli, char * pcLine)
  */
 int cli_execute_file(SCli * pCli, FILE * pStream)
 {
-  char acLine[1024];
+  int iLen;
+  char acLine[MAX_CLI_LINE_LENGTH];
   int iResult;
   uint32_t uLineNumber= 1;
 
   /* Execute all lines in the input file... */
   while (fgets(acLine, sizeof(acLine), pStream) != NULL) {
+    /* Chop trailing '\n' */
+    iLen= strlen(acLine);
+    if ((iLen >= 1) && (acLine[iLen-1] == '\n'))
+      acLine[iLen-1]= '\0';
     iResult= cli_execute_line(pCli, acLine);
     if (iResult < 0) {
       log_printf(pLogErr, "Error: in script file, line %u\n", uLineNumber);

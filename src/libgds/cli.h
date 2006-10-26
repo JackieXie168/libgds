@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 21/04/2006
+// @lastdate 25/10/2006
 // ==================================================================
 
 #ifndef __GDS_CLI_H__
@@ -14,6 +14,8 @@
 #include <libgds/stack.h>
 #include <stdio.h>
 #include <libgds/tokenizer.h>
+
+#define MAX_CLI_LINE_LENGTH 1024
 
 #define CLI_SUCCESS                    0
 #define CLI_ERROR_UNEXPECTED          -1
@@ -162,6 +164,6 @@ extern void cli_perror(SLogStream * pStream, int iErrorCode);
 // ----- cli_execute_file -------------------------------------------
 extern int cli_execute_file(SCli * pCli, FILE * pStream);
 // ----- cli_execute_line -------------------------------------------
-extern int cli_execute_line(SCli * pCli, char * pcLine);
+extern int cli_execute_line(SCli * pCli, const char * pcLine);
 
 #endif
