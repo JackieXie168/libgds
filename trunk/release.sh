@@ -39,7 +39,7 @@ RELEASE_VERSION=2
 # BUILD_VERSION (mandatory)
 #   is the build number
 #
-BUILD_VERSION=2
+BUILD_VERSION=3
 #
 # LIBRARY_VERSION (optional)
 #   is the library version
