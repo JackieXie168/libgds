@@ -69,7 +69,7 @@ CONF_OPTIONS_COMMON=
 # PUBLISH_URL (optional)
 #   is the SCP URL where the distribution will be published
 #
-PUBLISH_URL="bqu@libgds.info.ucl.ac.be:/var/www/libgds/downloads"
+PUBLISH_URL="libgds@libgds.info.ucl.ac.be:/var/www/libgds/downloads"
 #
 # PUBLISH_FILES (optional)
 #   is the list of files that needs to be published
