@@ -1,6 +1,6 @@
 # ===================================================================
 # Release script for libgds/cbgp: release functions
-# Last modified: 15/09/2006 (bqu)
+# Last modified: 08/11/2006 (bqu)
 # ===================================================================
 
 declare -a CONF_OPTIONS
@@ -10,14 +10,14 @@ declare -r LINE="--------------------------------\
 # -----[ info ]------------------------------------------------------
 info()
 {
-    MSG=$1
+    local MSG=$1
     echo -e "\033[1m$MSG\033[0m"
 }
 
 # -----[ info_part ]-------------------------------------------------
 info_part()
 {
-    MSG=$1
+    local MSG=$1
     echo $LINE
     echo -e "*** \033[33;1m$MSG\033[0m ***"
     echo $LINE
@@ -26,7 +26,7 @@ info_part()
 # -----[ error ]-----------------------------------------------------
 error()
 {
-    MSG=$1
+    local MSG=$1
     echo -e "ERROR: \033[1;31m$MSG\033[0m"
     echo "Aborting..."
     exit -1
@@ -35,19 +35,68 @@ error()
 # -----[ error_skip ]------------------------------------------------
 error_skip()
 {
-    MSG=$1
+    local MSG=$1
     echo "ERROR: $MSG"
     echo "Skipping..."
 }
 
-# -----[ check_test_only ]-------------------------------------------
-check_test_only()
+# -----[ read_yes_no ]-----------------------------------------------
+# Params:
+#   $1 -> Prompt message
+#   $2 -> Default value (must be one of "y", "Y", "n" or "N")
+#
+# Return value:
+#   in variable READ_YES_NO_RESULT (will be one of "y" or "n")
+# -------------------------------------------------------------------
+read_yes_no()
 {
-    if [ $TEST_ONLY -eq 1 ]; then
-	echo "WARNING: script was run in test-only mode."
-	echo "Stop"
-	exit 0
+    local MSG=$1
+    local DEFAULT=$2
+    local PROMPT
+
+    # Check that default value is either "Y" or "N"
+    if [ ! -z "$DEFAULT" ]; then
+	DEFAULT=`echo $DEFAULT | tr "A-Z" "a-z"`
+	if [ $DEFAULT = "y" ]; then
+	    PROMPT="$MSG [Y/n] "
+	else
+	    if [ "$DEFAULT" = "n" ]; then
+		PROMPT="$MSG [y/N] "
+	    else
+		echo "ERROR: read_yes_no(), invalid DEFAULT value"
+		exit -1
+	    fi
+	fi
+    else
+	PROMPT="$MSG "
     fi
+
+    declare -i ERROR
+    ERROR=1
+    while [ $ERROR -eq 1 ]; do
+	ERROR=0
+	read -e -p "$PROMPT" ANSWER
+	if [ $? != 0 ]; then
+	    ERROR=1
+	    echo ""
+	    continue
+	fi
+	if [ -z "$ANSWER" ]; then
+	    if [ ! -z "$DEFAULT" ]; then
+		ANSWER="$DEFAULT"
+	    else
+		ERROR=1
+		continue
+	    fi
+	else
+	    ANSWER=`echo "$ANSWER" | tr "A-Z" "a-z"`
+	    if [ "$ANSWER" != "y" ] && [ "$ANSWER" != "n" ]; then
+		echo "invalid input: \"$ANSWER\""
+		ERROR=1
+	    fi
+	fi
+    done
+    READ_YES_NO_RESULT="$ANSWER"
 }
 
 
@@ -56,51 +105,6 @@ check_test_only()
 # Parameters/status checking function
 #
 #####################################################################
-
-# -----[ check_parameters ]------------------------------------------
-check_parameters()
-{
-    info "Checking parameters..."
-    if [ -z "$MODULE" ]; then
-	error "MODULE variable not defined."
-    fi
-    if [ -z "$MAIN_VERSION" ]; then
-	error "MAIN_VERSION variable not defined."
-    fi
-    if [ -z "$RELEASE_VERSION" ]; then
-	error "RELEASE_VERSION variable not defined."
-    fi
-    if [ -z "$BUILD_VERSION" ]; then
-	error "BUILD_VERSION variable not defined."
-    fi
-    if [ -z "$VERSION" ]; then
-	error "VERSION variable not defined."
-    fi
-    if [ -z "$VC" ]; then
-	error "VC variable not defined."
-    fi
-    if [ "$VC" != "cvs" ] && [ "$VC" != "svn" ]; then
-	error "VC variable must contain \"cvs\" or \"svn\"."
-    fi
-    if [ "$VC" = "svn" ]; then
-	if [ -z "$SVN_URL" ]; then
-	    error "no SVN URL specified."
-	fi
-    fi
-    if [ $PUBLISH -eq 1 ]; then
-	if [ -z "$PUBLISH_URL" ]; then
-	    error "publication URL not specified."
-	fi
-	if [ -z "$PUBLISH_FILES" ]; then
-	    error "no list of files to be published."
-	fi
-    fi
-    if [ $RELEASE_VERSION -eq 0 ]; then
-	RELEASE_MODE=1 # Major
-    else
-	RELEASE_MODE=0 # Minor
-    fi
-}
 
 # -----[ check_release_info ]----------------------------------------
 check_release_info()
@@ -126,7 +130,7 @@ check_release_info()
 check_project_version()
 {
     info "Checking release/project versions..."
-    PROJECT_VERSION=`grep "AC_INIT" configure.in | sed 's:^AC_INIT(.*\[\(.*\)\],.*\[\(.*\)\])$:\2:'`
+    local PROJECT_VERSION=`grep "AC_INIT" configure.in | sed 's:^AC_INIT(.*\[\(.*\)\],.*\[\(.*\)\])$:\2:'`
     echo "  project: $PROJECT_VERSION (from configure.in)"
     if [ "$VERSION" != "$PROJECT_VERSION" ]; then
 	error "release/project versions mismatch."
@@ -136,7 +140,7 @@ check_project_version()
     if [ ! -z "$LIBRARY_VERSION" ]; then
 	info "Checking project/library versions..."
 	echo "  library: $LIBRARY_VERSION"
-	PROJECT_VERSION_SHORT=`echo "$PROJECT_VERSION" | sed 's:^\([0-9]*\.[0-9]*\).*$:\1:'`
+	local PROJECT_VERSION_SHORT=`echo "$PROJECT_VERSION" | sed 's:^\([0-9]*\.[0-9]*\).*$:\1:'`
 	echo "  project: $PROJECT_VERSION_SHORT"
 	if [ "$PROJECT_VERSION_SHORT" != "$LIBRARY_VERSION" ]; then
 	    error "project/library versions mismatch."
@@ -154,19 +158,20 @@ check_project_version()
 # -----[ check_build ]-----------------------------------------------
 check_build()
 {
+    local OPTIONS
     info "Checking build..."
     for (( i= ${#CONF_OPTIONS[*]}-1 ; $i >= 0 ; i-- )) do
-		OPTIONS=${CONF_OPTIONS[$i]}
-		check_configure $OPTIONS
-		check_compilation
-		check_validation
+	OPTIONS="${CONF_OPTIONS[$i]}"
+	check_configure "$OPTIONS"
+	check_compilation
+	check_validation
     done
 }
 
 # -----[ check_configure ]-------------------------------------------
 check_configure()
 {
-    CONF_OPTIONS=$1
+    local CONF_OPTIONS=$1
     info "+ Checking configure $CONF_OPTIONS..."
     if [ $BUILD -eq 1 ]; then
 	eval "./configure $CONF_OPTIONS_COMMON $CONF_OPTIONS $REDIRECT"
@@ -217,9 +222,7 @@ check_validation()
 {
     if [ ! -z "$VALID_EXEC" ]; then
 	info "+ Checking validation..."
-	export PERLLIB=/Users/bqu/Documents/code/cbgp/valid:$PERLLIB
-	VALID_EXEC="/Users/bqu/Documents/code/cbgp/valid/cbgp-validation.pl"
-	eval "$VALID_EXEC --no-cache --cbgp-path=src/cbgp --resources-path=valid $REDIRECT --report=html --report-prefix=$MODULE-$VERSION-valid"
+	eval "$VALID_EXEC $REDIRECT"
 	if [ $? != 0 ]; then
 	    error "validation failed."
 	fi
@@ -237,11 +240,11 @@ check_validation()
 check_cvs_status()
 {
     info "Checking CVS status..."
-    CVS_STATUS=`cvs status 2>/dev/null | grep -i 'Status\:'`
+    local CVS_STATUS=`cvs status 2>/dev/null | grep -i 'Status\:'`
     if [ $? != 0 ]; then
 	error "could not get CVS status"
     fi
-    CVS_STATUS_MODIFIED=`echo -e "$CVS_STATUS" | grep -v 'release.sh' | grep -v -i 'Up-to-date'`
+    local CVS_STATUS_MODIFIED=`echo -e "$CVS_STATUS" | grep -v 'release.sh' | grep -v -i 'Up-to-date'`
     if [ ! -z "$CVS_STATUS_MODIFIED" ]; then
 	echo -e "$CVS_STATUS_MODIFIED"
 	error "commit/update is needed before release"
@@ -251,7 +254,7 @@ check_cvs_status()
 # -----[ cvs_branch ]------------------------------------------------
 cvs_branch()
 {
-    BRANCH_NAME=`echo $1 | tr "$,.:;@" "______"`
+    local BRANCH_NAME=`echo $1 | tr "$,.:;@" "______"`
     info "Creating a CVS branch..."
     echo "  branch: \"$BRANCH_NAME\""
     eval "cvs tag -b $BRANCH_NAME $REDIRECT"
@@ -263,7 +266,7 @@ cvs_branch()
 # -----[ cvs_tag ]---------------------------------------------------
 cvs_tag()
 {
-    TAG_NAME=`echo $1 | tr "$,.:;@" "______"`
+    local TAG_NAME=`echo $1 | tr "$,.:;@" "______"`
     info "Creating a CVS tag..."
     echo "  tag: \"$TAG_NAME\""
     eval "cvs tag $TAG_NAME $REDIRECT"
@@ -283,11 +286,11 @@ cvs_tag()
 check_svn_status()
 {
     info "Checking SVN status..."
-    SVN_STATUS=`svn status -vq`
+    local SVN_STATUS=`svn status -uvq`
     if [ $? != 0 ]; then
 	error "could not get SVN status"
     fi
-    SVN_STATUS_MODIFIED=`echo -e "$SVN_STATUS" | grep -v 'release.sh' | grep -E '^[^ ]'`
+    local SVN_STATUS_MODIFIED=`echo -e "$SVN_STATUS" | grep -v 'release.sh' | grep -E '^[^ ]'`
     if [ ! -z "$SVN_STATUS_MODIFIED" ]; then
 	echo -e "$SVN_STATUS_MODIFIED"
 	error "commit/update is needed before release"
@@ -297,7 +300,7 @@ check_svn_status()
 # -----[ svn_branch ]------------------------------------------------
 svn_branch()
 {
-    BRANCH_NAME=$1
+    local BRANCH_NAME=$1
     info "Creating a SVN branch"
     echo "  branch: $BRANCH_NAME"
     svn copy $SVN_URL/trunk $SVN_URL/branches/$VERSION \
@@ -310,7 +313,7 @@ svn_branch()
 # -----[ svn_tag ]---------------------------------------------------
 svn_tag()
 {
-    TAG_NAME=$1
+    local TAG_NAME=$1
     info "Creating a SVN tag"
     echo "  tag: $TAG_NAME"
     svn copy $SVN_URL/trunk $SVN_URL/tags/release-$VERSION \
@@ -323,14 +326,59 @@ svn_tag()
 
 #####################################################################
 #
-# Command-line arguments parsing
+# SOURCE RELEASE SPECIFIC FUNCTIONS
 #
 #####################################################################
 
-# -----[ parse_arguments ]-------------------------------------------
-parse_arguments()
+# -----[ src_release_check_parameters ]------------------------------
+src_release_check_parameters()
 {
-    ARGS=$@
+    info "Checking parameters..."
+    if [ -z "$MODULE" ]; then
+	error "MODULE variable not defined."
+    fi
+    if [ -z "$MAIN_VERSION" ]; then
+	error "MAIN_VERSION variable not defined."
+    fi
+    if [ -z "$RELEASE_VERSION" ]; then
+	error "RELEASE_VERSION variable not defined."
+    fi
+    if [ -z "$BUILD_VERSION" ]; then
+	error "BUILD_VERSION variable not defined."
+    fi
+    if [ -z "$VERSION" ]; then
+	error "VERSION variable not defined."
+    fi
+    if [ -z "$VC" ]; then
+	error "VC variable not defined."
+    fi
+    if [ "$VC" != "cvs" ] && [ "$VC" != "svn" ]; then
+	error "VC variable must contain \"cvs\" or \"svn\"."
+    fi
+    if [ "$VC" = "svn" ]; then
+	if [ -z "$SVN_URL" ]; then
+	    error "no SVN URL specified."
+	fi
+    fi
+    if [ $PUBLISH -eq 1 ]; then
+	if [ -z "$PUBLISH_URL" ]; then
+	    error "publication URL not specified."
+	fi
+	if [ -z "$PUBLISH_FILES" ]; then
+	    error "no list of files to be published."
+	fi
+    fi
+    if [ $RELEASE_VERSION -eq 0 ]; then
+	RELEASE_MODE=1 # Major
+    else
+	RELEASE_MODE=0 # Minor
+    fi
+}
+
+# -----[ src_release_parse_arguments ]-------------------------------
+src_release_parse_arguments()
+{
+    local ARGS=$@
 
     info "Parsing arguments..."
     for arg in $ARGS; do
@@ -363,23 +411,28 @@ parse_arguments()
     done
 }
 
-
+# -----[ Perform a source release ]----------------------------------
+# This function should be called by the release.sh script. The syntax
+# should be as follows:
+#
+#   make_release $@
+#
+# -------------------------------------------------------------------
 make_release()
 {
-    ARGS=$@
+    local ARGS=$@
 
-    declare REDIRECT='>/dev/null 2>&1'
+    local RELEASE_TIME=`date +'%d%m%Y-%H%M%S'`
+
+    declare REDIRECT=">/tmp/src-release-$TIME.log 2>&1"
     declare -i BUILD=1
     declare -i PUBLISH=0
     declare -i RELEASE=1
     declare -i TEST_ONLY=1
     declare -i VERBOSE=0
 
-    parse_arguments $ARGS
-
-	echo "TEST_ONLY: $TEST_ONLY"
-
-    check_parameters
+    src_release_parse_arguments $ARGS
+    src_release_check_parameters
 
     # ===================================================================
     # Part I. Checking status
@@ -393,7 +446,16 @@ make_release()
     fi
     check_project_version
     check_build;
-    check_test_only
+    if [ $TEST_ONLY -eq 1 ]; then
+	read_yes_no "Build release ?" "N"
+	if [ "$READ_YES_NO_RESULT" = "y" ]; then
+	    TEST_ONLY=0
+	else
+	    echo "WARNING: script was run in test-only mode."
+	    echo "Stop"
+	    exit 0
+	fi
+    fi
 
 
     # ===================================================================
@@ -441,6 +503,12 @@ make_release()
     # ===================================================================
     # Part III. Publish distribution
     # ===================================================================
+    if [ ! $PUBLISH -eq 1 ]; then
+	read_yes_no "Publish package ?" "Y"
+	if [ "$READ_YES_NO_RESULT" = "y" ]; then
+	    PUBLISH=1
+	fi
+    fi
     if [ $PUBLISH -eq 1 ]; then
 	info_part "III. Publishing release"
 	echo "Publishing distribution"
@@ -451,4 +519,14 @@ make_release()
 	    error "could not publish distribution"
 	fi
     fi
+
+    # ===============================================================
+    # Part IV. Display last recommendations
+    # ===============================================================
+    echo "***** Last recommendations *****"
+    echo "Do not forget"
+    echo "- to build the packages (.rpm, .deb, ...)"
+    echo "- to send an e-mail to the mailing-list"
+    echo "- do not forget to announce the new release on the web site"
+    echo "********************************"
 }
