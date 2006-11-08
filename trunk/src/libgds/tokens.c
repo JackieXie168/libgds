@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 20/08/2003
-// @lastdate 27/01/2005
+// @lastdate 08/11/2005
 // =================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -125,12 +125,18 @@ int tokens_get_int_at(STokens * pTokens, uint16_t uIndex,
 
 // ----- tokens_get_ulong_at ----------------------------------------
 /**
+ * The function uses 'strtoll()' in order to convert the string to a
+ * 'long long int'.
  *
+ * Note: we cannot use 'strtol()' since it is limited to a maximum
+ * value of LONG_MAX while we need ULONG_MAX. We cannot use
+ * 'strtoul()' since it will convert a negative number to a positive
+ * number.
  */
 int tokens_get_ulong_at(STokens * pTokens, uint16_t uIndex,
 			unsigned long int * pulValue)
 {
-  long int lValue;
+  long long int llValue;
   char * pcValue;
   char * pcEndPtr;
 
@@ -138,11 +144,13 @@ int tokens_get_ulong_at(STokens * pTokens, uint16_t uIndex,
     return -1;
   if (uIndex < tokens_get_num(pTokens)) {
     pcValue= pTokens->data[uIndex];
-    lValue= strtol(pcValue, &pcEndPtr, 0);
-    if (((lValue == LONG_MAX) && (errno == ERANGE)) || (lValue < 0)) {
+    llValue= strtoll(pcValue, &pcEndPtr, 0);
+    /* Check for errors and bounds (0 <= x <= ULONG_MAX) */
+    if (((llValue == LLONG_MAX) && (errno == ERANGE)) ||
+	(llValue < 0) || (llValue > ULONG_MAX)) {
       return -1;
     }
-    *pulValue= (unsigned long int) lValue;
+    *pulValue= (unsigned long int) llValue;
     return (*pcEndPtr == 0)?0:-1;
   }
   return -1;
