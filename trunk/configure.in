@@ -5,7 +5,7 @@ dnl @author Bruno Quoitin (bqu@info.ucl.ac.be)
 dnl @version 2006-08-01
 dnl =================================================================
 
-AC_INIT([libgds], [1.2.3])
+AC_INIT([libgds], [1.2.4])
 AC_CONFIG_SRCDIR(src/libgds/fifo.h)
 AC_PREREQ(2.57)
 AC_PREFIX_DEFAULT(/usr/local)
