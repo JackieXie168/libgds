@@ -3,12 +3,14 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 20/08/2003
-// @lastdate 08/11/2005
+// @lastdate 13/11/2005
 // =================================================================
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
+
+#include <libgds/types.h>
 
 #include <errno.h>
 #include <stdio.h>
