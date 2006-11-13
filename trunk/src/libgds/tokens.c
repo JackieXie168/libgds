@@ -10,7 +10,7 @@
 #include <config.h>
 #endif
 
-#include <libgds/types.h>
+#include <limits.h>
 
 #include <errno.h>
 #include <stdio.h>
