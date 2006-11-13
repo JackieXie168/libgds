@@ -19,6 +19,8 @@ dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_INSTALL
 
+CFLAGS="-Wall -Werror --std=gnu99"
+
 dnl GNU package
 AC_DEFINE([_GNU_SOURCE], 1,
           [Define _GNU_SOURCE so that we get all necessary prototypes])
