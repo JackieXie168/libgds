@@ -888,8 +888,8 @@ int test_hash()
   uint32_t uNbr;
 
   printf("Test in static mode\n");
-  pHash = hash_init(15, 0, _hash_cmp, _hash_destroy, _hash_fct);
-  for (uNbr = 0; uNbr < 100; uNbr++) {
+  pHash = hash_init(6, 0, _hash_cmp, _hash_destroy, _hash_fct);
+  for (uNbr = 0; uNbr < 20; uNbr++) {
     hash_add(pHash, (void *) uNbr);
   }
   hash_for_each(pHash, _hash_for_each, NULL);
@@ -897,10 +897,43 @@ int test_hash()
   while (enum_has_next(pEnum)) {
     printf("hash-item: %d\n", (unsigned int) enum_get_next(pEnum));
   }
+  hash_del(pHash, (void *)1);
+  hash_del(pHash, (void *)2);
+  hash_del(pHash, (void *)3);
+  hash_del(pHash, (void *)5);
+  hash_del(pHash, (void *)6);
+  hash_del(pHash, (void *)7);
+  hash_del(pHash, (void *)8);
+  hash_del(pHash, (void *)9);
+  hash_del(pHash, (void *)10);
+  hash_del(pHash, (void *)11);
+  hash_del(pHash, (void *)12);
+  hash_del(pHash, (void *)13);
+  hash_del(pHash, (void *)14);
+  hash_del(pHash, (void *)15);
+  hash_del(pHash, (void *)16);
+  hash_del(pHash, (void *)17);
+  hash_del(pHash, (void *)18);
+  printf("*** removal of 19 ***\n");
+  hash_del(pHash, (void *)19);
+  hash_for_each(pHash, _hash_for_each, NULL);
+
+  printf("*** add a second elt 4 ***\n");
+  hash_add(pHash, (void *)4);
+
+  printf("*** removal of 4 ***\n");
+  hash_del(pHash, (void *)4);
+  hash_for_each(pHash, _hash_for_each, NULL);
+
+  printf("*** add 22 ***\n");
+  hash_add(pHash, (void *)22);
+  hash_for_each(pHash, _hash_for_each, NULL);
+
+  hash_destroy(&pHash);
 
   printf("Test in dynamic mode\n");
   pHash= hash_init(3, 0.75, _hash_cmp, _hash_destroy, _hash_fct);
-  for (uNbr = 0; uNbr < 100; uNbr++) {
+  for (uNbr = 0; uNbr < 20; uNbr++) {
     hash_add(pHash, (void *) uNbr);
   }
   hash_for_each(pHash, _hash_for_each, NULL);
