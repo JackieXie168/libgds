@@ -182,7 +182,8 @@ SHash * hash_init(const uint32_t uHashSize, float fResizeThreshold,
   memset(pHash->aHash, 0, sizeof(void *)*uHashSize);
 
   assert(fHashCompute != NULL);
-  assert(fResizeThreshold >= 0);
+  assert(fResizeThreshold >= 0.0);
+  assert(fResizeThreshold < 1.0);
 
   pHash->pFunctions= MALLOC(sizeof(SHashFunctions));
   pHash->pFunctions->fEltCompare= fEltCompare;
