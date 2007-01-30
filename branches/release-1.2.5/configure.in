@@ -2,7 +2,7 @@ dnl =================================================================
 dnl configure.in for libgds
 dnl
 dnl @author Bruno Quoitin (bqu@info.ucl.ac.be)
-dnl @version 2006-11-13
+dnl @version 2007-01-30
 dnl =================================================================
 
 AC_INIT([libgds], [1.2.5])
@@ -31,7 +31,8 @@ AC_CHECK_HEADER(limits.h)
 AC_CHECK_HEADER(inttypes.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
-AC_C_CONST
+dnl according to autoconf's documentation, AC_C_CONST is now obsolete.
+dnl AC_C_CONST
 AC_TYPE_SIZE_T
 
 dnl Now arrange the build libtool
