@@ -4,7 +4,7 @@
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 03/12/2004
-// @lastdate 17/01/2007
+// @lastdate 29/09/2006
 // ==================================================================
 
 /* This code implements a hash table structure. We can insert same 
@@ -40,7 +40,6 @@ typedef struct {
   SHashFunctions * pFunctions;
   void * pElt;
   uint32_t uRef;
-  uint32_t uCurrentKey;
 }SHashElt;
 
 // ----- _hash_element_compare --------------------------------------
@@ -61,13 +60,13 @@ static int _hash_element_compare(void * pHElt1, void * pHElt2,
 /**
  *
  */
-static void _hash_element_remove(void * pHelt)
+/*static void _hash_element_remove(void * pHelt)
 {
   SHashElt * pHashElt= *((SHashElt **)pHelt);
 
   if (pHashElt != NULL)
     FREE(pHashElt);
-}
+    }*/
 
 // ----- _hash_element_destroy --------------------------------------
 /**
@@ -145,16 +144,6 @@ static int _hash_element_search(SPtrArray * aHashElts, void * pElt,
   return 0;
 }
 
-static void _hash_element_set_current_key(SHashElt * pHashElt, uint32_t uHashKey)
-{
-  pHashElt->uCurrentKey = uHashKey;
-}
-
-static uint32_t _hash_element_get_current_key(SHashElt * pHashElt)
-{
-  return pHashElt->uCurrentKey;
-}
-
 // ----- _hash_element_add ------------------------------------------
 /**
  *
@@ -182,8 +171,6 @@ SHash * hash_init(const uint32_t uHashSize, float fResizeThreshold,
   memset(pHash->aHash, 0, sizeof(void *)*uHashSize);
 
   assert(fHashCompute != NULL);
-  assert(fResizeThreshold >= 0.0);
-  assert(fResizeThreshold < 1.0);
 
   pHash->pFunctions= MALLOC(sizeof(SHashFunctions));
   pHash->pFunctions->fEltCompare= fEltCompare;
@@ -198,104 +185,71 @@ SHash * hash_init(const uint32_t uHashSize, float fResizeThreshold,
 }
 
 
-static SPtrArray * _hash_get_hash_array(SHash * pHash, uint32_t uHashKey)
-{
-  assert(uHashKey < pHash->uHashSize);
-
-  if (pHash->aHash[uHashKey] == NULL) {
-    pHash->aHash[uHashKey]= ptr_array_create(
-	ARRAY_OPTION_UNIQUE|ARRAY_OPTION_SORTED,
-		       _hash_element_compare,
-		       _hash_element_destroy);
-  }
-  return pHash->aHash[uHashKey];
-}
-
-static uint32_t _hash_compute_key(SHash * pHash, void * pElt)
-{
-  return pHash->pFunctions->fHashCompute(pElt, pHash->uHashSize);
-}
-
 // ----- hash_rehash -------------------------------------------------
 /**
- * 
+ *
  */
-void _hash_rehash(SHash * pHash)
+/*void hash_rehash(SHash * pHash)
 {
-  uint32_t uHashKey;
-  uint32_t uIndex;
-  uint32_t uArrayIter;
-  uint32_t uNewHashSize;
-  uint32_t uOldHashSize;
+  uint32_t uHashKey, uArrayIter, uNewHashSize;
   SPtrArray * aHashElt;
-  SPtrArray * aHashEltNew;
   SHashElt * pHashElt;
-  void * pElt= NULL;
+  void * pElt;
   
   uNewHashSize = pHash->uHashSize*2;
   pHash->aHash = REALLOC(pHash->aHash, sizeof(uint32_t)*uNewHashSize);
-  uOldHashSize = pHash->uHashSize;
-  memset((pHash->aHash)+uOldHashSize, 0, sizeof(uint32_t)*pHash->uHashSize);
+  memset((pHash->aHash)+pHash->uHashSize, 0, sizeof(uint32_t)*pHash->uHashSize);
   pHash->uHashSize = uNewHashSize;
 
-  for (uIndex = 0; uIndex < uOldHashSize; uIndex++) {
-    if ( (aHashElt = pHash->aHash[uIndex]) != NULL) {
+  for (uHashKey = 0; uHashKey < pHash->uHashSize; uHashKey++) {
+    if ( (aHashElt = pHash->aHash[uHashKey]) != NULL) {
       for (uArrayIter = 0; uArrayIter < ptr_array_length(aHashElt); uArrayIter++) {
-	// Extract the Elt
 	pHashElt = aHashElt->data[uArrayIter];
-	uHashKey = _hash_compute_key(pHash, pElt);
-	/* If the old key is the same as the new. Don't move the pHashElt as it
-	 * stays in the same array of the hash table */
-	if (uHashKey != _hash_element_get_current_key(pHashElt)) {
+	if (pHashElt->uKeyNonModulo > pHash->uHashSize) {
 	  pElt = pHashElt->pElt;
-	  // Remove the element
-	  /* change the destroy function in the array structure as we don't
-	   * want the pElt to be destroyed */
-	  ptr_array_set_fdestroy(aHashElt, _hash_element_remove);
+	  //Tricky part !
+	  //hash_del is not the good method. pElt has to be moved and not unref or deleted.
+	  //Thus, since we free the memory of an element when we delete it from the array. We change
+	  //temporarily the function to not free the memory of the element in the hash when we move it
+	  //but we only free the structure in which it has been inserted.
+	  ptr_array_set_fdestroy(aHashElt, hash_element_remove);
 	  ptr_array_remove_at(aHashElt, uArrayIter);
-	  // Get his new aHashElt array in which setting pElt
-	  aHashEltNew = _hash_get_hash_array(pHash, uHashKey);
-	  pHashElt = _hash_element_add(aHashEltNew, pElt, pHash->pFunctions);
-	  /* Change the current key of the Elt */
-	  _hash_element_set_current_key(pHashElt, uHashKey);
-	  /* restore the destroy function */
-	  ptr_array_set_fdestroy(aHashEltNew, _hash_element_destroy);
+	  ptr_array_set_fdestroy(aHashElt, hash_element_destroy);
+	  hash_add(pHash, pElt);
 	} 
-      } 
+      }
     }
   }
-}
 
+  }*/
 
 // ----- hash_add ----------------------------------------------------
 /**
  *
  * returns -1 if error else the key at which the elt has been added
- *
  */
 int hash_add(SHash * pHash, void * pElt)
 {
+  uint32_t uHashKey;
   unsigned int uIndex= 0;
   SHashElt * pHashElt;
   SPtrArray * aHashElt;
-  uint32_t uHashKey;
 
-  uHashKey = _hash_compute_key(pHash, pElt);
-  aHashElt = _hash_get_hash_array(pHash, uHashKey);
+  uHashKey= pHash->pFunctions->fHashCompute(pElt, pHash->uHashSize);
+  assert(uHashKey < pHash->uHashSize);
+  
+  if ((aHashElt= pHash->aHash[uHashKey]) == NULL)
+    aHashElt= pHash->aHash[uHashKey]=
+      ptr_array_create(ARRAY_OPTION_UNIQUE|ARRAY_OPTION_SORTED,
+		       _hash_element_compare,
+		       _hash_element_destroy);
 
   if (_hash_element_search(aHashElt, pElt, pHash->pFunctions, &uIndex) == -1) {
-    if (pHash->fResizeThreshold != 0.0) {
-      if (++pHash->uEltCount >
-	  (uint32_t)((float)pHash->uHashSize*pHash->fResizeThreshold)) {
-	_hash_rehash(pHash);
-	/* Get the new array of the hash table to add the elt as the hash table
-	 * size has changed */
-	uHashKey = _hash_compute_key(pHash, pElt);
-	aHashElt = _hash_get_hash_array(pHash, uHashKey);
-      }
-    }
+  //  if (++pHash->uEltCount >
+  //      (uint32_t)((float)pHash->uHashSize*pHash->fResizeThreshold)) {
+  //    hash_rehash(pHash);
+  //  }
     pHashElt= _hash_element_add(aHashElt, pElt, pHash->pFunctions);
-    _hash_element_set_current_key(pHashElt, uHashKey);
   } else {
     pHashElt= aHashElt->data[uIndex];
   }
@@ -470,63 +424,27 @@ int _hash_get_enum_has_next(void * pContext)
 {
   SHashEnumContext * pHashContext= (SHashEnumContext *) pContext;
   SPtrArray * pHashItems;
-  uint32_t uIndex1;
-
-
-  uIndex1 = pHashContext->uIndex1;
-  /* First, have a look at the index we are in the hash table */
-  /* If it is not satisfying we *have* to get to the place of the potential
-   * next item which can "far away" from the last */
-
-  /* Have we already get all the items? */
-  if (uIndex1 >= pHashContext->pHash->uHashSize )
+  if (pHashContext->uIndex1 >= pHashContext->pHash->uHashSize )
     return 0;
-
-  /* is the anything more in the array we are going through? */
-  pHashItems = pHashContext->pHash->aHash[pHashContext->uIndex1];
-  if (pHashItems != NULL && pHashContext->uIndex2 < ptr_array_length(pHashItems))
-    return 1;
-
-  uIndex1++;
-  /* We have to find in the following arrays for the next item */
-  for (; uIndex1 < pHashContext->pHash->uHashSize; uIndex1++) {
-    pHashItems = pHashContext->pHash->aHash[uIndex1];
-    if (pHashItems != NULL && ptr_array_length(pHashItems) > 0) 
-      return 1;
-  }
-  return 0;
+  pHashItems= pHashContext->pHash->aHash[pHashContext->uIndex1];
+  if (pHashItems == NULL)
+    return 0;
+  return (pHashContext->uIndex2 < ptr_array_length(pHashItems));
 }
 
 // -----[ _hash_get_enum_get_next ]----------------------------------
 void * _hash_get_enum_get_next(void * pContext)
 {
   SHashEnumContext * pHashContext= (SHashEnumContext *) pContext;
-  SPtrArray * pHashItems= NULL;
-  void * pItem= NULL; 
-
-  /* Have we already get all the items? */
-  if (pHashContext->uIndex1 >= pHashContext->pHash->uHashSize)
-    return NULL;
-
-  /* is the anything more in the array we are going through? */
-  pHashItems = pHashContext->pHash->aHash[pHashContext->uIndex1];
-  if (pHashItems != NULL && pHashContext->uIndex2 < ptr_array_length(pHashItems)) {
-    pItem = ((SHashElt *)pHashItems->data[pHashContext->uIndex2])->pElt;
+  SPtrArray * pHashItems= pHashContext->pHash->aHash[pHashContext->uIndex1];
+  SHashElt * pItem= (SHashElt *) pHashItems->data[pHashContext->uIndex2];
+  if (pHashContext->uIndex2+1 < ptr_array_length(pHashItems)) {
     pHashContext->uIndex2++;
-    return pItem;
+  } else {
+    pHashContext->uIndex1++;
+    pHashContext->uIndex2= 0;
   }
-
-  /* We have to return an item from another array of the hash table */
-  pHashContext->uIndex1++;
-  /* We may initialize it to 1 as we've got to return the first element anyway */
-  pHashContext->uIndex2= 1;
-  for (; pHashContext->uIndex1 < pHashContext->pHash->uHashSize; pHashContext->uIndex1++) {
-    pHashItems = pHashContext->pHash->aHash[pHashContext->uIndex1];
-    if (pHashItems != NULL && ptr_array_length(pHashItems) > 0) {
-      return ((SHashElt *)pHashItems->data[0])->pElt;
-    }
-  }
-  return NULL;
+  return pItem->pElt;
 }
 
 // -----[ _hash_get_enum_destroy ]-----------------------------------

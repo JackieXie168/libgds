@@ -418,22 +418,22 @@ int test_radix_tree()
   radix_tree_for_each(pTree, radix_tree_for_each_function, NULL);
 
   fprintf(stderr, "exact(199.165.16.0/20): %d\n",
-	  (int)radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 20));
+	  radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 20));
   fprintf(stderr, "exact(199.165.16.0/24): %d\n",
-	  (int)radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 24));
+	  radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 24));
   fprintf(stderr, "best(199.165.16.0/32): %d\n",
-	  (int)radix_tree_get_best(pTree, IPV4_TO_INT(199,165,16,0), 32));
+	  radix_tree_get_best(pTree, IPV4_TO_INT(199,165,16,0), 32));
 
   radix_tree_remove(pTree, IPV4_TO_INT(199,165,16,0), 24, 1);
 
   radix_tree_for_each(pTree, radix_tree_for_each_function, NULL);
 
   fprintf(stderr, "exact(199.165.16.0/20): %d\n",
-	  (int)radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 20));
+	  radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 20));
   fprintf(stderr, "exact(199.165.16.0/24): %d\n",
-	  (int)radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 24));
+	  radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 24));
   fprintf(stderr, "best(199.165.16.0/32): %d\n",
-	  (int)radix_tree_get_best(pTree, IPV4_TO_INT(199,165,16,0), 32));
+	  radix_tree_get_best(pTree, IPV4_TO_INT(199,165,16,0), 32));
 
   radix_tree_destroy(&pTree);
 
@@ -459,8 +459,8 @@ int test_radix_tree()
 int test_tokenizer()
 {
   STokenizer * pTokenizer;
-  //long int lValue;
-  //double dValue;
+  long int lValue;
+  double dValue;
   STokens * pTokens;
   int iIndex;
   int iResult;
@@ -647,7 +647,7 @@ int dump(trie_key_t uKey, trie_key_len_t uKeyLen,
   if (pData != NULL) {
     printf("%u\n", (int) pData);
   } else
-    printf("(null) %u, %u\n", uKey, uKeyLen);
+    printf("(null)\n", uKey, uKeyLen);
   return 0;
 }
 
@@ -857,7 +857,6 @@ int _hash_cmp(void * pElt1, void * pElt2, uint32_t uEltSize)
   if ((unsigned int) pElt1 > (unsigned int) pElt2) {
     return 1;
   } else if ((unsigned int) pElt1 < (unsigned int) pElt2) {
-    return -1;
   } else
     return 0;
 }
@@ -885,57 +884,12 @@ int test_hash()
 {
   SHash * pHash;
   SEnumerator * pEnum;
-  uint32_t uNbr;
 
-  printf("Test in static mode\n");
-  pHash = hash_init(6, 0, _hash_cmp, _hash_destroy, _hash_fct);
-  for (uNbr = 0; uNbr < 20; uNbr++) {
-    hash_add(pHash, (void *) uNbr);
-  }
-  hash_for_each(pHash, _hash_for_each, NULL);
-  pEnum= hash_get_enum(pHash);
-  while (enum_has_next(pEnum)) {
-    printf("hash-item: %d\n", (unsigned int) enum_get_next(pEnum));
-  }
-  hash_del(pHash, (void *)1);
-  hash_del(pHash, (void *)2);
-  hash_del(pHash, (void *)3);
-  hash_del(pHash, (void *)5);
-  hash_del(pHash, (void *)6);
-  hash_del(pHash, (void *)7);
-  hash_del(pHash, (void *)8);
-  hash_del(pHash, (void *)9);
-  hash_del(pHash, (void *)10);
-  hash_del(pHash, (void *)11);
-  hash_del(pHash, (void *)12);
-  hash_del(pHash, (void *)13);
-  hash_del(pHash, (void *)14);
-  hash_del(pHash, (void *)15);
-  hash_del(pHash, (void *)16);
-  hash_del(pHash, (void *)17);
-  hash_del(pHash, (void *)18);
-  printf("*** removal of 19 ***\n");
-  hash_del(pHash, (void *)19);
-  hash_for_each(pHash, _hash_for_each, NULL);
-
-  printf("*** add a second elt 4 ***\n");
-  hash_add(pHash, (void *)4);
-
-  printf("*** removal of 4 ***\n");
-  hash_del(pHash, (void *)4);
-  hash_for_each(pHash, _hash_for_each, NULL);
-
-  printf("*** add 22 ***\n");
-  hash_add(pHash, (void *)22);
-  hash_for_each(pHash, _hash_for_each, NULL);
-
-  hash_destroy(&pHash);
-
-  printf("Test in dynamic mode\n");
-  pHash= hash_init(3, 0.75, _hash_cmp, _hash_destroy, _hash_fct);
-  for (uNbr = 0; uNbr < 20; uNbr++) {
-    hash_add(pHash, (void *) uNbr);
-  }
+  pHash= hash_init(3, 0, _hash_cmp, _hash_destroy, _hash_fct);
+  hash_add(pHash, (void *) 33);
+  hash_add(pHash, (void *) 55);
+  hash_add(pHash, (void *) 77);
+  hash_add(pHash, (void *) 1111);
   hash_for_each(pHash, _hash_for_each, NULL);
   pEnum= hash_get_enum(pHash);
   while (enum_has_next(pEnum)) {
@@ -967,7 +921,7 @@ STest TEST_LIST[]= {
   {test_radix_tree, "Radix trees"},
   {test_patricia_tree, "Patricia trees"},
   {test_tokenizer, "Tokenizers"},
-  {test_cli, "Command-line interface"}
+  {test_cli, "Command-line interface"},
 };
 
 // ----- main -------------------------------------------------------
