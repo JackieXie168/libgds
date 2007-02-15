@@ -90,3 +90,19 @@ AM_CONDITIONAL(WITH_MEMORY_DEBUG, [test "x$gds_config_memory_debug" = "xyes"])
 
 AC_OUTPUT(Makefile src/Makefile src/libgds/Makefile src/check/Makefile)
 
+if test "x$gds_config_xml" == "xyes"; then
+  config_xml_msg="yes"
+else
+  config_xml_msg="no"
+fi
+
+if test "x$gds_config_memory_debug" == "xyes"; then
+  config_memory_debug_msg="yes"
+else
+  config_memory_debug_msg="no"
+fi
+
+echo ""
+echo "Libgds package has been configured with the following optional capabilities :"
+echo "                              XML : $config_xml_msg"
+echo "                     Memory Debug : $config_memory_debug_msg"
