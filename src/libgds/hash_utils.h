@@ -10,6 +10,6 @@
 #define _GDS_HASH_UTILS_
 
 // ----- hash_utils_key_compute_string -------------------------------
-int hash_utils_key_compute_string(char * pcItem, unsigned int uModulo);
+int hash_utils_key_compute_string(const char * pcItem, const unsigned int uModulo);
 
 #endif //_GDS_HASH_UTILS_

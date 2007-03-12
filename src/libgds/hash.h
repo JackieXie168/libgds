@@ -21,7 +21,7 @@ typedef void (*FHashEltDestroy) (void * pElt);
 //because the hash table is dynamic. Thus, the maximum value of a key will grow
 //as the size of the hash will grow. The initial value of the size of the hash 
 //is just a value to begin with but will change with time.
-typedef uint32_t (*FHashCompute) (void * pElt, uint32_t uHashSize);
+typedef uint32_t (*FHashCompute) (const void * pElt, const uint32_t uHashSize);
 
 typedef int (*FHashForEach) (void * pElt, void * pContext);
 
@@ -29,7 +29,7 @@ typedef struct HashTable SHash;
 
 // ----- hash_init ---------------------------------------------------
 extern SHash * hash_init(const uint32_t uHashSize,
-			 float fResizeThreshold,
+			 const float fResizeThreshold,
 			 FHashEltCompare fEltCompare, 
 			 FHashEltDestroy fEltDestroy, 
 			 FHashCompute fHashCompute);
@@ -38,17 +38,17 @@ extern int hash_add(SHash * pHash, void * pElt);
 // ----- hash_del ----------------------------------------------------
 extern int hash_del(SHash * pHash, void * pElt);
 // ----- hash_search -------------------------------------------------
-extern void * hash_search(SHash * pHash, void * pElt);
+extern void * hash_search(const SHash * pHash, void * pElt);
 // ---- hash_destroy -------------------------------------------------
 extern void hash_destroy(SHash ** pHash);
 
 // -----[ hash_info ]-------------------------------------------------
-extern uint32_t hash_info(SHash * pHash, void * pItem);
+extern uint32_t hash_info(const SHash * pHash, void * pItem);
 // -----[ hash_for_each ]---------------------------------------------
-extern int hash_for_each(SHash * pHash, FHashForEach fHashForEach, 
+extern int hash_for_each(const SHash * pHash, FHashForEach fHashForEach, 
 			 void * pContext);
 // -----[ hash_for_each_key ]----------------------------------------
-extern int hash_for_each_key(SHash * pHash, FHashForEach fHashForEach, 
+extern int hash_for_each_key(const SHash * pHash, FHashForEach fHashForEach, 
 			     void * pContext);
 // -----[ hash_get_enum ]--------------------------------------------
 extern SEnumerator * hash_get_enum(SHash * pHash);
