@@ -35,7 +35,7 @@ AC_C_CONST
 AC_TYPE_SIZE_T
 
 AC_SUBST(LT_RELEASE, "1.2.5")
-dnl AC_SUBST(LT_VERSION, "5")
+AC_SUBST(LT_VERSION, "0")
 
 dnl Now arrange the build libtool
 AC_PROG_LIBTOOL

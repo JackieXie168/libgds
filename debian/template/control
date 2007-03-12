@@ -5,11 +5,11 @@ Build-Depends: debhelper (>= 5)
 Standards-Version: 3.7.2.2
 Section: libs
 
-Package: libgds1.2.5-dev
+Package: %libgdspackagename%-dev
 Provides: libgds-dev
 Section: libdevel
 Architecture: any
-Depends: libgds1.2.5 (= ${Source-Version}), libc6-dev | libc-dev, pkg-config
+Depends: %libgdspackagename% (= ${Source-Version}), libc6-dev | libc-dev, pkg-config
 Suggests: libgds-doc
 Description: Development files for libGDS
  libGDS is a library of functions and generic data structures. It contains
@@ -20,7 +20,7 @@ Description: Development files for libGDS
  This package contains the header files and static libraries which are needed
  for developing with libGDS.
 
-Package: libgds1.2.5
+Package: %libgdspackagename%
 Provides: libgds
 Conflicts: libgds
 Section: libs
@@ -34,7 +34,7 @@ Description: Library of functions and generic data structures
  .
  This package contains the shared library.
 
-Package: libgds1.2.5-doc
+Package: %libgdspackagename%-doc
 Section: doc
 Architecture: any
 Depends: lynx | www-browser
