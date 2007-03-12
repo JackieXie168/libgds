@@ -34,6 +34,9 @@ dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_TYPE_SIZE_T
 
+AC_SUBST(LT_RELEASE, "1.2.5")
+dnl AC_SUBST(LT_VERSION, "5")
+
 dnl Now arrange the build libtool
 AC_PROG_LIBTOOL
 
@@ -107,7 +110,7 @@ if test "x$gds_config_doxygen" = "xyes"; then
 fi
 AM_CONDITIONAL(WITH_DOXYGEN, [test "x$HAVE_DOXYGEN" = "xyes"])
 
-AC_OUTPUT(Makefile src/Makefile src/libgds/Makefile src/check/Makefile doc/Makefile)
+AC_OUTPUT(Makefile src/Makefile src/libgds/Makefile src/check/Makefile doc/Makefile libgds.pc)
 
 if test "x$gds_config_xml" = "xyes"; then
   config_xml_msg="yes"
