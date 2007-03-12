@@ -4,8 +4,8 @@
 # author: Bruno Quoitin (bqu@info.ucl.ac.be)
 # -------------------------------------------------------------------
 
-MODULE="libgds"
-VERSION="1.2.1"
+. make-package-lib
+. make-package.config
 
 RPM_PKG_RELEASE="0.FC4"
 RPM_SPEC_FILE="/tmp/$MODULE-rpm.spec"
@@ -24,21 +24,6 @@ PUBLISH_FILES=" \
 REDIRECT='>/dev/null 2>&1'
 #REDIRECT=''
 
-# -----[ info ]------------------------------------------------------
-info()
-{
-    MSG=$1
-    echo -e "\033[1m$MSG\033[0m"
-}
-
-# -----[ error ]-----------------------------------------------------
-error()
-{
-    MSG=$1
-    echo -e "ERROR: \033[1;31m$MSG\033[0m"
-    echo "Aborting..."
-    exit -1
-}
 
 # -----[ redhat_version ]--------------------------------------------
 redhat_version()
