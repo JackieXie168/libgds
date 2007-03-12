@@ -54,8 +54,8 @@ STrie * trie_create(FTrieDestroy fDestroy)
  * take care of correctly masking the node's key according to its
  * length.
  */
-static STrieItem * trie_item_create(trie_key_t uKey,
-				    trie_key_len_t uKeyLen,
+static STrieItem * trie_item_create(const trie_key_t uKey,
+				    const trie_key_len_t uKeyLen,
 				    void * pData)
 {
   STrieItem * pTrieItem= (STrieItem *) MALLOC(sizeof(STrieItem));
@@ -74,10 +74,10 @@ static STrieItem * trie_item_create(trie_key_t uKey,
  * Pre: (key lenghts <= TRIE_KEY_SIZE) &
  *      (ptKey and ptKeyLen are valid pointers)
  */
-static void longest_common_prefix(trie_key_t tKey1,
-				  trie_key_len_t tKeyLen1,
-				  trie_key_t tKey2,
-				  trie_key_len_t tKeyLen2,
+static void longest_common_prefix(const trie_key_t tKey1,
+				  const trie_key_len_t tKeyLen1,
+				  const trie_key_t tKey2,
+				  const trie_key_len_t tKeyLen2,
 				  trie_key_t * ptKey,
 				  trie_key_len_t * ptKeyLen)
 {
@@ -105,8 +105,8 @@ static void longest_common_prefix(trie_key_t tKey1,
  *
  * Result: 0 on success and -1 on error (duplicate key)
  */
-static int trie_item_insert(STrieItem ** ppItem, trie_key_t uKey,
-			    trie_key_len_t uKeyLen, void * pData,
+static int trie_item_insert(STrieItem ** ppItem, const trie_key_t uKey,
+			    const trie_key_len_t uKeyLen, void * pData,
 			    FTrieDestroy fDestroy)
 {
   trie_key_t tPrefix;
@@ -174,7 +174,7 @@ static int trie_item_insert(STrieItem ** ppItem, trie_key_t uKey,
  *
  * Pre: (key length < TRIE_KEY_SIZE)
  */
-int trie_insert(STrie * pTrie, trie_key_t uKey, trie_key_len_t uKeyLen,
+int trie_insert(STrie * pTrie, const trie_key_t uKey, const trie_key_len_t uKeyLen,
 		void * pData)
 {
   if (pTrie->pRoot == NULL) {
@@ -285,8 +285,8 @@ void * trie_find_best(STrie * pTrie, trie_key_t uKey, trie_key_len_t uKeyLen)
 /**
  *
  */
-static int trie_item_remove(STrieItem ** ppItem, trie_key_t uKey,
-			    trie_key_len_t uKeyLen, FTrieDestroy fDestroy)
+static int trie_item_remove(STrieItem ** ppItem, const trie_key_t uKey,
+			    const trie_key_len_t uKeyLen, FTrieDestroy fDestroy)
 {
   STrieItem * pTemp;
   trie_key_t tPrefix;
@@ -385,8 +385,8 @@ int trie_remove(STrie * pTrie, trie_key_t uKey, trie_key_len_t uKeyLen)
 }
 
 // -----[ trie_item_replace ]----------------------------------------
-static int trie_item_replace(STrieItem * pItem, trie_key_t uKey,
-			     trie_key_len_t uKeyLen, void * pData)
+static int trie_item_replace(STrieItem * pItem, const trie_key_t uKey,
+			     const trie_key_len_t uKeyLen, void * pData)
 {
   trie_key_t tPrefix;
   trie_key_len_t tPrefixLen;

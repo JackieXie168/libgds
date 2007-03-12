@@ -125,7 +125,7 @@ static SHashElt * _hash_element_init(void * pElt, SHashFunctions * pFunctions)
  *   0 if element was found. In this case, *puIndex will contain the
  *      index of the element.
  */
-static int _hash_element_search(SPtrArray * aHashElts, void * pElt, 
+static int _hash_element_search(const SPtrArray * aHashElts, void * pElt, 
 				SHashFunctions * pFunctions,
 				unsigned int * puIndex)
 {
@@ -145,12 +145,12 @@ static int _hash_element_search(SPtrArray * aHashElts, void * pElt,
   return 0;
 }
 
-static void _hash_element_set_current_key(SHashElt * pHashElt, uint32_t uHashKey)
+static void _hash_element_set_current_key(SHashElt * pHashElt, const uint32_t uHashKey)
 {
   pHashElt->uCurrentKey = uHashKey;
 }
 
-static uint32_t _hash_element_get_current_key(SHashElt * pHashElt)
+static uint32_t _hash_element_get_current_key(const SHashElt * pHashElt)
 {
   return pHashElt->uCurrentKey;
 }
@@ -159,7 +159,7 @@ static uint32_t _hash_element_get_current_key(SHashElt * pHashElt)
 /**
  *
  */
-static SHashElt * _hash_element_add(SPtrArray * aHashElt, void * pElt, 
+static SHashElt * _hash_element_add(const SPtrArray * aHashElt, void * pElt, 
 				    SHashFunctions * pFunctions)
 {
   SHashElt * pHashElt= _hash_element_init(pElt, pFunctions);
@@ -171,7 +171,7 @@ static SHashElt * _hash_element_add(SPtrArray * aHashElt, void * pElt,
 /**
  *
  */
-SHash * hash_init(const uint32_t uHashSize, float fResizeThreshold, 
+SHash * hash_init(const uint32_t uHashSize, const float fResizeThreshold, 
 		  FHashEltCompare fEltCompare, 
 		  FHashEltDestroy fEltDestroy, 
 		  FHashCompute fHashCompute)
@@ -211,7 +211,7 @@ static SPtrArray * _hash_get_hash_array(SHash * pHash, uint32_t uHashKey)
   return pHash->aHash[uHashKey];
 }
 
-static uint32_t _hash_compute_key(SHash * pHash, void * pElt)
+static uint32_t _hash_compute_key(const SHash * pHash, const void * pElt)
 {
   return pHash->pFunctions->fHashCompute(pElt, pHash->uHashSize);
 }
@@ -220,7 +220,7 @@ static uint32_t _hash_compute_key(SHash * pHash, void * pElt)
 /**
  * 
  */
-void _hash_rehash(SHash * pHash)
+static void _hash_rehash(SHash * pHash)
 {
   uint32_t uHashKey;
   uint32_t uIndex;
@@ -308,7 +308,7 @@ int hash_add(SHash * pHash, void * pElt)
 /**
  * returns NULL if no elt found else the pointer to this elt
  */
-void * hash_search(SHash * pHash, void * pElt)
+void * hash_search(const SHash * pHash, void * pElt)
 {
   unsigned int uIndex;
   SPtrArray * aHashElts;
@@ -357,7 +357,7 @@ int hash_del(SHash * pHash, void * pElt)
 /**
  * Return number of references on the given item.
  */
-uint32_t hash_info(SHash * pHash, void * pItem)
+uint32_t hash_info(const SHash * pHash, void * pItem)
 {
   unsigned int uIndex;
   SPtrArray * pHashItems;
@@ -387,7 +387,7 @@ uint32_t hash_info(SHash * pHash, void * pItem)
  *
  * Note: the callback can be called with an item which is NULL.
  */
-int hash_for_each_key(SHash * pHash, FHashForEach fHashForEach, 
+int hash_for_each_key(const SHash * pHash, FHashForEach fHashForEach, 
 		      void * pContext)
 {
   int iResult;
@@ -407,7 +407,7 @@ int hash_for_each_key(SHash * pHash, FHashForEach fHashForEach,
 /**
  * Call the given callback function foreach item in the hash table.
  */
-int hash_for_each(SHash * pHash, FHashForEach fHashForEach, 
+int hash_for_each(const SHash * pHash, FHashForEach fHashForEach, 
 		  void * pContext)
 {
   int iResult;
