@@ -5,7 +5,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 17/05/2005
-// @lastdate 10/08/2005
+// @lastdate 04/01/2007
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -15,6 +15,7 @@
 #include <libgds/gds.h>
 #include <libgds/log.h>
 #include <libgds/memory.h>
+#include <libgds/memory_debug.h>
 #include <libgds/patricia-tree.h>
 
 // -----[ gds_init ]-------------------------------------------------
@@ -26,8 +27,8 @@
  */
 void gds_init(uint8_t uOptions)
 {
-  _memory_init();
   mem_flag_set(MEM_FLAG_TRACK_LEAK, (uOptions & GDS_OPTION_MEMORY_DEBUG));
+  _memory_init();
   _log_init();
   _patricia_tree_init();
 }
@@ -40,4 +41,10 @@ void gds_destroy()
 {
   _log_destroy();
   _memory_destroy();
+}
+
+// -----[ gds_version ]----------------------------------------------
+const char * gds_version()
+{
+  return PACKAGE_VERSION;
 }

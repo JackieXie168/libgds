@@ -5,7 +5,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 17/05/2005
-// @lastdate 10/08/2005
+// @lastdate 04/01/2007
 // ==================================================================
 
 #ifndef __GDS_H__
@@ -19,5 +19,7 @@
 extern void gds_init(uint8_t uOptions);
 // -----[ gds_destroy ]-------------------------------------------------
 extern void gds_destroy();
+// -----[ gds_version ]----------------------------------------------
+extern const char * gds_version();
 
 #endif /* __GDS_H__ */
