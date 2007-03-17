@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 27/01/2005
+// @lastdate 16/01/2007
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -17,25 +17,23 @@
 
 #define CLI_MAX_CONTEXT 16
 
-// ----- cli_context_item_create ------------------------------------
-SCliCtxItem * cli_context_item_create(void * pItem,
-				      SCliCmd * pCmd,
-				      unsigned int uNumParams)
+// -----[ _cli_context_item_create ]---------------------------------
+static SCliCtxItem * _cli_context_item_create(SCliCmd * pCmd,
+					      void * pUserData)
 {
   SCliCtxItem * pCtxItem=
     (SCliCtxItem *) MALLOC(sizeof(SCliCtxItem));
-  pCtxItem->pItem= pItem;
+  pCtxItem->pUserData= pUserData;
   pCtxItem->pCmd= pCmd;
-  pCtxItem->uNumParams= uNumParams;
   return pCtxItem;
 }
 
-// ----- cli_context_item_destroy -----------------------------------
-void cli_context_item_destroy(SCliCtxItem ** ppCtxItem)
+// -----[ _cli_context_item_destroy ]--------------------------------
+static void _cli_context_item_destroy(SCliCtxItem ** ppCtxItem)
 {
   if (*ppCtxItem != NULL) {
     if ((*ppCtxItem)->pCmd->fCtxDestroy != NULL)
-      (*ppCtxItem)->pCmd->fCtxDestroy(&(*ppCtxItem)->pItem);
+      (*ppCtxItem)->pCmd->fCtxDestroy(&(*ppCtxItem)->pUserData);
     FREE(*ppCtxItem);
     *ppCtxItem= NULL;
   }
@@ -49,30 +47,27 @@ SCliContext * cli_context_create()
 {
   SCliContext * pContext=
     (SCliContext *) MALLOC(sizeof(SCliContext));
-  pContext->pStack= stack_create(CLI_MAX_CONTEXT);
-  pContext->pTokens= tokens_create();
+  pContext->pCmdStack= stack_create(CLI_MAX_CONTEXT);
   pContext->uSavedDepth= 0;
-  pContext->pContext= NULL;
   pContext->pString= NULL;
   return pContext;
 }
 
-// ----- cli_context_create -----------------------------------------
+// ----- cli_context_destroy ----------------------------------------
 /**
  *
  */
 void cli_context_destroy(SCliContext ** ppContext)
 {
-  int iIndex;
+  unsigned int uIndex;
 
   if (*ppContext != NULL) {
-    for (iIndex= 0; iIndex < (*ppContext)->pStack->iDepth; iIndex++) {
+    for (uIndex= 0; uIndex < stack_depth((*ppContext)->pCmdStack); uIndex++) {
       SCliCtxItem * pItem=
-	(SCliCtxItem *) stack_get_at((*ppContext)->pStack, iIndex);
-      cli_context_item_destroy(&pItem);
+	(SCliCtxItem *) stack_get_at((*ppContext)->pCmdStack, uIndex);
+      _cli_context_item_destroy(&pItem);
     }
-    stack_destroy(&(*ppContext)->pStack);
-    tokens_destroy(&(*ppContext)->pTokens);
+    stack_destroy(&(*ppContext)->pCmdStack);
     str_destroy(&(*ppContext)->pString);
     FREE(*ppContext);
     *ppContext= NULL;
@@ -85,7 +80,7 @@ void cli_context_destroy(SCliContext ** ppContext)
  */
 int cli_context_depth(SCliContext * pContext)
 {
-  return stack_depth(pContext->pStack);
+  return stack_depth(pContext->pCmdStack);
 }
 
 // ----- cli_context_is_empty ---------------------------------------
@@ -94,20 +89,19 @@ int cli_context_depth(SCliContext * pContext)
  */
 int cli_context_is_empty(SCliContext * pContext)
 {
-  return stack_is_empty(pContext->pStack);
+  return stack_is_empty(pContext->pCmdStack);
 }
 
 // ----- cli_context_push -------------------------------------------
 /**
- *
+ * Push a command with parameters and context (user-data) on the
+ * stack.
  */
-int cli_context_push(SCliContext * pContext, void * pItem,
-		     SCliCmd * pCmd)
+void cli_context_push(SCliContext * pContext)
 {
-  SCliCtxItem * pCtxItem=
-    cli_context_item_create(pItem, pCmd,
-			    tokens_get_num(pContext->pTokens));
-  return stack_push(pContext->pStack, pCtxItem);
+  SCliCtxItem * pItem= _cli_context_item_create(pContext->pCmd,
+						pContext->pUserData);
+  stack_push(pContext->pCmdStack, pItem);
 }
 
 // ----- cli_context_pop --------------------------------------------
@@ -116,8 +110,13 @@ int cli_context_push(SCliContext * pContext, void * pItem,
  */
 void cli_context_pop(SCliContext * pContext)
 {
-  SCliCtxItem * pCtxItem= (SCliCtxItem *) stack_pop(pContext->pStack);
-  cli_context_item_destroy(&pCtxItem);
+  SCliCtxItem * pItem;
+  if (!stack_is_empty(pContext->pCmdStack)) {
+    pItem= (SCliCtxItem *) stack_pop(pContext->pCmdStack);
+    pContext->pCmd= pItem->pCmd;
+    pContext->pUserData= pItem->pUserData;
+    _cli_context_item_destroy(&pItem);
+  }
 }
 
 // ----- cli_context_top ---------------------------------------------
@@ -126,25 +125,16 @@ void cli_context_pop(SCliContext * pContext)
  */
 SCliCtxItem * cli_context_top(SCliContext * pContext)
 {
-  return (SCliCtxItem *) stack_top(pContext->pStack);
+  return (SCliCtxItem *) stack_top(pContext->pCmdStack);
 }
 
 // ----- cli_context_get --------------------------------------------
 /**
- *
+ * Get current context (user-data).
  */
 void * cli_context_get(SCliContext * pContext)
 {
-  return pContext->pContext;
-}
-
-// ----- cli_context_set --------------------------------------------
-/**
- *
- */
-void cli_context_set(SCliContext * pContext, void * pCtx)
-{
-  pContext->pContext= pCtx;
+  return pContext->pUserData;
 }
 
 // ----- cli_context_get_at ------------------------------------------
@@ -153,7 +143,7 @@ void cli_context_set(SCliContext * pContext, void * pCtx)
  */
 SCliCtxItem * cli_context_get_at(SCliContext * pContext, uint32_t uIndex)
 {
-  return (SCliCtxItem *) stack_get_at(pContext->pStack, uIndex);
+  return (SCliCtxItem *) stack_get_at(pContext->pCmdStack, uIndex);
 }
 
 // ----- cli_context_get_item_at ------------------------------------
@@ -163,9 +153,9 @@ SCliCtxItem * cli_context_get_at(SCliContext * pContext, uint32_t uIndex)
 void * cli_context_get_item_at(SCliContext * pContext, uint32_t uIndex)
 {
   SCliCtxItem * pCtxItem=
-    (SCliCtxItem *) stack_get_at(pContext->pStack, uIndex);
+    (SCliCtxItem *) stack_get_at(pContext->pCmdStack, uIndex);
   if (pCtxItem != NULL)
-    return pCtxItem->pItem;
+    return pCtxItem->pUserData;
   return NULL;
 }
 
@@ -194,15 +184,6 @@ void * cli_context_get_item_at_top(SCliContext * pContext)
   return NULL;
 }
 
-// ----- cli_context_add_token_copy ---------------------------------
-/**
- *
- */
-int cli_context_add_token_copy(SCliContext * pContext, char * pcToken)
-{
-  return tokens_add_copy(pContext->pTokens, pcToken);
-}
-
 // ----- cli_context_clear ------------------------------------------
 /**
  * Clear context-stack and params
@@ -211,20 +192,7 @@ void cli_context_clear(SCliContext * pContext)
 {
   while (cli_context_depth(pContext) > 0)
     cli_context_pop(pContext);
-  tokens_destroy(&pContext->pTokens);
-  pContext->pTokens= tokens_create();
   pContext->uSavedDepth= 0;
-}
-
-// ----- cli_context_backtrack --------------------------------------
-/**
- * Backtrack in context-stack and clear useless parameters.
- */
-void cli_context_backtrack(SCliContext * pContext)
-{
-  cli_context_pop(pContext);
-  if (!cli_context_is_empty(pContext)) {
-  }
 }
 
 // ----- cli_context_save_depth -------------------------------------
@@ -233,7 +201,7 @@ void cli_context_backtrack(SCliContext * pContext)
  */
 void cli_context_save_depth(SCliContext * pContext)
 {
-  pContext->uSavedDepth= stack_depth(pContext->pStack);
+  pContext->uSavedDepth= stack_depth(pContext->pCmdStack);
 }
 
 // ----- cli_context_restore_depth ----------------------------------
@@ -289,3 +257,4 @@ char * cli_context_to_string(SCliContext * pContext, char * pcPrefix)
 
   return pContext->pString;
 }
+
