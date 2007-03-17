@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 20/08/2003
-// @lastdate 13/11/2005
+// @lastdate 15/01/2007
 // =================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -88,22 +88,11 @@ char * tokens_get_string_at(STokens * pTokens, unsigned int uIndex)
 int tokens_get_long_at(STokens * pTokens, uint16_t uIndex,
 		       long int * plValue)
 {
-  long int lValue;
-  char * pcValue;
-  char * pcEndPtr;
-
-  if (plValue == NULL)
+  if (uIndex >= tokens_get_num(pTokens))
     return -1;
-  if (uIndex < tokens_get_num(pTokens)) {
-    pcValue= pTokens->data[uIndex];
-    lValue= strtol(pcValue, &pcEndPtr, 0);
-    if ((lValue == LONG_MAX) && (errno == ERANGE)) {
-      return -1;
-    }
-    *plValue= lValue;
-    return (*pcEndPtr == 0)?0:-1;
-  }
-  return -1;
+  if (str_as_long(pTokens->data[uIndex], plValue) < 0)
+    return -1;
+  return 0;
 }
 
 // ----- tokens_get_int_at ------------------------------------------
@@ -113,15 +102,10 @@ int tokens_get_long_at(STokens * pTokens, uint16_t uIndex,
 int tokens_get_int_at(STokens * pTokens, uint16_t uIndex,
 		      int * piValue)
 {
-  long int lValue;
-
-  if (piValue == NULL)
+  if (uIndex >= tokens_get_num(pTokens))
     return -1;
-  if (tokens_get_long_at(pTokens, uIndex, &lValue) != 0)
+  if (str_as_int(pTokens->data[uIndex], piValue) < 0)
     return -1;
-  if ((lValue < INT_MIN) || (lValue > INT_MAX))
-    return -1;
-  *piValue= lValue;
   return 0;
 }
 
@@ -138,24 +122,11 @@ int tokens_get_int_at(STokens * pTokens, uint16_t uIndex,
 int tokens_get_ulong_at(STokens * pTokens, uint16_t uIndex,
 			unsigned long int * pulValue)
 {
-  long long int llValue;
-  char * pcValue;
-  char * pcEndPtr;
-
-  if (pulValue == NULL)
+  if (uIndex >= tokens_get_num(pTokens))
     return -1;
-  if (uIndex < tokens_get_num(pTokens)) {
-    pcValue= pTokens->data[uIndex];
-    llValue= strtoll(pcValue, &pcEndPtr, 0);
-    /* Check for errors and bounds (0 <= x <= ULONG_MAX) */
-    if (((llValue == LLONG_MAX) && (errno == ERANGE)) ||
-	(llValue < 0) || (llValue > ULONG_MAX)) {
-      return -1;
-    }
-    *pulValue= (unsigned long int) llValue;
-    return (*pcEndPtr == 0)?0:-1;
-  }
-  return -1;
+  if (str_as_ulong(pTokens->data[uIndex], pulValue) < 0)
+    return -1;
+  return 0;
 }
 
 // ----- tokens_get_uint_at -----------------------------------------
@@ -165,15 +136,10 @@ int tokens_get_ulong_at(STokens * pTokens, uint16_t uIndex,
 int tokens_get_uint_at(STokens * pTokens, uint16_t uIndex,
 		       unsigned int * puValue)
 {
-  unsigned long int ulValue;
-
-  if (puValue == NULL)
+  if (uIndex >= tokens_get_num(pTokens))
     return -1;
-  if (tokens_get_ulong_at(pTokens, uIndex, &ulValue) != 0)
+  if (str_as_uint(pTokens->data[uIndex], puValue) < 0)
     return -1;
-  if (ulValue > UINT_MAX)
-    return -1;
-    *puValue= ulValue;
   return 0;
 }
 
@@ -184,17 +150,9 @@ int tokens_get_uint_at(STokens * pTokens, uint16_t uIndex,
 int tokens_get_double_at(STokens * pTokens, uint16_t uIndex,
 			 double * pdValue)
 {
-  double dValue;
-  char * pcValue;
-  char * pcEndPtr;
-
-  if (pdValue == NULL)
+  if (uIndex >= tokens_get_num(pTokens))
     return -1;
-  if (uIndex < tokens_get_num(pTokens)) {
-    pcValue= pTokens->data[uIndex];
-    dValue= strtod(pcValue, &pcEndPtr);
-    *pdValue= dValue;
-    return (*pcEndPtr == 0)?0:-1;
-  }
-  return -1;
+  if (str_as_double(pTokens->data[uIndex], pdValue) < 0)
+    return -1;
+  return 0;
 }
