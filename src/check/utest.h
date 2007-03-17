@@ -7,6 +7,17 @@
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @lastdate 17/03/2007
 // ==================================================================
+//
+// Example definition for a unit test suite:
+//
+// #define NUM_TESTS 0
+// SUnitTest TEST_SUITE[NUM_TESTS]= {
+//   {test_basic, "basic use"},
+//   {test_advanced, "advanced use"},
+// };
+//
+// ==================================================================
+
 
 #ifndef __GDS_UTEST_H__
 #define __GDS_UTEST_H__
@@ -28,10 +39,10 @@
 #endif
 #endif
 
-#define MSG_RESULT_SUCCESS() \
+/*#define MSG_RESULT_SUCCESS()				\
   printf("\033[70G[\033[32;1mSUCCESS\033[0m]\n")
 #define MSG_RESULT_FAIL() \
-  printf("\033[70G[\033[31;1mFAIL\033[0m]\n")
+printf("\033[70G[\033[31;1mFAIL\033[0m]\n")*/
 
 #ifdef __VARIADIC_ELLIPSIS__
 #undef ASSERT_RETURN
@@ -48,13 +59,26 @@
   }
 #endif
 
+// -----[ Unit Test function ]-----
+/**
+ * Should return one of (UTEST_SUCCESS, UTEST_FAILURE, UTEST_SKIPPED)
+ */
 typedef int (*FUnitTest)();
+
+// -----[ Unit Test ]-----
 typedef struct {
   FUnitTest fTest;
   char * pcName;
   int iResult;
   char * pcMessage;
 } SUnitTest;
+
+// -----[ Suite of Unit Tests ]-----
+typedef struct {
+  char * pcName;
+  unsigned int uNumTests;
+  SUnitTest * acTests;
+} SUnitTestSuite;
 
 #ifdef __cplusplus
 extern "C" {
@@ -70,6 +94,8 @@ extern "C" {
   // -----[ utest_run_suite ]----------------------------------------
   int utest_run_suite(const char * pcName, SUnitTest * paTests,
 		      unsigned int uNumTests);
+  // -----[ utest_run_suites ]---------------------------------------
+  int utest_run_suites(SUnitTestSuite * paSuites, unsigned int uNumSuites);
 
   // -----[ utest_set_xml_logging ]----------------------------------
   void utest_set_xml_logging(const char * pcFileName);
