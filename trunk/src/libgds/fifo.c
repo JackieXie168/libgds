@@ -3,15 +3,13 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 28/11/2002
-// @lastdate 27/01/2005
+// @lastdate 17/03/2007
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include <libgds/fifo.h>
@@ -24,6 +22,7 @@
 SFIFO * fifo_create(uint32_t uMaxDepth, FFIFODestroy fDestroy)
 {
   SFIFO * pFIFO= (SFIFO *) MALLOC(sizeof(SFIFO));
+  pFIFO->uOptions= 0;
   pFIFO->uMaxDepth= uMaxDepth;
   pFIFO->uStartIndex= 0;
   pFIFO->uCurrentDepth= 0;
@@ -65,16 +64,22 @@ void fifo_set_option(SFIFO * pFIFO, uint8_t uOption, int iState)
     pFIFO->uOptions&= ~uOption;
 }
 
-// ----- fifo_grow ------------------------------------------------
+// ----- _fifo_grow -----------------------------------------------
 /**
  *
  */
-int fifo_grow(SFIFO * pFIFO)
+static int _fifo_grow(SFIFO * pFIFO)
 {
   uint32_t uNewDepth= 0;
 
+  // Note: currently, whatever exponential or linear is selected,
+  // _fifo_grow will lead to exponential growth
   if (pFIFO->uOptions & FIFO_OPTION_GROW_EXPONENTIAL)
     uNewDepth= pFIFO->uMaxDepth * 2;
+  else if (pFIFO->uOptions & FIFO_OPTION_GROW_LINEAR)
+    uNewDepth= pFIFO->uMaxDepth * 2;
+  else
+    return -1;
 
   if (uNewDepth > pFIFO->uMaxDepth) {
 
@@ -103,7 +108,7 @@ int fifo_push(SFIFO * pFIFO, void * pItem)
 
   // If there is not enough space in the queue, try to grow it
   if (pFIFO->uCurrentDepth >= pFIFO->uMaxDepth)
-    if (fifo_grow(pFIFO))
+    if (_fifo_grow(pFIFO) != 0)
       return -1;
 
   pFIFO->ppItems[(pFIFO->uStartIndex+
@@ -126,4 +131,13 @@ void * fifo_pop(SFIFO * pFIFO)
     pFIFO->uCurrentDepth--;
   }
   return pItem;
+}
+
+// -----[ fifo_depth ]---------------------------------------------
+/**
+ *
+ */
+uint32_t fifo_depth(SFIFO * pFIFO)
+{
+  return pFIFO->uCurrentDepth;
 }
