@@ -3,13 +3,14 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 25/10/2006
+// @lastdate 17/01/2007
 // ==================================================================
 
 #ifndef __GDS_CLI_H__
 #define __GDS_CLI_H__
 
 #include <libgds/array.h>
+#include <libgds/cli_params.h>
 #include <libgds/log.h>
 #include <libgds/stack.h>
 #include <stdio.h>
@@ -17,153 +18,152 @@
 
 #define MAX_CLI_LINE_LENGTH 1024
 
-#define CLI_SUCCESS                    0
-#define CLI_ERROR_UNEXPECTED          -1
-#define CLI_ERROR_UNKNOWN_COMMAND     -2
-#define CLI_ERROR_MISSING_PARAMETER   -3
-#define CLI_ERROR_NOT_A_COMMAND       -4
-#define CLI_ERROR_COMMAND_FAILED      -5
-#define CLI_ERROR_BAD_PARAMETER       -6
-#define CLI_ERROR_CTX_CREATE          -7
-#define CLI_ERROR_TOO_MANY_PARAMETERS -8
+#define CLI_SUCCESS                    0   // The execution was successful
+#define CLI_ERROR_GENERIC             -1   // Generic error (no details)
+#define CLI_ERROR_UNEXPECTED          -2   // Error detected, cause unknown
+#define CLI_ERROR_UNKNOWN_COMMAND     -3   // Command does not exist in context
+#define CLI_ERROR_MISSING_PARAM       -4   // Command needs more parameters
+#define CLI_ERROR_NOT_A_COMMAND       -5   // Command cannot be executed
+#define CLI_ERROR_COMMAND_FAILED      -6   // Command returned an error
+#define CLI_ERROR_BAD_PARAM           -7   // Invalid parameter value
+#define CLI_ERROR_CTX_CREATE          -8   // Context creation failed
+#define CLI_ERROR_TOO_MANY_PARAMS     -9   // Too many parameters provided
+#define CLI_ERROR_UNKNOWN_OPTION      -10  // Option does not exist in command
+#define CLI_ERROR_BAD_OPTION          -11  // Invalid option value
 #define CLI_WARNING_EMPTY_COMMAND      1
 #define CLI_SUCCESS_TERMINATE          2
 #define CLI_SUCCESS_HELP               3
 
 typedef SPtrArray SCliCmds;
-typedef SPtrArray SCliParams;
-typedef enum {
-  CLI_PARAM_TYPE_STD,
-  CLI_PARAM_TYPE_VARARG,
-} cli_param_type_t;
+
+struct TCliCmd;
+typedef struct TCliCmd SCliCmd;
 
 typedef struct {
-  SStack * pStack;   // Stack with current contexts
+  void * pUserData;         // Current user data
+  SCliCmd * pCmd;           // Current command
+  SStack * pCmdStack;       // Stack of commands
   unsigned int uSavedDepth;
-  STokens * pTokens; // List of current parameter values
-  void * pContext;
   char * pString;
 } SCliContext;
 
 typedef int (*FCliContextCreate)(SCliContext * pContext, void ** ppItem);
 typedef void (*FCliContextDestroy)(void ** pItem);
-typedef int (*FCliCommand)(SCliContext * pContext, STokens * pTokens);
-typedef int (*FCliCheckParam)(const char * pcValue);
-typedef char * (*FCliEnumParam)(const char * pcText, int state);
+typedef int (*FCliCommand)(SCliContext * pContext, SCliCmd * pCmd);
+typedef void (*FCliHelp)(SCliCmd * pCmd, void * pContext);
+typedef int (*FCliExitOnError)(int iResult);
 
-typedef struct {
+struct TCliCmd {
   char * pcName;
   SCliCmds * pSubCmds;
   SCliParams * pParams;
+  STokens * pParamValues;
+  SCliOptions * pOptions;
   FCliContextCreate fCtxCreate;
   FCliContextDestroy fCtxDestroy;
   FCliCommand fCommand;
   char * pcHelp;
-} SCliCmd;
+};
 
 typedef struct {
-  void * pItem;
-  SCliCmd * pCmd;
-  unsigned int uNumParams;
+  void * pUserData;         // User data
+  SCliCmd * pCmd;           // Saved command
 } SCliCtxItem;
 
 typedef struct {
-  char * pcName;
-  cli_param_type_t tType;
-  uint8_t uMaxArgs;
-  FCliCheckParam fCheckParam;
-  FCliEnumParam fEnumParam;
-} SCliCmdParam;
-
-typedef struct {
-  STokenizer * pTokenizer;
-  SCliCmd * pBaseCommand;
-  SCliContext * pExecContext;     // Current execution context (stack)
-  // Variables used for error reporting purpose:
-  int iExecTokenIndex;           // Index to current token in command-line
-  SCliCmd * pExecCmd;            // Command which is currently processed
-  SCliCmdParam * pExecParam;     // Parameter which is currently expected
+  STokenizer      * pTokenizer;
+  SCliCmd         * pBaseCommand;
+  SCliContext     * pCtx;         // Current execution context (stack)
+  FCliExitOnError   fExitOnError; // Exit callback function
+  FCliHelp          fHelp;        // Help callback function
+  // --- Variables used for error reporting purpose ---
+  int uExecTokenIndex;     // Index to current token in command-line
+  SCliParam * pExecParam;  // Parameter which is currently expected
 } SCli;
 
-// ----- cli_cmd_param_create ---------------------------------------
-extern SCliCmdParam * cli_cmd_param_create(char * pcName,
-					   FCliCheckParam fCheckParam);
-// ----- cli_cmd_param_destroy --------------------------------------
-extern void cli_cmd_param_destroy(SCliCmdParam ** ppParam);
-// ----- cli_cmds_create --------------------------------------------
-extern SCliCmds * cli_cmds_create();
-// ----- cli_cmds_destroy -------------------------------------------
-extern void cli_cmds_destroy(SCliCmds ** ppCmds);
-// ----- cli_matching_cmds ------------------------------------------
-extern SCliCmds * cli_matching_cmds(SCliCmds * pCmds, const char * pcText);
-// ----- cli_cmds_add -----------------------------------------------
-extern int cli_cmds_add(SCliCmds * pCmds, SCliCmd * pCmd);
-// ----- cli_params_create ------------------------------------------
-extern SCliParams * cli_params_create();
-// ----- cli_params_destroy -----------------------------------------
-extern void cli_params_destroy(SCliParams ** ppParams);
-// ----- cli_params_add ---------------------------------------------
-extern int cli_params_add(SCliParams * pParams, char * pcName,
-			  FCliCheckParam fCheckParam);
-// ----- cli_params_add ---------------------------------------------
-extern int cli_params_add2(SCliParams * pParams, char * pcName,
-			   FCliCheckParam fCheckParam,
-			   FCliEnumParam fEnumParam);
-// ----- cli_params_add_vararg --------------------------------------
-extern int cli_params_add_vararg(SCliParams * pParams, char * pcName,
-				 uint8_t uMaxArgs,
-				 FCliCheckParam fCheckParam);
-// ----- cli_cmd_create ---------------------------------------------
-extern SCliCmd * cli_cmd_create(char * pcName, FCliCommand fCommand,
-				SCliCmds * pSubCmds,
-				SCliParams * pParams);
-// ----- cli_cmd_create ---------------------------------------------
-extern SCliCmd * cli_cmd_create_ctx(char * pcName,
-				    FCliContextCreate fCtxCreate,
-				    FCliContextDestroy fCtxDestroy,
-				    SCliCmds * pSubCmds,
-				    SCliParams * pParams);
-// ----- cli_cmd_destroy --------------------------------------------
-extern void cli_cmd_destroy(SCliCmd ** ppCmd);
-// ----- cli_cmd_dump -----------------------------------------------
-extern void cli_cmd_dump(SLogStream * pStream, char * pcPrefix,
-			 SCliCmd * pCmd);
-// ----- cli_cmd_add_subcmd -----------------------------------------
-extern int cli_cmd_add_subcmd(SCliCmd * pCmd, SCliCmd * pSubCmd);
-// ----- cli_cmd_find_submd -----------------------------------------
-extern SCliCmd * cli_cmd_find_subcmd(SCliCmd * pCmd, char * pcName);
-// ----- cli_cmd_get_num_subcmds ------------------------------------
-extern int cli_cmd_get_num_subcmds(SCliCmd * pCmd);
-// ----- cli_cmd_get_subcmd_at --------------------------------------
-extern SCliCmd * cli_cmd_get_subcmd_at(SCliCmd * pCmd, int iIndex);
-// ----- cli_cmd_add_param ------------------------------------------
-extern int cli_cmd_add_param(SCliCmd * pCmd, char * pcName,
-			     FCliCheckParam fCheckParam);
-// ----- cli_cmd_get_num_params -------------------------------------
-extern int cli_cmd_get_num_params(SCliCmd * pCmd);
-// ----- cli_cmd_get_param_at ---------------------------------------
-extern SCliCmdParam * cli_cmd_get_param_at(SCliCmd * pCmd,
-					   uint32_t uIndex);
-// ----- cli_cmd_match_subcmds --------------------------------------
-extern SCliCmd * cli_cmd_match_subcmds(SCli * pCli, SCliCmd * pCmd,
-				       char * pcStartCmd,
-				       int * piParamIndex);
-// ----- cli_create -------------------------------------------------
-extern SCli * cli_create();
-// ----- cli_destroy ------------------------------------------------
-extern void cli_destroy(SCli ** ppCli);
-// ----- cli_execute_ctx --------------------------------------------
-extern int cli_execute_ctx(SCli * pCli, char * pcCmd,
-			   void * pContext);
-// ----- cli_execute ------------------------------------------------
-extern int cli_execute(SCli * pCli, char * pcCmd);
-// ----- cli_register_cmd -------------------------------------------
-extern int cli_register_cmd(SCli * pCli, SCliCmd * pCmd);
-// ----- cli_perror -------------------------------------------------
-extern void cli_perror(SLogStream * pStream, int iErrorCode);
-// ----- cli_execute_file -------------------------------------------
-extern int cli_execute_file(SCli * pCli, FILE * pStream);
-// ----- cli_execute_line -------------------------------------------
-extern int cli_execute_line(SCli * pCli, const char * pcLine);
-
+#ifdef __cplusplus
+extern "C" {
 #endif
+  
+  ///////////////////////////////////////////////////////////////////
+  // COMMANDS MANAGMENT FUNCTIONS
+  ///////////////////////////////////////////////////////////////////
+
+  // ----- cli_cmds_create ------------------------------------------
+  SCliCmds * cli_cmds_create();
+  // ----- cli_cmds_destroy -----------------------------------------
+  void cli_cmds_destroy(SCliCmds ** ppCmds);
+  // ----- cli_matching_cmds ----------------------------------------
+  SCliCmds * cli_matching_cmds(SCliCmds * pCmds, const char * pcText);
+  // ----- cli_cmds_add ---------------------------------------------
+  int cli_cmds_add(SCliCmds * pCmds, SCliCmd * pCmd);
+  // ----- cli_cmd_create -------------------------------------------
+  SCliCmd * cli_cmd_create(char * pcName, FCliCommand fCommand,
+			   SCliCmds * pSubCmds,
+			   SCliParams * pParams);
+  // ----- cli_cmd_create -------------------------------------------
+  SCliCmd * cli_cmd_create_ctx(char * pcName,
+			       FCliContextCreate fCtxCreate,
+			       FCliContextDestroy fCtxDestroy,
+			       SCliCmds * pSubCmds,
+			       SCliParams * pParams);
+  // ----- cli_cmd_destroy ------------------------------------------
+  void cli_cmd_destroy(SCliCmd ** ppCmd);
+  // ----- cli_cmd_dump ---------------------------------------------
+  void cli_cmd_dump(SLogStream * pStream, char * pcPrefix,
+		    SCliCmd * pCmd);
+  // ----- cli_cmd_add_subcmd ---------------------------------------
+  int cli_cmd_add_subcmd(SCliCmd * pCmd, SCliCmd * pSubCmd);
+  // ----- cli_cmd_find_submd ---------------------------------------
+  SCliCmd * cli_cmd_find_subcmd(SCliCmd * pCmd, char * pcName);
+  // ----- cli_cmd_get_num_subcmds ----------------------------------
+  int cli_cmd_get_num_subcmds(SCliCmd * pCmd);
+  // ----- cli_cmd_get_subcmd_at ------------------------------------
+  SCliCmd * cli_cmd_get_subcmd_at(SCliCmd * pCmd, int iIndex);
+  // ----- cli_cmd_add_param ----------------------------------------
+  int cli_cmd_add_param(SCliCmd * pCmd, char * pcName,
+			FCliCheckParam fCheckParam);
+  // ----- cli_cmd_get_num_params -----------------------------------
+  int cli_cmd_get_num_params(SCliCmd * pCmd);
+  // ----- cli_cmd_get_param_at -------------------------------------
+  SCliParam * cli_cmd_get_param_at(SCliCmd * pCmd,
+				   uint32_t uIndex);
+  // ----- cli_cmd_add_option ---------------------------------------
+  int cli_cmd_add_option(SCliCmd * pCmd,
+			 char * pcName,
+			 FCliCheckParam fCheckParam);
+  // ----- cli_cmd_match_subcmds ------------------------------------
+  SCliCmd * cli_cmd_match_subcmds(SCli * pCli, SCliCmd * pCmd,
+				  char * pcStartCmd,
+				  int * piParamIndex);
+
+
+  ///////////////////////////////////////////////////////////////////
+  // CLI MANAGMENT FUNCTIONS
+  ///////////////////////////////////////////////////////////////////
+
+  // ----- cli_create -----------------------------------------------
+  SCli * cli_create();
+  // ----- cli_destroy ----------------------------------------------
+  void cli_destroy(SCli ** ppCli);
+  // ----- cli_set_exit_callback ------------------------------------
+  void cli_set_exit_callback(SCli * pCli, FCliExitOnError fExitOnError);
+  // ----- cli_execute_ctx ------------------------------------------
+  int cli_execute_ctx(SCli * pCli, char * pcCmd,
+		      void * pContext);
+  // ----- cli_execute ----------------------------------------------
+  int cli_execute(SCli * pCli, char * pcCmd);
+  // ----- cli_register_cmd -----------------------------------------
+  int cli_register_cmd(SCli * pCli, SCliCmd * pCmd);
+  // ----- cli_perror -----------------------------------------------
+  void cli_perror(SLogStream * pStream, int iErrorCode);
+  // ----- cli_execute_file -----------------------------------------
+  int cli_execute_file(SCli * pCli, FILE * pStream);
+  // ----- cli_execute_line -----------------------------------------
+  int cli_execute_line(SCli * pCli, const char * pcLine);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __GDS_CLI_H__ */
