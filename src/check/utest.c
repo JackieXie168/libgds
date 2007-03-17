@@ -231,3 +231,22 @@ int utest_run_suite(const char * pcName, SUnitTest * paTests,
 
   return iResult;
 }
+
+// -----[ utest_run_suites ]---------------------------------------
+int utest_run_suites(SUnitTestSuite * paSuites, unsigned int uNumSuites)
+{
+  unsigned int uIndex;
+  int iResult= 0;
+
+  for (uIndex= 0; uIndex < uNumSuites; uIndex++) {
+    iResult= utest_run_suite(paSuites[uIndex].pcName,
+			     paSuites[uIndex].acTests,
+			     paSuites[uIndex].uNumTests);
+    if ((iMaxFailures != 0) &&
+	(iNumFailures > iMaxFailures)) {
+      break;
+    }
+  }
+  return iResult;
+}
+
