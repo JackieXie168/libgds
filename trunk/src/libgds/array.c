@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 10/04/2003
-// @lastdate 10/08/2005
+// @lastdate 17/03/2007
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -102,8 +102,8 @@ void _array_destroy(SArray ** ppArray)
 /**
  *
  */
-void _array_resize_if_required(SArray * pArray,
-			       unsigned int uNewLength)
+static void _array_resize_if_required(SArray * pArray,
+				      unsigned int uNewLength)
 {
   SRealArray * pRealArray= (SRealArray *) pArray;
 
@@ -337,11 +337,11 @@ SArray * _array_sub(SArray * pArray, unsigned int iFirst, unsigned int iLast)
   return (SArray *) pSubArray;
 }
 
-// ----- _array_add_all ---------------------------------------------
+// ----- _array_add_array -------------------------------------------
 /**
  *
  */
-void _array_add_all(SArray * pArray, SArray * pSrcArray)
+void _array_add_array(SArray * pArray, SArray * pSrcArray)
 {
   unsigned int uLength= ((SRealArray *) pArray)->uLength;
 
@@ -363,8 +363,6 @@ void _array_trim(SArray * pArray, unsigned uMaxLength)
   assert(uMaxLength <= ((SRealArray *) pArray)->uLength);
   _array_resize_if_required(pArray, uMaxLength);
 }
-
-
 
 #define _array_elt_copy_to(A, i, d) memcpy(_array_elt_pos(A, i), d, \
                                            ((SRealArray *) A)->uEltSize)
@@ -413,25 +411,6 @@ int _array_quicksort(SArray * pArray, FArrayCompare fCompare)
   return 0;
 }
 
-// ----- uint16_array_destroy ---------------------------------------
-/**
- *
- */
-void uint16_array_destroy(SUInt16Array ** ppArray)
-{
-  _array_destroy((SArray **) ppArray);
-}
-
-
-// ----- ptr_array_destroy ------------------------------------------
-/**
- *
- */
-void ptr_array_destroy(SPtrArray ** ppArray)
-{
-  _array_destroy((SArray **) ppArray);
-}
-
 
 /////////////////////////////////////////////////////////////////////
 //
@@ -446,21 +425,21 @@ typedef struct {
 } SArrayEnumContext;
 
 // -----[ _array_get_enum_has_next ]---------------------------------
-int _array_get_enum_has_next(void * pContext)
+static int _array_get_enum_has_next(void * pContext)
 {
   SArrayEnumContext * pArrayContext= (SArrayEnumContext *) pContext;
   return (pArrayContext->uIndex < _array_length(pArrayContext->pArray));
 }
 
 // -----[ _array_get_enum_get_next ]---------------------------------
-void * _array_get_enum_get_next(void * pContext)
+static void * _array_get_enum_get_next(void * pContext)
 {
   SArrayEnumContext * pArrayContext= (SArrayEnumContext *) pContext;
   return _array_elt_pos(pArrayContext->pArray, pArrayContext->uIndex++);
 }
 
 // -----[ _array_get_enum_destroy ]----------------------------------
-void _array_get_enum_destroy(void * pContext)
+static void _array_get_enum_destroy(void * pContext)
 {
   SArrayEnumContext * pArrayContext= (SArrayEnumContext *) pContext;
   FREE(pArrayContext);
@@ -478,3 +457,15 @@ SEnumerator * _array_get_enum(SArray * pArray)
 		     _array_get_enum_get_next,
 		     _array_get_enum_destroy);
 }
+
+
+#define ARRAY_DESTROY_TEMPLATE(P, T) \
+inline void P##_array_destroy(T ** ppArray) { \
+  _array_destroy((SArray **) ppArray); }
+
+ARRAY_DESTROY_TEMPLATE(double, SDoubleArray)
+ARRAY_DESTROY_TEMPLATE(int, SIntArray)
+ARRAY_DESTROY_TEMPLATE(ptr, SPtrArray)
+ARRAY_DESTROY_TEMPLATE(uint16, SUInt16Array)
+
+#undef ARRAY_DESTROY_TEMPLATE

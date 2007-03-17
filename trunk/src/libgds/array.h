@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 10/04/2003
-// @lastdate 10/08/2005
+// @lastdate 17/03/2007
 // ==================================================================
 
 #ifndef __ARRAY_H__
@@ -35,7 +35,6 @@ typedef struct {
 #define int_array_create(O) \
           (SIntArray *) _array_create(sizeof(int), O, \
           _array_compare, NULL)
-#define int_array_destroy(A) _array_destroy((SArray **) A)
 #define int_array_length(A) _array_length((SArray *) A)
 #define int_array_set_length(A, L) _array_set_length((SArray *) A, L)
 #define int_array_sorted_find_index(A, D, I) \
@@ -58,7 +57,6 @@ typedef struct {
           (SUInt16Array *) _array_create(sizeof(uint16_t), O, \
           _array_compare, NULL)
 #define uint16_array_length(A) _array_length((SArray *) A)
-extern void uint16_array_destroy(SUInt16Array ** ppArray);
 
 typedef struct {
   double * data;
@@ -66,7 +64,6 @@ typedef struct {
 #define double_array_create(O) \
           (SDoubleArray *) _array_create(sizeof(double), O, \
           _array_compare, NULL)
-#define double_array_destroy(A) _array_destroy((SArray **) A)
 #define double_array_length(A) _array_length((SArray *) A)
 #define double_array_set_length(A, L) _array_set_length((SArray *) A, L)
 #define double_array_get_at(A, I, E) _array_get_at((SArray *) A, I, E)
@@ -92,55 +89,73 @@ typedef struct {
 #define ptr_array_get_at(A, I, E) _array_get_at((SArray *) A, I, E)
 #define ptr_array_set_fdestroy(A, F) _array_set_fdestroy((SArray *)A, F)
 
-extern void ptr_array_destroy(SPtrArray ** ppArray);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-// ----- _array_create ----------------------------------------------
-extern SArray * _array_create(unsigned int uEltSize,
-			      uint8_t uOptions,
-			      FArrayCompare fCompare,
-			      FArrayDestroy fDestroy);
-// ----- _array_set_fdestroy ----------------------------------------
-void _array_set_fdestroy(SArray * pArray, FArrayDestroy fDestroy);
-// ----- _array_destroy ---------------------------------------------
-extern void _array_destroy(SArray ** ppArray);
-// ----- _array_length ----------------------------------------------
-extern int _array_length(SArray * pArray);
-// ----- _array_set_length ------------------------------------------
-extern void _array_set_length(SArray * pArray,
-			      unsigned int uNewLength);
-// ----- _array_set_at ----------------------------------------------
-extern int _array_set_at(SArray * pArray, unsigned int uIndex,
-			  void * pData);
-// ----- _array_get_at ----------------------------------------------
-extern void _array_get_at(SArray * pArray, unsigned int uIndex,
-			  void * pData);
-// ----- _array_sorted_find_index -----------------------------------
-extern int _array_sorted_find_index(SArray * pArray, void * pData,
-				    unsigned int * puIndex);
-// ----- _array_add -------------------------------------------------
-extern int _array_add(SArray * pArray, void * pData);
-// ----- _array_append ----------------------------------------------
-extern int _array_append(SArray * pArray, void * pData);
-// ----- _array_for_each --------------------------------------------
-extern int _array_for_each(SArray * pArray, FArrayForEach fForEach,
-			   void * pContext);
-// ----- _array_copy ------------------------------------------------
-extern SArray * _array_copy(SArray * pArray);
-// ----- _array_remove_at -------------------------------------------
-extern void _array_remove_at(SArray * pArray, unsigned int uIndex);
-// ----- _array_compare ---------------------------------------------
-extern int _array_compare(void * pItem1, void * pItem2,
-			  unsigned int uEltSize);
-// ----- _array_sub -------------------------------------------------
-extern SArray * _array_sub(SArray * pArray, unsigned int iFirst,
-			   unsigned int iLast);
-// ----- _array_add_all ---------------------------------------------
-extern void _array_add_all(SArray * pArray, SArray * pSrcArray);
-// ----- _array_trim ------------------------------------------------
-extern void _array_trim(SArray * pArray, unsigned uMaxLength);
-// ----- _array_sort ------------------------------------------------
-extern int _array_sort(SArray * pArray, FArrayCompare fCompare);
-// ----- _array_get_enum --------------------------------------------
-extern SEnumerator * _array_get_enum(SArray * pArray);
+  // ----- _array_create --------------------------------------------
+  SArray * _array_create(unsigned int uEltSize,
+				uint8_t uOptions,
+				FArrayCompare fCompare,
+				FArrayDestroy fDestroy);
+  // ----- _array_set_fdestroy --------------------------------------
+  void _array_set_fdestroy(SArray * pArray, FArrayDestroy fDestroy);
+  // ----- _array_destroy -------------------------------------------
+  void _array_destroy(SArray ** ppArray);
+  // ----- _array_length --------------------------------------------
+  int _array_length(SArray * pArray);
+  // ----- _array_set_length ----------------------------------------
+  void _array_set_length(SArray * pArray,
+			 unsigned int uNewLength);
+  // ----- _array_set_at --------------------------------------------
+  int _array_set_at(SArray * pArray, unsigned int uIndex,
+		    void * pData);
+  // ----- _array_get_at --------------------------------------------
+  void _array_get_at(SArray * pArray, unsigned int uIndex,
+		     void * pData);
+  // ----- _array_sorted_find_index ---------------------------------
+  int _array_sorted_find_index(SArray * pArray, void * pData,
+			       unsigned int * puIndex);
+  // ----- _array_add -----------------------------------------------
+  int _array_add(SArray * pArray, void * pData);
+  // ----- _array_append --------------------------------------------
+  int _array_append(SArray * pArray, void * pData);
+  // ----- _array_insert_at -----------------------------------------
+  int _array_insert_at(SArray * pArray, unsigned int uIndex, void * pData);
+  // ----- _array_for_each ------------------------------------------
+  int _array_for_each(SArray * pArray, FArrayForEach fForEach,
+		      void * pContext);
+  // ----- _array_copy ----------------------------------------------
+  SArray * _array_copy(SArray * pArray);
+  // ----- _array_remove_at -----------------------------------------
+  void _array_remove_at(SArray * pArray, unsigned int uIndex);
+  // ----- _array_compare -------------------------------------------
+  int _array_compare(void * pItem1, void * pItem2,
+		     unsigned int uEltSize);
+  // ----- _array_sub -----------------------------------------------
+  SArray * _array_sub(SArray * pArray, unsigned int iFirst,
+		      unsigned int iLast);
+  // ----- _array_add_array -----------------------------------------
+  void _array_add_aray(SArray * pArray, SArray * pSrcArray);
+  // ----- _array_trim ----------------------------------------------
+  void _array_trim(SArray * pArray, unsigned uMaxLength);
+  // ----- _array_sort ----------------------------------------------
+  int _array_sort(SArray * pArray, FArrayCompare fCompare);
+  // ----- _array_get_enum ------------------------------------------
+  SEnumerator * _array_get_enum(SArray * pArray);
+  
+#ifdef __cplusplus
+}
+#endif
+
+#define ARRAY_DESTROY_TEMPLATE(P, T)		\
+inline void P##_array_destroy(T ** ppArray);
+
+ARRAY_DESTROY_TEMPLATE(double, SDoubleArray)
+ARRAY_DESTROY_TEMPLATE(int, SIntArray)
+ARRAY_DESTROY_TEMPLATE(ptr, SPtrArray)
+ARRAY_DESTROY_TEMPLATE(uint16, SUInt16Array)
+
+#undef ARRAY_DESTROY_TEMPLATE
 
 #endif
