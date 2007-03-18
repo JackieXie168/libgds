@@ -1753,28 +1753,133 @@ int test_bit_vector_creation_destruction()
   return UTEST_SUCCESS;
 }
 
-int test_bit_vector_operations()
+int test_bit_vector_manipulations()
 {
   SBitVector * pBitVector;
 
   pBitVector = bit_vector_create(32);
   ASSERT_RETURN(!bit_vector_get(pBitVector, 0), "bit 0 is inaccurate");
-  ASSERT_RETURN(!bit_vector_set(pBitVector, 0), "bit not set");
+  ASSERT_RETURN(!bit_vector_set(pBitVector, 0), "bit 0 not set");
   ASSERT_RETURN(bit_vector_get(pBitVector, 0), "bit 0 is inaccurate");
-  ASSERT_RETURN(!bit_vector_set(pBitVector, 1), "bit not set");
+  ASSERT_RETURN(!bit_vector_set(pBitVector, 1), "bit 1 not set");
+  ASSERT_RETURN(!bit_vector_set(pBitVector, 31), "bit 32 not set");
   ASSERT_RETURN(bit_vector_set(pBitVector, 32) == -1, "bit couldn't be set");
   ASSERT_RETURN(bit_vector_get(pBitVector, 1), "bit 1 is inaccurate");
+
   ASSERT_RETURN(!bit_vector_get(pBitVector, 2), "bit 2 is inaccurate");
   ASSERT_RETURN(!bit_vector_get(pBitVector, 30), "bit 30 is inaccurate");
   ASSERT_RETURN(bit_vector_get(pBitVector, 32) == -1, "bit 32 should be inaccessible");
+
+  ASSERT_RETURN(!bit_vector_unset(pBitVector, 0), "can't unset bit 0");
+  ASSERT_RETURN(!bit_vector_get(pBitVector, 0), "bit 0 should be unset");
+  ASSERT_RETURN(bit_vector_unset(pBitVector, 32) == -1, "bit should be inaccessible");
+  ASSERT_RETURN(!bit_vector_unset(pBitVector, 31), "can't unset bit 31");
+  ASSERT_RETURN(!bit_vector_get(pBitVector, 31), "bit 31 should be unset");
 
   bit_vector_destroy(&pBitVector);
   return UTEST_SUCCESS;
 }
 
+void _test_bit_vector_set(SBitVector * pBitVector)
+{
+  bit_vector_set(pBitVector, 0);
+  bit_vector_set(pBitVector, 1);
+  bit_vector_set(pBitVector, 3);
+  bit_vector_set(pBitVector, 10);
+  bit_vector_set(pBitVector, 15);
+  bit_vector_set(pBitVector, 23);
+  bit_vector_set(pBitVector, 32);
+  bit_vector_set(pBitVector, 33);
+  bit_vector_set(pBitVector, 34);
+  bit_vector_set(pBitVector, 64);
+}
+
+void _test_bit_vector_set_xor(SBitVector * pBitVector)
+{
+  bit_vector_set(pBitVector, 0);
+  bit_vector_set(pBitVector, 3);
+  bit_vector_set(pBitVector, 10);
+  bit_vector_set(pBitVector, 15);
+  bit_vector_set(pBitVector, 23);
+  bit_vector_set(pBitVector, 27);
+  bit_vector_set(pBitVector, 32);
+  bit_vector_set(pBitVector, 34);
+}
+
+char sBitVector0[] =	      "00000000000000000000000000000000000000000000000000000000000000000";
+char sBitVectorInit[] =	      "11010000001000010000000100000000111000000000000000000000000000001";
+char sBitVectorXor[] =	      "10010000001000010000000100010000101000000000000000000000000000000";
+char sBitVectorXorResult[] =  "01000000000000000000000000010000010000000000000000000000000000001";
+
+int test_bit_vector_binary_operations()
+{
+  SBitVector * pBitVector1;
+  SBitVector * pBitVector2;
+  char * sBitVector1;
+
+  /* Legal Operations done on bit vectors of same length */
+  /* AND */
+  pBitVector1 = bit_vector_create(65);
+  pBitVector2 = bit_vector_create(65);
+  _test_bit_vector_set(pBitVector1);
+  ASSERT_RETURN(bit_vector_and(pBitVector1, pBitVector2) == 0, "'and' operation failed");
+  sBitVector1 = bit_vector_to_string(pBitVector1);
+  ASSERT_RETURN(strcmp(sBitVector1, sBitVector0) == 0, "'and' operation not conform");
+  FREE(sBitVector1);
+  bit_vector_destroy(&pBitVector1);
+  bit_vector_destroy(&pBitVector2);
+
+  /* OR */
+  pBitVector1 = bit_vector_create(65);
+  pBitVector2 = bit_vector_create(65);
+  _test_bit_vector_set(pBitVector1);
+  ASSERT_RETURN(bit_vector_or(pBitVector1, pBitVector2) == 0, "'or' operation failed");
+  sBitVector1 = bit_vector_to_string(pBitVector1);
+  ASSERT_RETURN(strcmp(sBitVector1, sBitVectorInit) == 0, "'or' operation not conform");
+  FREE(sBitVector1);
+  bit_vector_destroy(&pBitVector1);
+  bit_vector_destroy(&pBitVector2);
+
+  /* XOR */
+  pBitVector1 = bit_vector_create(65);
+  pBitVector2 = bit_vector_create(65);
+  _test_bit_vector_set(pBitVector1);
+  _test_bit_vector_set_xor(pBitVector2);
+  ASSERT_RETURN(bit_vector_xor(pBitVector1, pBitVector2) == 0, "'xor' operation failed");
+  sBitVector1 = bit_vector_to_string(pBitVector1);
+  ASSERT_RETURN(strcmp(bit_vector_to_string(pBitVector2), sBitVectorXor) == 0, "'xor' string is inaccurate");
+  ASSERT_RETURN(strcmp(sBitVector1, sBitVectorXorResult) == 0, "'xor' operation not conform");
+  FREE(sBitVector1);
+  bit_vector_destroy(&pBitVector1);
+  bit_vector_destroy(&pBitVector2);
+
+  /* Operation done on bit vectors of different lengths */
+  pBitVector1 = bit_vector_create(65);
+  pBitVector2 = bit_vector_create(3);
+  ASSERT_RETURN(bit_vector_and(pBitVector1, pBitVector2) == -1, "'and' operation should have failed (len1 > len2)");
+  ASSERT_RETURN(bit_vector_and(pBitVector2, pBitVector1) == -1, "'and' operation should have failed (len1 > len2)");
+  ASSERT_RETURN(bit_vector_and(NULL, NULL) == -1, "'and' operation should have failed (NULL, NULL)");
+  ASSERT_RETURN(bit_vector_and(pBitVector1, NULL) == -1, "'and' operation should have failed (pBitVector, NULL)");
+  ASSERT_RETURN(bit_vector_and(NULL, pBitVector1) == -1, "'and' operation should have failed (NULL, pBitVector)");
+  bit_vector_destroy(&pBitVector1);
+  bit_vector_destroy(&pBitVector2);
+
+  return UTEST_SUCCESS;
+}
+
 int test_bit_vector_representation()
 {
-  return UTEST_SKIPPED;
+  SBitVector * pBitVector;
+  char * sBitVector;
+
+  pBitVector = bit_vector_create(65);
+  _test_bit_vector_set(pBitVector);
+  sBitVector = bit_vector_to_string(pBitVector);
+  ASSERT_RETURN(strcmp(sBitVector, sBitVector) == 0, "to_string failed");
+  FREE(sBitVector);
+  bit_vector_destroy(&pBitVector);
+
+  return UTEST_SUCCESS;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -2025,8 +2130,9 @@ SUnitTest SEQUENCE_TEST_SUITE[SEQUENCE_NUM_TESTS]= {
 
 SUnitTest BIT_VECTOR_TEST_SUITE[] = {
   { test_bit_vector_creation_destruction, "creation/destruction" },
-  { test_bit_vector_operations, "set/unset/get" },
-  { test_bit_vector_representation, "to_string" }
+  { test_bit_vector_manipulations, "set/unset/get" },
+  { test_bit_vector_representation, "to_string" },
+  { test_bit_vector_binary_operations, "and/or/xor" }
 };
 #define BIT_VECTOR_NUM_TESTS sizeof(BIT_VECTOR_TEST_SUITE)/sizeof(BIT_VECTOR_TEST_SUITE[0])
 

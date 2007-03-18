@@ -25,5 +25,11 @@ int8_t bit_vector_unset(SBitVector * pBitVector, const uint32_t uNumBit);
 int8_t bit_vector_get(SBitVector * pBitVector, const uint32_t uNumBit);
 // ----- bit_vector_to_string ----------------------------------------
 char * bit_vector_to_string(SBitVector * pBitVector);
+// ----- bit_vector_and ----------------------------------------------
+int8_t bit_vector_and(SBitVector * pBitVector1, SBitVector * pBitVector2);
+// ----- bit_vector_or -----------------------------------------------
+int8_t bit_vector_or(SBitVector * pBitVector1, SBitVector * pBitVector2);
+// ----- bit_vector_xor ----------------------------------------------
+int8_t bit_vector_xor(SBitVector * pBitVector1, SBitVector * pBitVector2);
 
 #endif /* __BIT_VECTOR_H__ */
