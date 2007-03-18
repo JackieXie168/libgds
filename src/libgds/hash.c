@@ -318,7 +318,7 @@ void * hash_search(const SHash * pHash, void * pElt)
   if ((aHashElts = pHash->aHash[uHashKey]) != NULL) {
     if (_hash_element_search(aHashElts, pElt, pHash->pFunctions,
 			    &uIndex) != -1) 
-      pHashEltSearched= aHashElts->data[uIndex];
+      _array_get_at((SArray*)aHashElts, uIndex, &pHashEltSearched);
   }
 
   return (pHashEltSearched == NULL) ? NULL : pHashEltSearched->pElt;
@@ -347,8 +347,8 @@ int hash_del(SHash * pHash, void * pElt)
       }
     }
   }
-  if (iRet == 0)
-    fprintf(stderr, "hash_del> No elt unreferenced.\n");
+/*  if (iRet == 0)
+    fprintf(stderr, "hash_del> No elt unreferenced.\n");*/
 
   return iRet;
 }
