@@ -1,9 +1,10 @@
 // ==================================================================
 // @(#)list.h
 //
-// @author Bruno Quoitin (bqu@infonet.fundp.ac.be), Sebastien Tandel
+// @author Bruno Quoitin (bqu@infonet.fundp.ac.be)
+// @author Sebastien Tandel (sta@info.ucl.ac.be)
 // @date 23/11/2002
-// @lastdate 13/06/2002
+// @lastdate 18/03/2007
 // ==================================================================
 
 #ifndef __LIST_H__

@@ -1,6 +1,6 @@
 docdir := $(prefix)/share/doc/libgds
 
-nobase_dist_doc_DATA := html/*
+#nobase_dist_doc_DATA := html/*
 
 
 #if I define nobase_dist_doc_DATA := html/ ... make install will is not functioning
