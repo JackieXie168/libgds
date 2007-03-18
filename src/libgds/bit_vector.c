@@ -24,7 +24,8 @@ struct _BitVector {
 #define BIT_VECTOR_SEGMENT_LEN 32
 
 /** 
- * The bit vector is an array composed of elements of 32 bits.
+ * @file This data structure allows manipulation of user-defined length bit
+ * vector. 
  */
 
 // ----- bit_vector_create -------------------------------------------
@@ -132,7 +133,7 @@ int8_t bit_vector_unset(SBitVector * pBitVector, const uint32_t uNumBit)
   /* Change the value of the concerned bit */
   uBit = uNumBit%BIT_VECTOR_SEGMENT_LEN;
   uCurrentBit = ((uFilterSegment << uBit) >> (BIT_VECTOR_SEGMENT_LEN-1));
-  uFilterSegment ^= (uCurrentBit << (BIT_VECTOR_SEGMENT_LEN - uBit));
+  uFilterSegment ^= (uCurrentBit << (BIT_VECTOR_SEGMENT_LEN - uBit - 1));
   _array_set_at((SArray*)pBitVector->puArray, uNumVector, &uFilterSegment);
 
   return 0;
@@ -166,15 +167,15 @@ int8_t bit_vector_get(SBitVector * pBitVector, uint32_t uNumBit)
   return ((uFilterSegment << uBit) >> (BIT_VECTOR_SEGMENT_LEN-1));
 }
 
-static int _bit_vector_to_string_for_each(void * pItem, void * pCtx)
+static int _bit_vector_segment_to_string(char ** ppStr, uint32_t uSegment, uint32_t * uCptBits)
 {
-  char ** ppStr = (char **)pCtx;
-  uint32_t uItem = *(uint32_t *)pItem;
-  uint32_t uCptBits;
+  uint32_t uCpt;
 
-  for (uCptBits = 0; uCptBits < BIT_VECTOR_SEGMENT_LEN; uCptBits++) {
-    (*ppStr)[uCptBits] = (1 & (uItem >> (BIT_VECTOR_SEGMENT_LEN - uCptBits - 1))) + 48;
-  //  printf("c : %c\n", (*ppStr)[uCptBits]);
+  for (uCpt = 0; uCpt < BIT_VECTOR_SEGMENT_LEN; uCpt++) {
+    (*ppStr)[uCpt] = (1 & (uSegment >> (BIT_VECTOR_SEGMENT_LEN - uCpt - 1))) + 48;
+    (*uCptBits)--;
+    if (!(*uCptBits))
+      break;
   }
   (*ppStr) += BIT_VECTOR_SEGMENT_LEN;
   return 0;
@@ -192,16 +193,157 @@ char * bit_vector_to_string(SBitVector * pBitVector)
 {
   char * pStr;
   char * pStrToRet;
+  SEnumerator * pEnum;
+  uint32_t uCptBits;
+  uint32_t uSegment;
 
   if (!pBitVector)
     return NULL;
 
+  /* Memory allocation of the string */
   pStr = MALLOC(pBitVector->uSize + 1);
-  pStr[pBitVector->uSize-1] = '\0';
+  pStr[pBitVector->uSize] = '\0';
   pStrToRet = pStr;
-  _array_for_each( (SArray*)pBitVector->puArray, 
-		    _bit_vector_to_string_for_each, 
-		    &pStr);
+
+  /* Browse each segments for stringization */
+  uCptBits = pBitVector->uSize;
+  pEnum = _array_get_enum((SArray*)pBitVector->puArray);
+  while (enum_has_next(pEnum)) {
+    uSegment = *(uint32_t*) enum_get_next(pEnum);
+    _bit_vector_segment_to_string(&pStr, uSegment, &uCptBits);
+  }
   return pStrToRet;
+}
+
+/*********************************
+ * Binary Operations
+ ********************************/
+typedef enum {
+  BIT_VECTOR_AND = 1,
+  BIT_VECTOR_OR,
+  BIT_VECTOR_XOR
+}EBitVectorOperation;
+
+typedef struct _BitVectorOperation {
+  EBitVectorOperation op;
+  SBitVector * pBitVector;
+  uint32_t uNumSegment;
+}SBitVectorOperation;
+
+static int8_t _bit_vector_binary_operation(const EBitVectorOperation op, 
+					    uint32_t * uSegment1, 
+					    uint32_t uSegment2)
+{
+  if (!uSegment1)
+    return -1;
+
+  switch (op) {
+    case BIT_VECTOR_AND:
+      (*uSegment1) &= uSegment2;
+      break;
+    case BIT_VECTOR_OR:
+      (*uSegment1) |= uSegment2;
+      break;
+    case BIT_VECTOR_XOR:
+      (*uSegment1) ^= uSegment2;
+      break;
+    default:
+      return -1;
+  }
+  return 0;
+}
+
+static int _bit_vector_binary_operation_enum(const EBitVectorOperation op,
+					      SBitVector * pBitVector1, 
+					      SBitVector * pBitVector2)
+{
+  SEnumerator * pEnum1;
+  SEnumerator * pEnum2;
+  uint32_t uSegment1;
+  uint32_t uSegment2;
+
+  uint32_t uCptSegment = 0;
+
+
+  if (pBitVector1->uSize != pBitVector2->uSize) 
+    return -1;
+
+  pEnum1 = _array_get_enum((SArray *) pBitVector1->puArray);
+  pEnum2 = _array_get_enum((SArray *) pBitVector2->puArray);
+
+  while (enum_has_next(pEnum1)) {
+    uSegment1 = *(uint32_t*) enum_get_next(pEnum1);
+    uSegment2 = *(uint32_t*) enum_get_next(pEnum2);
+
+    if (_bit_vector_binary_operation(op, &uSegment1, uSegment2)) 
+      return -1;
+
+    _array_set_at((SArray*)pBitVector1->puArray, uCptSegment, &uSegment1);
+    uCptSegment++;
+  }
+  return 0;
+}
+
+/**
+ * @brief Performs an @em and operation on a bit vector.
+ *
+ * @param pBitVector1 the vector affected by the \em and operation
+ * @param pBitVector2 the vector to and the first with.
+ *
+ * @return 0 if pBitVector1 has been anded with pBitVector2, else if one of the
+ * two bit vectors is NULL, -1 is returned. -1 is also returned if the length
+ * of the bit vectors aren't the same.
+ *
+ * @warning It is \em not possible to perform the @em and operation on bit
+ * vectors of different lengths. (TODO?)
+ */
+int8_t bit_vector_and(SBitVector * pBitVector1, SBitVector * pBitVector2)
+{
+  if (!pBitVector1 || !pBitVector2)
+    return -1;
+
+  return _bit_vector_binary_operation_enum(BIT_VECTOR_AND, pBitVector1, pBitVector2);
+}
+
+/**
+ * @brief Performs an @em or operation on a bit vector.
+ *
+ * @param pBitVector1 the vector affected by the \em or operation
+ * @param pBitVector2 the vector to and the first with.
+ *
+ * @return 0 if pBitVector1 has been ored with pBitVector2, else if one of the
+ * two bit vectors is NULL, -1 is returned. -1 is also returned if the length
+ * of the bit vectors aren't the same.
+ *
+ * @warning It is \em not possible to perform the @em or operation on bit
+ * vectors of different lengths. (TODO?)
+ */
+int8_t bit_vector_or(SBitVector * pBitVector1, SBitVector * pBitVector2)
+{
+  if (!pBitVector1 || !pBitVector2)
+    return -1;
+
+  return _bit_vector_binary_operation_enum(BIT_VECTOR_OR, pBitVector1, pBitVector2);
+}
+
+/**
+ * @brief Performs an @em or operation on a bit vector.
+ *
+ * @param pBitVector1 the vector affected by the \em or operation
+ * @param pBitVector2 the vector to and the first with.
+ *
+ * @return 0 if pBitVector1 has been ored with pBitVector2, else if one of the
+ * two bit vectors is NULL, -1 is returned. -1 is also returned if the length
+ * of the bit vectors aren't the same.
+ *
+ * @warning It is \em not possible to perform the @em or operation on bit
+ * vectors of different lengths. (TODO?)
+ */
+int8_t bit_vector_xor(SBitVector * pBitVector1, SBitVector * pBitVector2)
+{
+  if (!pBitVector1 || !pBitVector2)
+    return -1;
+
+  return _bit_vector_binary_operation_enum(BIT_VECTOR_XOR, pBitVector1, pBitVector2);
 }
 
