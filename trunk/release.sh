@@ -34,12 +34,12 @@ MAIN_VERSION=1
 # RELEASE_VERSION (mandatory)
 #   is the release main version (minor)
 #
-RELEASE_VERSION=2
+RELEASE_VERSION=3
 #
 # BUILD_VERSION (mandatory)
 #   is the build number
 #
-BUILD_VERSION=3
+BUILD_VERSION=0
 #
 # LIBRARY_VERSION (optional)
 #   is the library version

@@ -304,16 +304,10 @@ int test_assoc_basic()
   
   ASSERT_RETURN(!assoc_array_exists(pArray, "plopsaland"),
 		"should not report existence for missing key");
-  ASSERT_RETURN(!strcmp(assoc_array_get(pArray, "key1"), "toto1"),
-		"incorrect value associated to \"key1\"");
-  ASSERT_RETURN(!strcmp(assoc_array_get(pArray, "key2"), "toto2"),
-		"incorrect value associated to \"key2\"");
-  ASSERT_RETURN(!strcmp(assoc_array_get(pArray, "plop"), "grominet"),
-		"incorrect value associated to \"plop\"");
 
-  /*assoc_array_set(pArray, "key2", "titi"); 
+  assoc_array_set(pArray, "key2", "titi"); 
   ASSERT_RETURN(!strcmp(assoc_array_get(pArray, "key2"), "titi"),
-  "incorrect value associated to \"key2\"");*/
+		"incorrect value associated to \"key2\"");
 
   assoc_array_for_each(pArray, _test_assoc_for_each, NULL);
 
@@ -406,18 +400,57 @@ int test_ptr_array()
 // GDS_CHECK_LIST
 /////////////////////////////////////////////////////////////////////
 
-// ----- test_list --------------------------------------------------
+#define LIST_NITEMS 1024
+int LIST_ITEMS[LIST_NITEMS];
+
+// -----[ test_list_init ]-------------------------------------------
+int test_list_init()
+{
+  unsigned int uIndex;
+
+
+  for (uIndex= 0; uIndex < LIST_NITEMS; uIndex++) {
+    if ((uIndex & 1) != 0) {
+      LIST_ITEMS[uIndex]= LIST_NITEMS-(uIndex/2)-1;
+    } else {
+      LIST_ITEMS[uIndex]= uIndex/2;
+    }
+  }
+
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_list_basic ] -----------------------------------------
 /**
  *
  */
-int test_list()
+int test_list_basic()
 {
   SList * pList;
+  unsigned int uIndex;
+  void * pData;
+
+  test_list_init();
 
   pList= list_create(NULL, NULL, 1);
+
+  // Add values
+  for (uIndex= 0; uIndex < LIST_NITEMS; uIndex++) {
+    ASSERT_RETURN(list_add(pList, (void *) LIST_ITEMS[uIndex]) == 0,
+		  "incorrect return value in list_add()");
+  }
+
+  // Get content
+  for (uIndex= 0; uIndex < LIST_NITEMS; uIndex++) {
+    pData= list_get_index(pList, uIndex);
+    ASSERT_RETURN(pData == (void *) uIndex,
+		  "incorrect value for list_get_index() %d=>%d",
+		  (int) pData, uIndex);
+  }
+
   list_destroy(&pList);
 
-  return 0;
+  return UTEST_SUCCESS;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -634,23 +667,23 @@ int test_radix()
 
   radix_tree_for_each(pTree, _test_radix_for_each, NULL);
 
-  fprintf(stderr, "exact(199.165.16.0/20): %d\n",
+  /*fprintf(stderr, "exact(199.165.16.0/20): %d\n",
 	  (int) radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 20));
   fprintf(stderr, "exact(199.165.16.0/24): %d\n",
 	  (int) radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 24));
   fprintf(stderr, "best(199.165.16.0/32): %d\n",
-	  (int) radix_tree_get_best(pTree, IPV4_TO_INT(199,165,16,0), 32));
+  (int) radix_tree_get_best(pTree, IPV4_TO_INT(199,165,16,0), 32));*/
 
   radix_tree_remove(pTree, IPV4_TO_INT(199,165,16,0), 24, 1);
 
   radix_tree_for_each(pTree, _test_radix_for_each, NULL);
 
-  fprintf(stderr, "exact(199.165.16.0/20): %d\n",
+  /*fprintf(stderr, "exact(199.165.16.0/20): %d\n",
 	  (int) radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 20));
   fprintf(stderr, "exact(199.165.16.0/24): %d\n",
 	  (int) radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 24));
   fprintf(stderr, "best(199.165.16.0/32): %d\n",
-	  (int) radix_tree_get_best(pTree, IPV4_TO_INT(199,165,16,0), 32));
+  (int) radix_tree_get_best(pTree, IPV4_TO_INT(199,165,16,0), 32));*/
 
   radix_tree_destroy(&pTree);
 
@@ -1969,12 +2002,13 @@ SUnitTest HASH_TEST_SUITE[] = {
 
 #define LIST_NUM_TESTS 1
 SUnitTest LIST_TEST_SUITE[LIST_NUM_TESTS]= {
-  {test_list, "basic use"},
+  {test_list_basic, "basic use"},
 };
 
-#define RADIX_NUM_TESTS 1
+#define RADIX_NUM_TESTS 2
 SUnitTest RADIX_TEST_SUITE[RADIX_NUM_TESTS]= {
   {test_radix_basic, "basic use"},
+  {test_radix, "old test"},
 };
 
 #define STACK_NUM_TESTS 0
@@ -2017,7 +2051,7 @@ SUnitTestSuite SUITES[]= {
   {"Array", ARRAY_NUM_TESTS, ARRAY_TEST_SUITE},
   {"Pointer-Array", ARRAY_PTR_NUM_TESTS, ARRAY_PTR_TEST_SUITE},
   {"Associative-Array", ASSOC_NUM_TESTS, ASSOC_TEST_SUITE},
-  {"Linked-List", LIST_NUM_TESTS, LIST_TEST_SUITE},
+  {"List", LIST_NUM_TESTS, LIST_TEST_SUITE},
   {"Doubly-Linked-List", DLLIST_NUM_TESTS, DLLIST_TEST_SUITE},
   {"Hash-Table", HASH_NUM_TESTS, HASH_TEST_SUITE},
   {"Radix-Tree", RADIX_NUM_TESTS, RADIX_TEST_SUITE},
