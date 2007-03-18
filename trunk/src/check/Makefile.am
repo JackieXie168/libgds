@@ -1,5 +1,4 @@
 INCLUDES = -I..
-AM_CFLAGS = -Wall -Werror -O2
 
 check_PROGRAMS = \
 	gds_test
