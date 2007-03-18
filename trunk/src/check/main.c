@@ -259,7 +259,6 @@ int test_array_enum()
 /////////////////////////////////////////////////////////////////////
 // GDS_CHECK_ASSOC
 /////////////////////////////////////////////////////////////////////
-
 // -----[ _test_assoc_for_each ]-------------------------------------
 static int _test_assoc_for_each(const char * pcKey, void * pcValue,
 				void * pContext)
@@ -1479,12 +1478,19 @@ int test_cli_context()
 // GDS_CHECK_HASH
 /////////////////////////////////////////////////////////////////////
 
+typedef struct _HashItem {
+  uint32_t uNbr;
+}SHashItem;
+
 // -----[ _hash_cmp ]------------------------------------------------
 int _hash_cmp(void * pElt1, void * pElt2, uint32_t uEltSize)
 {
-  if ((unsigned int) pElt1 > (unsigned int) pElt2) {
+  SHashItem * pItem1 = (SHashItem *)pElt1;
+  SHashItem * pItem2 = (SHashItem *)pElt2;
+
+  if (pItem1->uNbr > pItem2->uNbr) {
     return 1;
-  } else if ((unsigned int) pElt1 < (unsigned int) pElt2) {
+  } else if (pItem1->uNbr < pItem2->uNbr) {
     return -1;
   }
   return 0;
@@ -1493,12 +1499,20 @@ int _hash_cmp(void * pElt1, void * pElt2, uint32_t uEltSize)
 // -----[ _hash_destroy ]-------------------------------------------
 void _hash_destroy(void * pElt)
 {
+  SHashItem * pItem = (SHashItem *)pElt;
+  
+  if (pItem) {
+    FREE(pItem);
+  }
 }
+
 
 // -----[ _hash_fct ]------------------------------------------------
 uint32_t _hash_fct(const void * pElt, const uint32_t uHashSize)
 {
-  return ((unsigned int) pElt) % uHashSize;
+  SHashItem * pItem = (SHashItem *)pElt;
+
+  return (pItem->uNbr) % uHashSize;
 }
 
 // -----[ _hash_for_each ]-------------------------------------------
@@ -1508,6 +1522,120 @@ int _hash_for_each(void * pElt, void * pContext)
   return 0;
 }
 
+//
+int test_hash_creation_destruction()
+{
+  SHash * pHash;
+
+  pHash= hash_init(6, 0, _hash_cmp, _hash_destroy, _hash_fct);
+  ASSERT_RETURN(pHash, "hash can't be created");
+  hash_destroy(&pHash);
+  ASSERT_RETURN(!pHash, "hash isn't well destroyed");
+  pHash = hash_init(10, 0.75, _hash_cmp, _hash_destroy, _hash_fct);
+  ASSERT_RETURN(pHash, "hash can't be created");
+  hash_destroy(&pHash);
+  ASSERT_RETURN(!pHash, "hash isn't well destroyed");
+
+  return UTEST_SUCCESS;
+}
+
+int test_hash_insertion_search_deletion()
+{
+  SHash * pHash;
+  uint32_t uNbr;
+  SHashItem * pItem;
+
+  /* static test */
+  pHash= hash_init(6, 0, _hash_cmp, _hash_destroy, _hash_fct);
+  for (uNbr = 0; uNbr < 20; uNbr++) {
+    pItem = MALLOC(sizeof(SHashItem));
+    pItem->uNbr = uNbr;
+    ASSERT_RETURN(hash_add(pHash, pItem) != -1, "%d can't be inserted (static)", uNbr);
+  }
+  for (uNbr = 0; uNbr < 20; uNbr++) {
+    pItem = MALLOC(sizeof(SHashItem));
+    pItem->uNbr = uNbr;
+    ASSERT_RETURN(hash_search(pHash, pItem), "%d can't be found (static)", uNbr);
+    FREE(pItem);
+  }
+  for (uNbr = 0; uNbr < 20; uNbr++) {
+    pItem = MALLOC(sizeof(SHashItem));
+    pItem->uNbr = uNbr;
+    ASSERT_RETURN(hash_del(pHash, pItem) == 2, "%d hasn't been deleted (static)", uNbr);
+    FREE(pItem);
+  }
+  pItem = MALLOC(sizeof(SHashItem));
+  pItem->uNbr = 0;
+  ASSERT_RETURN(hash_del(pHash, pItem) == 0, "0 shoud not be present (static)");
+  FREE(pItem);
+  hash_destroy(&pHash);
+
+  /* dynamic test */
+  pHash = hash_init(6, 0.75, _hash_cmp, _hash_destroy, _hash_fct);
+ /* for (uNbr = 0; uNbr < 20; uNbr++) {
+    printf("insert %d\n", uNbr);
+    pItem = MALLOC(sizeof(SHashItem));
+    pItem->uNbr = uNbr;
+    ASSERT_RETURN(hash_add(pHash, pItem) != -1, "%d can't be inserted (dynamic)", uNbr);
+  }
+  for (uNbr = 0; uNbr < 20; uNbr++) {
+    pItem = MALLOC(sizeof(SHashItem));
+    pItem->uNbr = uNbr;
+    ASSERT_RETURN(hash_search(pHash, pItem), "%d can't be found (static)", uNbr);
+    FREE(pItem);
+  }
+  for (uNbr = 0; uNbr < 20; uNbr++) {
+    pItem = MALLOC(sizeof(SHashItem));
+    pItem->uNbr = uNbr;
+    ASSERT_RETURN(hash_del(pHash, pItem) == 2, "%d hasn't been deleted (dynamic)", uNbr);
+    FREE(pItem);
+  }
+  pItem = MALLOC(sizeof(SHashItem));
+  pItem->uNbr = 0;
+  ASSERT_RETURN(hash_del(pHash, pItem) == 0, "0 shoud not be present (dynamic)");
+  FREE(pItem);*/
+  hash_destroy(&pHash);
+
+  return UTEST_SUCCESS;
+}
+
+int test_hash_reference()
+{
+  SHash * pHash;
+  uint32_t uNbr, uCpt;
+  SHashItem * pItem;
+
+  /* static test */
+  pHash= hash_init(6, 0, _hash_cmp, _hash_destroy, _hash_fct);
+  for (uCpt = 0; uCpt < 10; uCpt++) {
+    for (uNbr = 0; uNbr < 20; uNbr++) {
+      pItem = MALLOC(sizeof(SHashItem));
+      pItem->uNbr = uNbr;
+      ASSERT_RETURN(hash_add(pHash, pItem) != -1, "%d can't be inserted (static)", uNbr);
+    }
+  }
+  for (uCpt = 0; uCpt < 9; uCpt++) {
+    for (uNbr = 0; uNbr < 20; uNbr++) {
+      pItem = MALLOC(sizeof(SHashItem));
+      pItem->uNbr = uNbr;
+      ASSERT_RETURN(hash_del(pHash, pItem) == 1, "should be unref (static)");
+      FREE(pItem);
+    }
+  }
+  for (uNbr = 0; uNbr < 20; uNbr++) {
+    pItem = MALLOC(sizeof(SHashItem));
+    pItem->uNbr = uNbr;
+    ASSERT_RETURN(hash_del(pHash, pItem) == 2, "should be deleted (static)");
+    FREE(pItem);
+  }
+
+
+  hash_destroy(&pHash);
+
+  return UTEST_SUCCESS;
+}
+
+#ifdef __OLD_HASH_TEST__
 // -----[ test_hash ]------------------------------------------------
 int test_hash()
 {
@@ -1573,6 +1701,194 @@ int test_hash()
   enum_destroy(&pEnum);
   hash_destroy(&pHash);
   return 0;
+}
+#endif
+
+
+/////////////////////////////////////////////////////////////////////
+// GDS_CHECK_BLOOM_FILTER
+/////////////////////////////////////////////////////////////////////
+#include <libgds/bit_vector.h>
+int test_bit_vector_creation_destruction()
+{
+  SBitVector *pBitVector;
+
+  pBitVector = bit_vector_create(1);
+  ASSERT_RETURN(pBitVector != NULL, "creation failed");
+  bit_vector_destroy(&pBitVector);
+
+  return UTEST_SUCCESS;
+}
+
+int test_bit_vector_operations()
+{
+  SBitVector * pBitVector;
+
+  pBitVector = bit_vector_create(32);
+  ASSERT_RETURN(!bit_vector_get(pBitVector, 0), "bit 0 is inaccurate");
+  ASSERT_RETURN(!bit_vector_set(pBitVector, 0), "bit not set");
+  ASSERT_RETURN(bit_vector_get(pBitVector, 0), "bit 0 is inaccurate");
+  ASSERT_RETURN(!bit_vector_set(pBitVector, 1), "bit not set");
+  ASSERT_RETURN(bit_vector_set(pBitVector, 32) == -1, "bit couldn't be set");
+  ASSERT_RETURN(bit_vector_get(pBitVector, 1), "bit 1 is inaccurate");
+  ASSERT_RETURN(!bit_vector_get(pBitVector, 2), "bit 2 is inaccurate");
+  ASSERT_RETURN(!bit_vector_get(pBitVector, 30), "bit 30 is inaccurate");
+  ASSERT_RETURN(bit_vector_get(pBitVector, 32) == -1, "bit 32 should be inaccessible");
+
+  bit_vector_destroy(&pBitVector);
+  return UTEST_SUCCESS;
+}
+
+int test_bit_vector_representation()
+{
+  return UTEST_SKIPPED;
+}
+
+/////////////////////////////////////////////////////////////////////
+// GDS_CHECK_BLOOM_FILTER
+/////////////////////////////////////////////////////////////////////
+#include <libgds/sha1.h>
+#include <libgds/bloom_hash.h>
+#include <libgds/bloom_filter.h>
+
+static char *msg[] =
+{
+    "abc",
+    "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+    NULL
+};
+
+static char *val[] =
+{
+    "a9993e364706816aba3e25717850c26c9cd0d89d",
+    "84983e441c3bd26ebaae4aa1f95129e5e54670f1",
+    "34aa973cd4c4daa4f61eeb2bdbad27316534016f"
+};
+
+static uint8_t uResByte[] = 
+{
+  0xa9, 0x99, 0x3e, 0x36, 0x47, 0x06, 0x81, 0x6a, 0xba, 0x3e, 0x25, 0x71, 0x78,
+  0x50, 0xc2, 0x6c, 0x9c, 0xd0, 0xd8, 0x9d
+};
+
+/**
+ * those are the standard FIPS-180-1 (sha1) test vectors
+ */
+int sha1_check()
+{
+    int i, j;
+    char output[41];
+    SSHA1Context ctx;
+    unsigned char buf[1000];
+    unsigned char sha1sum[20];
+
+  for( i = 0; i < 3; i++ ) {
+    sha1_starts( &ctx );
+    if( i < 2 ) {
+        sha1_update( &ctx, (uint8_t *) msg[i],
+                     strlen( msg[i] ) );
+    } else {
+        memset( buf, 'a', 1000 );
+        for( j = 0; j < 1000; j++ ) {
+            sha1_update( &ctx, (uint8_t *) buf, 1000 );
+        }
+    }
+    sha1_finish( &ctx, sha1sum );
+
+    for( j = 0; j < 20; j++ ) {
+        snprintf( output + j * 2, 41-j*2, "%02x", sha1sum[j] );
+    }
+    if( memcmp( output, val[i], 40 ) ) {
+        return -1;
+    }
+  }
+  return 0;
+}
+
+int _bloom_print_for_each(void * pItem, void * pCtx)
+{
+  uint32_t uItem = *(uint32_t *) pItem;
+
+  printf("%02x|", uItem);
+  return 0;
+}
+
+int test_bloom_hash_creation_destruction()
+{
+  SBloomFilterHash * pBloomHash;
+
+  ASSERT_RETURN(bloom_hash_create(10000000, 21) == NULL, "sha1 signature is 20 byte long. ");
+  pBloomHash = bloom_hash_create(10, 20);
+  bloom_hash_destroy(&pBloomHash);
+  ASSERT_RETURN(pBloomHash==NULL, "Bloom Hash not well destroyed");
+  return UTEST_SUCCESS;
+}
+
+/**
+ *
+ */
+int test_bloom_hash_insertion()
+{
+  SBloomFilterHash * pBloomHash;
+  SUInt32Array * uArray;
+  uint8_t uCpt;
+  uint32_t uByte;
+
+  pBloomHash = bloom_hash_create(MAX_UINT32_T, 20);
+  uArray = bloom_hash_get(pBloomHash, (uint8_t*)msg[0], strlen(msg[0]));
+  for (uCpt = 0; uCpt < 20; uCpt++) {
+    _array_get_at((SArray*)uArray, uCpt, &uByte);
+    if (uByte != uResByte[uCpt] ) {
+      bloom_hash_destroy(&pBloomHash);
+      return UTEST_FAILURE;
+    }
+  }
+  bloom_hash_destroy(&pBloomHash);
+  return UTEST_SUCCESS;
+}
+
+int test_bloom_filter_creation_destruction()
+{
+  SBloomFilter * pBloomFilter;
+
+  ASSERT_RETURN(bloom_filter_create(1000, 21) == NULL, "bloom filter can't have more than 20 hashes with sha1");
+  pBloomFilter = bloom_filter_create(1000, 20);
+  bloom_filter_destroy(&pBloomFilter);
+  ASSERT_RETURN(pBloomFilter==NULL, "pBloomFilter not well destroyed");
+  return UTEST_SUCCESS;
+}
+
+int test_bloom_filter_insertion()
+{
+  SBloomFilter * pBloomFilter;
+
+  pBloomFilter = bloom_filter_create(30, 7);
+
+  bloom_filter_add_array(pBloomFilter, (uint8_t**)msg);
+  bloom_filter_add(pBloomFilter, (uint8_t*)msg[0], strlen(msg[0]));
+  bloom_filter_add(pBloomFilter, (uint8_t*)msg[1], strlen(msg[1]));
+  bloom_filter_add(pBloomFilter, (uint8_t*)msg[0], strlen(msg[0]));
+  bloom_filter_add(pBloomFilter, (uint8_t*)msg[1], strlen(msg[1]));
+  return UTEST_SUCCESS;
+
+}
+
+int test_bloom_filter_membership()
+{
+  SBloomFilter * pBloomFilter;
+
+  pBloomFilter = bloom_filter_create(30, 9);
+
+  bloom_filter_add_array(pBloomFilter, (uint8_t**)msg);
+  ASSERT_RETURN(bloom_filter_is_member(pBloomFilter, (uint8_t*)msg[0], strlen(msg[0])), "it should be part of the bloom filter.");
+  ASSERT_RETURN(bloom_filter_is_member(pBloomFilter, (uint8_t*)msg[1], strlen(msg[1])), "%s should be part of the bloom filter.", msg[1]);
+  ASSERT_RETURN(!bloom_filter_is_member(pBloomFilter, (uint8_t*)"abcd", 4), "abcd should not be part of the bloom filter.");
+  ASSERT_RETURN(!bloom_filter_is_member(pBloomFilter, (uint8_t*)"iabcE", 5), "iabcE should not be part of the bloom filter.");
+  bloom_filter_destroy(&pBloomFilter);
+
+  return UTEST_SUCCESS;
+
+
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -1644,10 +1960,12 @@ SUnitTest DLLIST_TEST_SUITE[DLLIST_NUM_TESTS]= {
   {test_dllist_basic, "basic use"},  
 };
 
-#define HASH_NUM_TESTS 1
-SUnitTest HASH_TEST_SUITE[HASH_NUM_TESTS]= {
-  {test_hash, "basic use"},
+SUnitTest HASH_TEST_SUITE[] = {
+  {test_hash_creation_destruction, "creation/destruction"},
+  {test_hash_insertion_search_deletion, "insertion/deletion" },
+  {test_hash_reference, "references/unreferences" }
 };
+#define HASH_NUM_TESTS sizeof(HASH_TEST_SUITE)/sizeof(HASH_TEST_SUITE[0])
 
 #define LIST_NUM_TESTS 1
 SUnitTest LIST_TEST_SUITE[LIST_NUM_TESTS]= {
@@ -1671,8 +1989,27 @@ SUnitTest STRUTILS_TEST_SUITE[STRUTILS_NUM_TESTS]= {
 SUnitTest SEQUENCE_TEST_SUITE[SEQUENCE_NUM_TESTS]= {
 };
 
-#define NUM_SUITES 14
-SUnitTestSuite SUITES[NUM_SUITES]= {
+SUnitTest BIT_VECTOR_TEST_SUITE[] = {
+  { test_bit_vector_creation_destruction, "creation/destruction" },
+  { test_bit_vector_operations, "set/unset/get" },
+  { test_bit_vector_representation, "to_string" }
+};
+#define BIT_VECTOR_NUM_TESTS sizeof(BIT_VECTOR_TEST_SUITE)/sizeof(BIT_VECTOR_TEST_SUITE[0])
+
+SUnitTest BLOOM_HASH_TEST_SUITE[] = {
+  { test_bloom_hash_creation_destruction, "creation/destruction" },
+  { test_bloom_hash_insertion, "insertion" }
+};
+#define BLOOM_HASH_NUM_TESTS sizeof(BLOOM_HASH_TEST_SUITE)/sizeof(BLOOM_HASH_TEST_SUITE[0])
+
+SUnitTest BLOOM_FILTER_TEST_SUITE[] = {
+  { test_bloom_filter_creation_destruction, "creation/destruction" },
+  { test_bloom_filter_insertion, "insertion" },
+  { test_bloom_filter_membership, "membership" }
+};
+#define BLOOM_FILTER_NUM_TESTS sizeof(BLOOM_FILTER_TEST_SUITE)/sizeof(BLOOM_FILTER_TEST_SUITE[0])
+
+SUnitTestSuite SUITES[]= {
   {"String-Utilities", STRUTILS_NUM_TESTS, STRUTILS_TEST_SUITE},
   {"FIFO", FIFO_NUM_TESTS, FIFO_TEST_SUITE},
   {"Stack", STACK_NUM_TESTS, STACK_TEST_SUITE},
@@ -1687,7 +2024,11 @@ SUnitTestSuite SUITES[NUM_SUITES]= {
   {"Patricia-Tree", PATRICIA_NUM_TESTS, PATRICIA_TEST_SUITE},
   {"Tokenizer",TOKENIZER_NUM_TESTS, TOKENIZER_TEST_SUITE},
   {"CLI", CLI_NUM_TESTS, CLI_TEST_SUITE},
+  {"Bit Vector", BIT_VECTOR_NUM_TESTS, BIT_VECTOR_TEST_SUITE},
+  {"Bloom Hash", BLOOM_HASH_NUM_TESTS, BLOOM_HASH_TEST_SUITE},
+  {"Bloom Filter", BLOOM_FILTER_NUM_TESTS, BLOOM_FILTER_TEST_SUITE}
 };
+#define NUM_SUITES sizeof(SUITES)/sizeof(SUITES[0])
 
 // ----- main -------------------------------------------------------
 int main(int argc, char * argv[])
