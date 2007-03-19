@@ -30,6 +30,7 @@ static struct {
   char * pcProject;
   char * pcVersion;
   int iNumFailures;
+  int iNumSkipped;
   int iNumTests;
   int iMaxFailures;
 } sUTest;
@@ -41,6 +42,7 @@ void utest_init(int iMaxFail)
   sUTest.pcProject= NULL;
   sUTest.pcVersion= NULL;
   sUTest.iNumFailures= 0;
+  sUTest.iNumSkipped= 0;
   sUTest.iNumTests= 0;
   sUTest.iMaxFailures= iMaxFail;
 
@@ -51,8 +53,8 @@ void utest_init(int iMaxFail)
 void utest_done()
 {
   printf("\n==Summary==\n");
-  printf("  FAILURES=%d / TESTS=%d\n",
-	 sUTest.iNumFailures, sUTest.iNumTests);
+  printf("  FAILURES=%d / SKIPPED=%d / TESTS=%d\n",
+	 sUTest.iNumFailures, sUTest.iNumSkipped, sUTest.iNumTests);
   printf("\n");
   
   if (pXMLStream != NULL) {
@@ -288,13 +290,16 @@ int utest_run_suite(const char * pcName, SUnitTest * paTests,
 
     // Run the test
     iTestResult= utest_run_test(pcName, &paTests[uIndex]);
-    if ((iTestResult != UTEST_SUCCESS) &&
-	(iTestResult != UTEST_SKIPPED)) {
-      iResult= -1;
-      sUTest.iNumFailures++;
-      if ((sUTest.iMaxFailures != 0) &&
-	  (sUTest.iNumFailures > sUTest.iMaxFailures)) {
-	break;
+    if (iTestResult != UTEST_SUCCESS) {
+      if (iTestResult == UTEST_SKIPPED) {
+	sUTest.iNumSkipped++;
+      } else {
+	iResult= -1;
+	sUTest.iNumFailures++;
+	if ((sUTest.iMaxFailures != 0) &&
+	    (sUTest.iNumFailures > sUTest.iMaxFailures)) {
+	  break;
+	}
       }
     }
   }
