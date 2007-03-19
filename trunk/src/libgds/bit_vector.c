@@ -219,20 +219,53 @@ char * bit_vector_to_string(SBitVector * pBitVector)
 /**
  * @brief Tests the equality of two bit vectors
  *
- * The equality is tested with the following two hypothesis :
+ * @param pBitVector1 the first bit vector of the equality test
+ * @param pBitVector2 the second bit vector of the equality test
+ *
+ */
+int8_t bit_vector_equals(SBitVector * pBitVector1, SBitVector * pBitVector2)
+{
+  SEnumerator * pEnum1;
+  SEnumerator * pEnum2;
+  uint32_t uSegment1;
+  uint32_t uSegment2;
+
+  if (!pBitVector1 && !pBitVector2)
+    return 1;
+  if (!pBitVector1 || !pBitVector2)
+    return 0;
+
+  /* Tests the size of the bit vectors */
+  if (pBitVector1->uSize != pBitVector2->uSize)
+    return 0;
+
+  pEnum1 = _array_get_enum( (SArray*)pBitVector1->puArray );
+  pEnum2 = _array_get_enum( (SArray*)pBitVector2->puArray );
+  while (enum_has_next(pEnum1)) {
+    uSegment1 = *(uint32_t*)enum_get_next(pEnum1);
+    uSegment2 = *(uint32_t*)enum_get_next(pEnum2);
+
+    if (uSegment1 != uSegment2)
+      return 0;
+  }
+  return 1;
+}
+
+/**
+ * @brief Compare two bit vectors
+ *
+ * The comparison is performed with the following two hypothesis :
  *  - NULL is the smallest value possible
  *  - one bit vector is greater than another if its size is greater than the second whatever
  *  the value of both bit vectors.
  *
- * @param pBitVector1 the first bit vector of the equality test
- * @param pBitVector2 the second bit vector of the equality test
+ * @param pBitVector1 the first bit vector of the comparison
+ * @param pBitVector2 the second bit vector of the comparison
  *
  * @return 0 if both bit vectors are the same, 1 if the first vector is greater
  * than the second, -1 if the first vector is smaller than the second.
- *
- * @warning NULL is considered as the smallest value possible.
  */
-int8_t bit_vector_equals(SBitVector * pBitVector1, SBitVector * pBitVector2)
+int8_t bit_vector_comp(SBitVector * pBitVector1, SBitVector * pBitVector2)
 {
   SEnumerator * pEnum1;
   SEnumerator * pEnum2;
@@ -242,10 +275,8 @@ int8_t bit_vector_equals(SBitVector * pBitVector1, SBitVector * pBitVector2)
   /* Tests the NULL value which is the smallest possible */
   if (!pBitVector1 && !pBitVector2)
     return 0;
-  if (!pBitVector1)
-    return -1;
-  if (!pBitVector2)
-    return 1;
+  if (!pBitVector1 || !pBitVector2)
+    return 0;
 
   /* Tests the size of the bit vectors */
   if (pBitVector1->uSize < pBitVector2->uSize)

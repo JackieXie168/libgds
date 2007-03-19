@@ -22,5 +22,6 @@ char * bloom_filter_to_string(SBloomFilter * pBloomFilter);
 int8_t bloom_filter_and(SBloomFilter * pBloomFilter1, SBloomFilter * pBloomFilter2);
 int8_t bloom_filter_or(SBloomFilter * pBloomFilter1, SBloomFilter * pBloomFilter2);
 int8_t bloom_filter_xor(SBloomFilter * pBloomFilter1, SBloomFilter * pBloomFilter2);
+int8_t bloom_filter_equals(SBloomFilter * pBloomFilter1, SBloomFilter * pBloomFilter2);
 
 #endif /* __BLOOM_FILTER_H__ */
