@@ -30,7 +30,6 @@ struct _BloomFilter {
   SBloomFilterHash * pBloomHash;
 };
 
-
 /**
  * @brief Creates a bloom filter
  *
@@ -139,7 +138,7 @@ int8_t bloom_filter_add(SBloomFilter * pBloomFilter, uint8_t *uKey, uint32_t uKe
  * @return 0 if the array of keys is added to the bloom filter. If the key or
  * the bloom filter is NULL, -1 is returned.
  */
-int8_t bloom_filter_add_array(SBloomFilter * pBloomFilter, uint8_t *uKey[])
+int8_t bloom_filter_add_array(SBloomFilter * pBloomFilter, uint8_t **uKey)
 {
   uint32_t uCpt = 0;
 
@@ -181,7 +180,6 @@ static int _bloom_filter_is_member_for_each(void * pItem, void * pCtx)
   return !(bit_vector_get(pBloomFilter->pBitVector, uItem) == 1);
 }
 
-
 /**
  * @brief Tests the membership of a key in a bloom filter.
  *
@@ -206,4 +204,55 @@ uint8_t bloom_filter_is_member(SBloomFilter * pBloomFilter, uint8_t * uKey, uint
   uint32_array_destroy( &puArray );
 
   return (iRet == 0);
+}
+
+/**
+ * @brief Perform a \em and operation on a bloom filter
+ *
+ * @param pBloomFilter1 the first operand of the \em and operation. This bloom
+ * filter contains the result of the \em and operation.
+ * @param pBloomFilter2 the second operand of the \em and operation.
+ *
+ * @return 0 of pBloomFilter1 has been \em anded, else -1 is returned.
+ */
+int8_t bloom_filter_and(SBloomFilter * pBloomFilter1, SBloomFilter * pBloomFilter2)
+{
+  if ( !pBloomFilter1 || !pBloomFilter2 )
+    return -1;
+
+  return bit_vector_and(pBloomFilter1->pBitVector, pBloomFilter2->pBitVector);
+}
+
+/**
+ * @brief Perform a \em or operation on a bloom filter
+ *
+ * @param pBloomFilter1 the first operand of the \em or operation. This bloom
+ * filter contains the result of the \em or operation.
+ * @param pBloomFilter2 the second operand of the \em or peration.
+ *
+ * @return 0 of pBloomFilter1 has been \em ored, else -1 is returned.
+ */
+int8_t bloom_filter_or(SBloomFilter * pBloomFilter1, SBloomFilter * pBloomFilter2)
+{
+  if ( !pBloomFilter1 || !pBloomFilter2 )
+    return -1;
+
+  return bit_vector_or(pBloomFilter1->pBitVector, pBloomFilter2->pBitVector);
+}
+
+/**
+ * @brief Perform a \em xor operation on a bloom filter
+ *
+ * @param pBloomFilter1 the first operand of the \em xor operation. This bloom
+ * filter contains the result of the \em xor operation.
+ * @param pBloomFilter2 the second operand of the \em xor peration.
+ *
+ * @return 0 of pBloomFilter1 has been \em xored, else -1 is returned.
+ */
+int8_t bloom_filter_xor(SBloomFilter * pBloomFilter1, SBloomFilter * pBloomFilter2)
+{
+  if ( !pBloomFilter1 || !pBloomFilter2 )
+    return -1;
+
+  return bit_vector_xor(pBloomFilter1->pBitVector, pBloomFilter2->pBitVector);
 }
