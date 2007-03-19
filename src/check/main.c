@@ -1900,12 +1900,14 @@ int test_bit_vector_equality()
   _test_bit_vector_set(pBitVector1);
     /* same value */
     _test_bit_vector_set(pBitVector2);
-    ASSERT_RETURN(bit_vector_equals(pBitVector1, pBitVector2) == 0, "bit vectors should be equals");
+    ASSERT_RETURN(bit_vector_comp(pBitVector1, pBitVector2) == 0, "bit vectors should be equals");
+    ASSERT_RETURN(bit_vector_equals(pBitVector1, pBitVector2) == 1, "bit vector should be equals");
     /* greater value */
     _test_bit_vector_set_xor(pBitVector2);
-    ASSERT_RETURN(bit_vector_equals(pBitVector2, pBitVector1) == 1, "equality result should be greater");
+    ASSERT_RETURN(bit_vector_comp(pBitVector2, pBitVector1) == 1, "equality result should be greater");
+    ASSERT_RETURN(bit_vector_equals(pBitVector1, pBitVector2) == 0, "bit vector should be equals");
     /* smaller value */
-    ASSERT_RETURN(bit_vector_equals(pBitVector1, pBitVector2) == -1, "equality result should be smaller");
+    ASSERT_RETURN(bit_vector_comp(pBitVector1, pBitVector2) == -1, "equality result should be smaller");
 
   /* Different lengths */
   bit_vector_destroy(&pBitVector2);
