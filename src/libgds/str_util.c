@@ -41,7 +41,7 @@ char * str_create(const char * pcString)
  */
 char * str_ncreate(const char * pcString, size_t tLen)
 {
-  char * pcNewString= str_lcreate(tLen);
+  char * pcNewString= str_lcreate(tLen+1);
   strncpy(pcNewString, pcString, tLen);
   pcNewString[tLen]= '\0';
   return pcNewString;
