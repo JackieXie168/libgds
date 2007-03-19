@@ -3,10 +3,10 @@ doxygen:
 	$(DOXYGEN) Doxyfile;
 endif
 
-pkgconfigdir := $(libdir)/pkgconfig
-pkgconfig_DATA := libgds.pc
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = libgds.pc
 
-EXTRA_DIST := \
+EXTRA_DIST = \
 	  Doxyfile 			\
 	  make-libgds-debian.sh 	\
 	  make-package* 		\
@@ -24,4 +24,4 @@ EXTRA_DIST := \
 	  debian/template/changelog 
 
 
-SUBDIRS := src doc
+SUBDIRS = src doc
