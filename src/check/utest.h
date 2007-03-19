@@ -5,7 +5,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
-// @lastdate 17/03/2007
+// @lastdate 19/03/2007
 // ==================================================================
 //
 // Example definition for a unit test suite:
@@ -71,6 +71,8 @@ typedef struct {
   char * pcName;
   int iResult;
   char * pcMessage;
+  int iLine;
+  char * pcFile;
 } SUnitTest;
 
 // -----[ Suite of Unit Tests ]-----
@@ -97,6 +99,11 @@ extern "C" {
   // -----[ utest_run_suites ]---------------------------------------
   int utest_run_suites(SUnitTestSuite * paSuites, unsigned int uNumSuites);
 
+  // -----[ utest_set_user ]-----------------------------------------
+  void utest_set_user(const char * pcUser);
+  // -----[ utest_set_project ]--------------------------------------
+  void utest_set_project(const char * pcProject,
+			 const char * pcVersion);
   // -----[ utest_set_xml_logging ]----------------------------------
   void utest_set_xml_logging(const char * pcFileName);
 
