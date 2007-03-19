@@ -12,6 +12,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <libgds/bit_vector.h>
 #include <libgds/array.h>
@@ -215,6 +216,57 @@ char * bit_vector_to_string(SBitVector * pBitVector)
   return pStrToRet;
 }
 
+/**
+ * @brief Tests the equality of two bit vectors
+ *
+ * The equality is tested with the following two hypothesis :
+ *  - NULL is the smallest value possible
+ *  - one bit vector is greater than another if its size is greater than the second whatever
+ *  the value of both bit vectors.
+ *
+ * @param pBitVector1 the first bit vector of the equality test
+ * @param pBitVector2 the second bit vector of the equality test
+ *
+ * @return 0 if both bit vectors are the same, 1 if the first vector is greater
+ * than the second, -1 if the first vector is smaller than the second.
+ *
+ * @warning NULL is considered as the smallest value possible.
+ */
+int8_t bit_vector_equals(SBitVector * pBitVector1, SBitVector * pBitVector2)
+{
+  SEnumerator * pEnum1;
+  SEnumerator * pEnum2;
+  uint32_t uSegment1;
+  uint32_t uSegment2;
+
+  /* Tests the NULL value which is the smallest possible */
+  if (!pBitVector1 && !pBitVector2)
+    return 0;
+  if (!pBitVector1)
+    return -1;
+  if (!pBitVector2)
+    return 1;
+
+  /* Tests the size of the bit vectors */
+  if (pBitVector1->uSize < pBitVector2->uSize)
+    return 1;
+  else if (pBitVector1->uSize > pBitVector2->uSize)
+    return -1;
+
+  pEnum1 = _array_get_enum( (SArray*)pBitVector1->puArray );
+  pEnum2 = _array_get_enum( (SArray*)pBitVector2->puArray );
+  while (enum_has_next(pEnum1)) {
+    uSegment1 = *(uint32_t*)enum_get_next(pEnum1);
+    uSegment2 = *(uint32_t*)enum_get_next(pEnum2);
+
+    if (uSegment1 < uSegment2)
+      return -1;
+    else if (uSegment1 > uSegment2)
+      return 1;
+  }
+  return 0;
+}
+
 /*********************************
  * Binary Operations
  ********************************/
@@ -345,5 +397,33 @@ int8_t bit_vector_xor(SBitVector * pBitVector1, SBitVector * pBitVector2)
     return -1;
 
   return _bit_vector_binary_operation_enum(BIT_VECTOR_XOR, pBitVector1, pBitVector2);
+}
+
+/**
+ * @brief Creates a bit vector from a string representation
+ *
+ * @param cBitVector string representation of a bit vector
+ *
+ * @return a new allocated bit vector, of size equal to the length of the
+ * string and initialised from the value of each character of the string.
+ *
+ * @note Each character which is not equal to '0' are set to one in the bit
+ * vector.
+ *
+ */
+SBitVector * bit_vector_create_from_string(char * cBitVector)
+{
+  SBitVector * pBitVector;
+  uint32_t uLen;
+  uint32_t uCptBits;
+ 
+  uLen = strlen(cBitVector);
+  pBitVector = bit_vector_create(uLen);
+
+  for (uCptBits = 0; uCptBits < uLen; uCptBits++) {
+    if (cBitVector[uCptBits] != '0')
+      bit_vector_set(pBitVector, uCptBits);
+  }
+  return pBitVector;
 }
 
