@@ -5,7 +5,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
-// @lastdate 17/03/2007
+// @lastdate 19/03/2007
 // ==================================================================
 // Notes on unit testing:
 //  - keep tests short and focused on a simple aspect
@@ -52,6 +52,237 @@ char * INT_TO_IPV4(unsigned int uAddress)
   return acAddress;
 }
 
+// ----- int_array_shuffle ------------------------------------------
+/**
+ * Random permutation of an array (Durstenfeld, 1964, CACM)
+ */
+void int_array_shuffle(int aiArray[], unsigned int uSize)
+{
+  unsigned int uIndex;
+  int iTemp;
+  int uRandomIndex;
+
+  for (uIndex= 0; uIndex < uSize; uIndex++) {
+    uRandomIndex= random() % uSize;
+    iTemp= aiArray[uIndex];
+    aiArray[uIndex]= aiArray[uRandomIndex];
+    aiArray[uRandomIndex]= iTemp;
+  }
+}
+
+/////////////////////////////////////////////////////////////////////
+// GDS_CHECK_STRUTILS
+/////////////////////////////////////////////////////////////////////
+
+// -----[ test_strutils_basic ]--------------------------------------
+int test_strutils_basic()
+{
+  return UTEST_SKIPPED;
+}
+
+#define INT32_MIN_STR "-2147483648"
+#define INT32_MAX_STR "2147483647"
+#define UINT32_MAX_STR "4294967295"
+
+#define INT64_MIN_STR "-9223372036854775808"
+#define INT64_MAX_STR "9223372036854775807"
+#define UINT64_MAX_STR "18446744073709551615"
+
+// -----[ test_strutils_convert_int ]--------------------------------
+int test_strutils_convert_int()
+{
+  int iValue;
+
+  switch (sizeof(iValue)) {
+  case 4:
+    ASSERT_RETURN((str_as_int(INT32_MIN_STR, &iValue) == 0) &&
+		  (iValue == INT_MIN),
+		  "could not convert string to int");
+    ASSERT_RETURN((str_as_int(INT32_MAX_STR, &iValue) == 0) &&
+		  (iValue == INT_MAX),
+		  "could not convert string to int");
+    break;
+
+  case 8:
+    ASSERT_RETURN((str_as_int(INT64_MIN_STR, &iValue) == 0)
+		  && (iValue = (long) INT64_MIN),
+		  "could not convert string to int");
+    ASSERT_RETURN((str_as_int(INT64_MAX_STR, &iValue) == 0)
+		  && (iValue == (long) INT64_MAX),
+		  "could not convert string to int");
+    break;
+
+  default:
+    ASSERT_RETURN(0, "int size not supported (%d)", sizeof(iValue));
+    
+  }
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_strutils_convert_uint ]-------------------------------
+int test_strutils_convert_uint()
+{
+  return UTEST_SKIPPED;
+}
+
+// -----[ test_strutils_convert_long ]-------------------------------
+int test_strutils_convert_long()
+{
+  long int lValue;
+
+  switch (sizeof(lValue)) {
+  case 4:
+    ASSERT_RETURN((str_as_long(INT32_MIN_STR, &lValue) == 0)
+		  && (lValue = INT32_MIN),
+		  "could not convert string to long");
+    ASSERT_RETURN((str_as_long(INT32_MAX_STR, &lValue) == 0)
+		  && (lValue == INT32_MAX),
+		  "could not convert string to long");
+    break;
+
+  case 8:
+    ASSERT_RETURN((str_as_long(INT64_MIN_STR, &lValue) == 0)
+		  && (lValue = (long) INT64_MIN),
+		  "could not convert string to long");
+    ASSERT_RETURN((str_as_long(INT64_MAX_STR, &lValue) == 0)
+		  && (lValue == (long) INT64_MAX),
+		  "could not convert string to long");
+    break;
+
+  default:
+    ASSERT_RETURN(0, "long size not supported (%d)", sizeof(lValue));
+
+  }
+
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_strutils_convert_ulong ]------------------------------
+int test_strutils_convert_ulong()
+{/*
+  // ----- str_as_int -----------------------------------------------
+  int str_as_int(const char * pcString, int * piValue);
+  // ----- str_as_ulong ---------------------------------------------
+  int str_as_ulong(const char * pcString, unsigned long int * pulValue);
+  // ----- str_as_uint ----------------------------------------------
+  int str_as_uint(const char * pcString, unsigned int * puValue);
+  // ----- str_as_double --------------------------------------------
+  int str_as_double(const char * pcString, double * pdValue);*/
+
+  return UTEST_SKIPPED;
+}
+
+// -----[ test_strutils_convert_double ]-----------------------------
+int test_strutils_convert_double()
+{
+  return UTEST_SKIPPED;
+}
+
+/////////////////////////////////////////////////////////////////////
+// GDS_CHECK_FIFO
+/////////////////////////////////////////////////////////////////////
+
+#define FIFO_NUM_ITEMS 5
+int aiFIFOItems[FIFO_NUM_ITEMS];
+
+// -----[ test_fifo_init ]-------------------------------------------
+int test_fifo_init()
+{
+  unsigned int uIndex;
+
+  // Initialize
+  for (uIndex= 0; uIndex < FIFO_NUM_ITEMS; uIndex++) {
+    aiFIFOItems[uIndex]= random() % 4096;
+  }
+  
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_fifo_basic ]------------------------------------------
+/**
+ *
+ */
+int test_fifo_basic()
+{
+  SFIFO * pFIFO= fifo_create(FIFO_NUM_ITEMS, NULL);
+  unsigned int uIndex;
+
+  test_fifo_init();
+  
+  // Check initial depth (== 0)
+  ASSERT_RETURN(fifo_depth(pFIFO) == 0, "incorrect depth returned");
+
+  // Push data
+  for (uIndex= 0; uIndex < FIFO_NUM_ITEMS; uIndex++) {
+    ASSERT_RETURN(fifo_push(pFIFO, (void *) aiFIFOItems[uIndex]) == 0,
+		  "could not push data onto FIFO");
+  }
+
+  // Check depth == FIFO_NUM_ITEMS
+  ASSERT_RETURN(fifo_depth(pFIFO) == FIFO_NUM_ITEMS,
+		"incorrect depth returned");
+
+  // Pushing more should fail (growth option not set)
+  ASSERT_RETURN(fifo_push(pFIFO, (void *) 255) != 0,
+		"should not allow pushing more than FIFO size");
+
+  // Pop data
+  for (uIndex= 0; uIndex < FIFO_NUM_ITEMS; uIndex++) {
+    ASSERT_RETURN((int) fifo_pop(pFIFO)
+		  == aiFIFOItems[uIndex],
+		  "incorrect value pop'ed");
+  }
+
+  fifo_destroy(&pFIFO);
+
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_fifo_grow ]-------------------------------------------
+int test_fifo_grow()
+{
+  SFIFO * pFIFO= fifo_create(FIFO_NUM_ITEMS, NULL);
+  unsigned int uIndex;
+
+  fifo_set_option(pFIFO, FIFO_OPTION_GROW_EXPONENTIAL, 1);
+
+  // Push data
+  for (uIndex= 0; uIndex < FIFO_NUM_ITEMS; uIndex++) {
+    ASSERT_RETURN(fifo_push(pFIFO, (void *) aiFIFOItems[uIndex]) == 0,
+		  "could not push data onto FIFO");
+  }
+
+  // Check depth == FIFO_NUM_ITEMS
+  ASSERT_RETURN(fifo_depth(pFIFO) == FIFO_NUM_ITEMS,
+		"incorrect depth returned");
+
+  // Pushing more should be allowed (growth option set)
+  ASSERT_RETURN(fifo_push(pFIFO, (void *) 255) == 0,
+		"should allow pushing more than FIFO size (grow)");
+
+  // Check depth == FIFO_NUM_ITEMS+1
+  ASSERT_RETURN(fifo_depth(pFIFO) == FIFO_NUM_ITEMS+1,
+		"incorrect depth returned");
+
+  fifo_destroy(&pFIFO);
+
+  return UTEST_SUCCESS;
+}
+
+/////////////////////////////////////////////////////////////////////
+// GDS_CHECK_STACK
+/////////////////////////////////////////////////////////////////////
+
+// -----[ test_stack_basic ]-----------------------------------------
+int test_stack_basic()
+{
+  SStack * pStack= stack_create(10);
+  ASSERT_RETURN(pStack != NULL, "stack_create() returned NULL");
+  stack_destroy(&pStack);
+
+  return UTEST_SKIPPED;
+}
+
 /////////////////////////////////////////////////////////////////////
 // GDS_CHECK_ARRAY
 /////////////////////////////////////////////////////////////////////
@@ -59,37 +290,43 @@ char * INT_TO_IPV4(unsigned int uAddress)
 // -----[ _test_array_compare ]--------------------------------------
 /**
  * Utility function used in test_array() to compare two array items
- * (integers).
+ * (integers). Note: the function is being passed pointers to the
+ * items to be compared.
  */
 static int _test_array_compare(void * pItem1, void * pItem2,
-			  unsigned int uEltSize) 
+			       unsigned int uEltSize)
 {
   if (*((int *) pItem1) > *((int *) pItem2))
     return 1;
   else if (*((int *) pItem1) < *((int *) pItem2))
     return -1;
   return 0;
-}
+  }
 
-#define NUM_ITEMS 1024
-int aiArray[NUM_ITEMS];
+#define ARRAY_NITEMS 1024
+int ARRAY_ITEMS[ARRAY_NITEMS];
 SIntArray * pArray= NULL;
 SIntArray * pArrayCopy= NULL;
-SIntArray * pSubArray= NULL;
-
+SIntArray * pArraySub= NULL;
 
 // ----- test_array_init --------------------------------------------
-/**
- *
- */
 int test_array_init()
 {
   unsigned int uIndex;
+  int iValue;
 
-  srandom(2007);
-  for (uIndex= 0; uIndex < NUM_ITEMS; uIndex++) {
-    aiArray[uIndex]= (int) (random() % 4096);
+  // Generate random sequence of unique integers
+  for (uIndex= 0; uIndex < ARRAY_NITEMS; uIndex++) {
+    iValue= (random() % 4096)+1;
+    if (uIndex > 0) {
+      ARRAY_ITEMS[uIndex]= ARRAY_ITEMS[uIndex-1]+iValue;
+    } else {
+      ARRAY_ITEMS[uIndex]= iValue;
+    }
   }
+
+  // Shuffle in order to avoid ascending order
+  int_array_shuffle(ARRAY_ITEMS, ARRAY_NITEMS);
 
   return UTEST_SUCCESS;
 }
@@ -102,55 +339,79 @@ int test_array_done()
 {
   int_array_destroy(&pArrayCopy);
   int_array_destroy(&pArray);
-  int_array_destroy(&pSubArray);
+  int_array_destroy(&pArraySub);
 
   return UTEST_SUCCESS;
 }
 
 // ----- test_array_basic -------------------------------------------
 /**
- * Perform various tests with arrays.
- * [x] basic use with integers (add, length, get, copy, remove, sub)
- * [x] sorting
- * [ ] insertion
+ * Perform basic tests with arrays of integers: add, length, get.
  */
 int test_array_basic()
 {
   unsigned int uIndex;
-  int iData;
 
   test_array_init();
 
-  // --------------------------------------------
-  // TEST BASIC USE
-  // (with integers)
-  // --------------------------------------------
   pArray= int_array_create(0);
+  ASSERT_RETURN(pArray != NULL, "int_array_create() returned NULL pointer");
   
   /* Add all items to the array */
-  for (uIndex= 0; uIndex < NUM_ITEMS; uIndex++) {
-    iData= aiArray[uIndex];
+  for (uIndex= 0; uIndex < ARRAY_NITEMS; uIndex++) {
     /* int_array_add() must return the index of insertion */
-    ASSERT_RETURN(int_array_add(pArray, &iData) == uIndex,
+    ASSERT_RETURN(int_array_add(pArray, &ARRAY_ITEMS[uIndex]) == uIndex,
 		  "int_array_add() returned an incorrect insertion index")
   }
 
   /* Length */
-  ASSERT_RETURN(NUM_ITEMS == int_array_length(pArray),
+  ASSERT_RETURN(ARRAY_NITEMS == int_array_length(pArray),
 		"int_array_length() returned an incorrect length");
 
   /* Direct get (as a C array) */
-  for (uIndex= 0; uIndex < NUM_ITEMS; uIndex++) {
-    ASSERT_RETURN(pArray->data[uIndex] == aiArray[uIndex],
+  for (uIndex= 0; uIndex < ARRAY_NITEMS; uIndex++) {
+    ASSERT_RETURN(pArray->data[uIndex] == ARRAY_ITEMS[uIndex],
 		  "direct read did not return expected value");
   }
 
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_array_access ]----------------------------------------
+int test_array_access()
+{
+  unsigned int uIndex;
+  int iData;
+
   /* Get */
-  for (uIndex= 0; uIndex < NUM_ITEMS; uIndex++) {
+  for (uIndex= 0; uIndex < ARRAY_NITEMS; uIndex++) {
     _array_get_at((SArray *) pArray, uIndex, &iData);
-    ASSERT_RETURN(iData == aiArray[uIndex],
+    ASSERT_RETURN(iData == ARRAY_ITEMS[uIndex],
 		  "_array_get_at() did not return expected value");
   }
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_array_enum ]------------------------------------------
+int test_array_enum()
+{
+  SEnumerator * pEnum= _array_get_enum((SArray *) pArray);
+  int * piData;
+  unsigned int uIndex;
+
+  ASSERT_RETURN(pEnum != NULL, "_array_get_enum() returned NULL pointer");
+  uIndex= 0;
+  while (enum_has_next(pEnum)) {
+    piData= enum_get_next(pEnum);
+    ASSERT_RETURN(piData != NULL, "enum_get_next() returned NULL pointer");
+    ASSERT_RETURN(*piData == ARRAY_ITEMS[uIndex],
+      "enumerator returned incorrect element");
+    uIndex++;
+  }
+  ASSERT_RETURN(uIndex == ARRAY_NITEMS,
+		"enumerator did not traverse whole array");
+
+  enum_destroy(&pEnum);
 
   return UTEST_SUCCESS;
 }
@@ -161,6 +422,8 @@ int test_array_copy()
   unsigned int uIndex;
 
   pArrayCopy= (SIntArray *) _array_copy((SArray *) pArray);
+  ASSERT_RETURN(pArrayCopy != NULL,
+		"_array_copy() returned NUL pointer");
   ASSERT_RETURN(int_array_length(pArrayCopy) == int_array_length(pArray),
 		"length of copied and original arrays did not match");
   for (uIndex= 0; uIndex < int_array_length(pArrayCopy); uIndex++) {
@@ -176,11 +439,12 @@ int test_array_remove()
 {
   unsigned int uIndex;
   
-  /* Remove (remove even elements) */
-  for (uIndex= 0; uIndex < NUM_ITEMS/2; uIndex++) {
-    int_array_remove_at(pArrayCopy, uIndex+1);
+  // Remove (remove elements with odd indices)
+  for (uIndex= 0; uIndex < ARRAY_NITEMS/2; uIndex++) {
+    ASSERT_RETURN(int_array_remove_at(pArrayCopy, uIndex+1) == 0,
+		  "could not remove item at %d", uIndex);
   }
-  ASSERT_RETURN(int_array_length(pArrayCopy) == NUM_ITEMS-(NUM_ITEMS/2),
+  ASSERT_RETURN(int_array_length(pArrayCopy) == ARRAY_NITEMS-(ARRAY_NITEMS/2),
 		"int_array_length() returned an invalid value");
 
   return UTEST_SUCCESS;
@@ -194,16 +458,19 @@ int test_array_insert()
 {
   unsigned int uIndex;
   
-  /* Remove (remove even elements) */
-  for (uIndex= 0; uIndex < NUM_ITEMS/2; uIndex++) {
-    _array_insert_at((SArray*) pArrayCopy, uIndex+1, &aiArray[uIndex]);
+  // Re-insert removed elements (at their previous position)
+  for (uIndex= 0; uIndex < ARRAY_NITEMS/2; uIndex++) {
+    ASSERT_RETURN(_array_insert_at((SArray*) pArrayCopy,
+				   uIndex*2+1, &ARRAY_ITEMS[uIndex*2+1])
+		  == uIndex*2+1,
+		  "_array_insert_at() returned an incorrect value");
   }
-  ASSERT_RETURN(int_array_length(pArrayCopy) == NUM_ITEMS,
-		"int_array_length() returned an invalid value");
+  ASSERT_RETURN(int_array_length(pArrayCopy) == ARRAY_NITEMS,
+		"int_array_length() returned an incorrect value");
 
   /* Check that the array now contains all items */
-  for (uIndex= 0; uIndex < NUM_ITEMS; uIndex++) {
-    ASSERT_RETURN(pArrayCopy->data[uIndex] == aiArray[uIndex],
+  for (uIndex= 0; uIndex < ARRAY_NITEMS; uIndex++) {
+    ASSERT_RETURN(pArrayCopy->data[uIndex] == ARRAY_ITEMS[uIndex],
 		  "direct read did not return expected value");
   }
 
@@ -214,46 +481,119 @@ int test_array_insert()
 int test_array_sort()
 {
   unsigned int uIndex;
+  int ARRAY_ITEMS2[ARRAY_NITEMS];
+  unsigned int uIndex2;
+  int iValue;
 
-  /* Sort (ascending sequence) */
-  _array_sort((SArray *) pArray, _test_array_compare);
+  // Sort (ascending sequence)
+  ASSERT_RETURN(_array_sort((SArray *) pArray, _test_array_compare) == 0,
+		"incorrect return code for _array_sort()");
+
+  ASSERT_RETURN(int_array_length(pArray) == ARRAY_NITEMS,
+		"incorrect length returned after _array_sort()");
+
+  // Check ascending order
   for (uIndex= 0; uIndex < int_array_length(pArray); uIndex++) {
     if (uIndex > 0) {
       ASSERT_RETURN(pArray->data[uIndex-1] <= pArray->data[uIndex],
 		    "ascending ordering not respected after _array_sort()");
     }
   }
+
+  // Check _array_sorted_find_index()
+  for (uIndex= 0; uIndex < int_array_length(pArray); uIndex++) {
+    ASSERT_RETURN(_array_sorted_find_index((SArray *) pArray,
+					   (void *) &pArray->data[uIndex],
+					   &uIndex2) == 0,
+		  "incorrect return code for _array_sorted_find_index()");
+    ASSERT_RETURN(uIndex2 == uIndex,
+		  "incorrect index returned by _array_sorted_find_index()");
+  }
+
+  // Insertion in sorted array
+  uIndex2= 0;
+  for (uIndex= 1; uIndex < int_array_length(pArray); uIndex++) {
+    if (pArray->data[uIndex]-pArray->data[uIndex-1] > 1) {
+      iValue= pArray->data[uIndex-1]+1;
+      ARRAY_ITEMS2[uIndex2++]= iValue;
+    }
+  }
+  for (uIndex= 0; uIndex < uIndex2; uIndex++) {
+    ASSERT_RETURN(int_array_add(pArray, &ARRAY_ITEMS2[uIndex]),
+		  "could not insert in sorted array");
+  }
+
+  ASSERT_RETURN(int_array_length(pArray) == ARRAY_NITEMS+uIndex2,
+		"incorrect length returned (%d vs %d)",
+		int_array_length(pArray), uIndex2);
+
+  // Check ascending order
+  for (uIndex= 0; uIndex < int_array_length(pArray); uIndex++) {
+    if (uIndex > 0) {
+      ASSERT_RETURN(pArray->data[uIndex-1] <= pArray->data[uIndex],
+		    "ascending ordering not respected after _array_sort()");
+    }
+  }
+
   return UTEST_SUCCESS;
 }
 
 // -----[ test_array_sub ]-------------------------------------------
 int test_array_sub()
 {
-  /* Sub (extract a sub-array) */
-  pSubArray= (SIntArray *) _array_sub((SArray *) pArray, 2, 3);
+  unsigned int uIndex;
 
-  /* Destroy */
-  test_array_done();
+  pArraySub= (SIntArray *) _array_sub((SArray *) pArray,
+				      ARRAY_NITEMS/3,
+				      2*(ARRAY_NITEMS/3));
+  ASSERT_RETURN(pArraySub != NULL,
+		"_array_sub() returned NULL pointer");
+  ASSERT_RETURN(int_array_length(pArraySub) != ARRAY_NITEMS/3,
+		"Incorrect length for sub-array");
+  for (uIndex= 0; uIndex < ARRAY_NITEMS/3; uIndex++) {
+    ASSERT_RETURN(pArraySub->data[uIndex]
+		  == pArray->data[ARRAY_NITEMS/3+uIndex],
+		  "incorrect content in sub-array");
+  }
 
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_array_trim ]------------------------------------------
+int test_array_trim()
+{
+  _array_trim((SArray *) pArray, ARRAY_NITEMS);
+  ASSERT_RETURN(int_array_length(pArray) == ARRAY_NITEMS,
+		"incorrect length for trimmed array");
   return UTEST_SUCCESS;
 }
 
 // -----[ test_array_add_array ]-------------------------------------
 int test_array_add_array()
 {
-  return UTEST_SKIPPED;
-}
+#define ARRAY_NITEMS2 512
+  int ARRAY_ITEMS2[ARRAY_NITEMS2];
+  SIntArray * pArrayNew;
+  unsigned int uIndex;
 
-// -----[ test_array_trim ]------------------------------------------
-int test_array_trim()
-{
-  return UTEST_SKIPPED;
-}
+  pArrayNew= int_array_create(0);
+  ASSERT_RETURN(pArrayNew != NULL, "int_array_create() returned NULL pointer");
 
-// -----[ test_array_enum ]------------------------------------------
-int test_array_enum()
-{
-  return UTEST_SKIPPED;
+  for (uIndex= 0; uIndex < ARRAY_NITEMS2; uIndex++) {
+    ASSERT_RETURN(int_array_add(pArrayNew, &ARRAY_ITEMS2[uIndex]) == uIndex,
+		  "incorrect error code returned by int_array_add()");
+  }
+
+  _array_add_array((SArray *) pArray, (SArray *) pArrayNew);
+
+  ASSERT_RETURN(int_array_length(pArray) == ARRAY_NITEMS+ARRAY_NITEMS2,
+		"incorrect length for new array (%d vs %d)",
+		int_array_length(pArray), ARRAY_NITEMS+ARRAY_NITEMS2);
+  int_array_destroy(&pArrayNew);
+
+  test_array_done();
+
+  return UTEST_SUCCESS;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -269,8 +609,8 @@ static int _test_assoc_for_each(const char * pcKey, void * pcValue,
 // -----[ test_assoc_basic ]-----------------------------------------
 int test_assoc_basic()
 {
-#define ASSOC_NUM_ITEMS 3
-  char * acAssocItems[ASSOC_NUM_ITEMS][2]= {
+#define ASSOC_NITEMS 3
+  char * ASSOC_ITEMS[ASSOC_NITEMS][2]= {
     {"key1", "toto1"},
     {"key2", "toto2"},
     {"plop", "grominet"},
@@ -280,26 +620,26 @@ int test_assoc_basic()
 
   // Test for 'set'
   pArray= assoc_array_create();
-  for (uIndex= 0; uIndex < ASSOC_NUM_ITEMS; uIndex++) {
-    ASSERT_RETURN(assoc_array_set(pArray, acAssocItems[uIndex][0],
-				  acAssocItems[uIndex][1]) == 0,
+  for (uIndex= 0; uIndex < ASSOC_NITEMS; uIndex++) {
+    ASSERT_RETURN(assoc_array_set(pArray, ASSOC_ITEMS[uIndex][0],
+				  ASSOC_ITEMS[uIndex][1]) == 0,
 		  "could not set \"%s\" => \"%s\"",
-		  acAssocItems[uIndex][0],
-		  acAssocItems[uIndex][1]);
+		  ASSOC_ITEMS[uIndex][0],
+		  ASSOC_ITEMS[uIndex][1]);
   }
 
   // Test content
-  for (uIndex= 0; uIndex < ASSOC_NUM_ITEMS; uIndex++) {
-    ASSERT_RETURN(assoc_array_get(pArray, acAssocItems[uIndex][0])
-		  == acAssocItems[uIndex][1],
+  for (uIndex= 0; uIndex < ASSOC_NITEMS; uIndex++) {
+    ASSERT_RETURN(assoc_array_get(pArray, ASSOC_ITEMS[uIndex][0])
+		  == ASSOC_ITEMS[uIndex][1],
 		  "incorrect value returned for \"%s\"");
   }
 
   // Test for 'exists'
-  for (uIndex= 0; uIndex < ASSOC_NUM_ITEMS; uIndex++) {
-    ASSERT_RETURN(assoc_array_exists(pArray, acAssocItems[uIndex][0]) == 1,
+  for (uIndex= 0; uIndex < ASSOC_NITEMS; uIndex++) {
+    ASSERT_RETURN(assoc_array_exists(pArray, ASSOC_ITEMS[uIndex][0]) == 1,
 		  "existence test failed for \"%s\"",
-		  acAssocItems[uIndex][0]);
+		  ASSOC_ITEMS[uIndex][0]);
   }
   
   ASSERT_RETURN(!assoc_array_exists(pArray, "plopsaland"),
@@ -471,7 +811,6 @@ int test_dllist_init()
 {
   unsigned int uIndex;
 
-  srandom(2007);
   for (uIndex= 0; uIndex < DLLIST_NUM_ITEMS; uIndex++) {
     DLLIST_ITEMS[uIndex]= random() % 4096;
   }
@@ -894,100 +1233,15 @@ int test_tokenizer_complex()
 }
 
 /////////////////////////////////////////////////////////////////////
-// GDS_CHECK_FIFO
-/////////////////////////////////////////////////////////////////////
-
-#define FIFO_NUM_ITEMS 5
-int aiFIFOItems[FIFO_NUM_ITEMS];
-
-// -----[ test_fifo_init ]-------------------------------------------
-int test_fifo_init()
-{
-  unsigned int uIndex;
-
-  // Initialize
-  srandom(2007);
-  for (uIndex= 0; uIndex < FIFO_NUM_ITEMS; uIndex++) {
-    aiFIFOItems[uIndex]= random() % 4096;
-  }
-  
-  return UTEST_SUCCESS;
-}
-
-// -----[ test_fifo_basic ]------------------------------------------
-/**
- *
- */
-int test_fifo_basic()
-{
-  SFIFO * pFIFO= fifo_create(FIFO_NUM_ITEMS, NULL);
-  unsigned int uIndex;
-
-  test_fifo_init();
-  
-  // Check initial depth (== 0)
-  ASSERT_RETURN(fifo_depth(pFIFO) == 0, "incorrect depth returned");
-
-  // Push data
-  for (uIndex= 0; uIndex < FIFO_NUM_ITEMS; uIndex++) {
-    ASSERT_RETURN(fifo_push(pFIFO, (void *) aiFIFOItems[uIndex]) == 0,
-		  "could not push data onto FIFO");
-  }
-
-  // Check depth == FIFO_NUM_ITEMS
-  ASSERT_RETURN(fifo_depth(pFIFO) == FIFO_NUM_ITEMS,
-		"incorrect depth returned");
-
-  // Pushing more should fail (growth option not set)
-  ASSERT_RETURN(fifo_push(pFIFO, (void *) 255) != 0,
-		"should not allow pushing more than FIFO size");
-
-  // Pop data
-  for (uIndex= 0; uIndex < FIFO_NUM_ITEMS; uIndex++) {
-    ASSERT_RETURN((int) fifo_pop(pFIFO)
-		  == aiFIFOItems[uIndex],
-		  "incorrect value pop'ed");
-  }
-
-  fifo_destroy(&pFIFO);
-
-  return UTEST_SUCCESS;
-}
-
-// -----[ test_fifo_grow ]-------------------------------------------
-int test_fifo_grow()
-{
-  SFIFO * pFIFO= fifo_create(FIFO_NUM_ITEMS, NULL);
-  unsigned int uIndex;
-
-  fifo_set_option(pFIFO, FIFO_OPTION_GROW_EXPONENTIAL, 1);
-
-  // Push data
-  for (uIndex= 0; uIndex < FIFO_NUM_ITEMS; uIndex++) {
-    ASSERT_RETURN(fifo_push(pFIFO, (void *) aiFIFOItems[uIndex]) == 0,
-		  "could not push data onto FIFO");
-  }
-
-  // Check depth == FIFO_NUM_ITEMS
-  ASSERT_RETURN(fifo_depth(pFIFO) == FIFO_NUM_ITEMS,
-		"incorrect depth returned");
-
-  // Pushing more should be allowed (growth option set)
-  ASSERT_RETURN(fifo_push(pFIFO, (void *) 255) == 0,
-		"should allow pushing more than FIFO size (grow)");
-
-  fifo_destroy(&pFIFO);
-
-  return UTEST_SUCCESS;
-}
-
-/////////////////////////////////////////////////////////////////////
 // GDS_CHECK_PATRICIA_TREE
 /////////////////////////////////////////////////////////////////////
+
+int TRIE_DESTROY_COUNT= 0;
 
 // -----[ _trie_destroy ]--------------------------------------------
 static void _trie_destroy(void ** ppData)
 {
+  TRIE_DESTROY_COUNT++;
 }
 
 // -----[ dump ]-----------------------------------------------------
@@ -1025,17 +1279,17 @@ void dump_best(STrie * pTrie, trie_key_t uKey, trie_key_len_t uKeyLen)
 }
 
 STrie * pTrie= NULL;
-#define NUM_PATRICIA_ITEMS 9
-long paArray[NUM_PATRICIA_ITEMS][3]=  {
-  {IPV4_TO_INT(0, 128, 0, 0), 16, 100},
-  {IPV4_TO_INT(0, 192, 0, 0), 15, 200},
-  {IPV4_TO_INT(0, 0, 0, 0), 16, 1},
-  {IPV4_TO_INT(0, 0, 0, 0), 15, 2},
-  {IPV4_TO_INT(0, 1, 0, 0), 16, 3},
-  {IPV4_TO_INT(0, 2, 0, 0), 16, 4},
-  {IPV4_TO_INT(0, 1, 1, 1), 24, 5},
-  {IPV4_TO_INT(0, 1, 1, 128), 25, 6},
-  {IPV4_TO_INT(0, 128, 128, 128), 9, 300},
+#define PATRICIA_NITEMS 9
+long PATRICIA_ITEMS[PATRICIA_NITEMS][4]=  {
+  {IPV4_TO_INT(0, 128, 0, 0), 16, 100, 0},
+  {IPV4_TO_INT(0, 192, 0, 0), 15, 200, 0},
+  {IPV4_TO_INT(0, 0, 0, 0), 16, 1, 0},
+  {IPV4_TO_INT(0, 0, 0, 0), 15, 2, 0},
+  {IPV4_TO_INT(0, 1, 0, 0), 16, 3, 0},
+  {IPV4_TO_INT(0, 2, 0, 0), 16, 4, 0},
+  {IPV4_TO_INT(0, 1, 1, 1), 24, 5, 0},
+  {IPV4_TO_INT(0, 1, 1, 128), 25, 6, 0},
+  {IPV4_TO_INT(0, 128, 128, 128), 9, 300, 0},
   };
 
 // -----[ test_patricia_init ]---------------------------------------
@@ -1063,14 +1317,14 @@ int test_patricia_insertion()
 
   test_patricia_init();
   
-  for (uIndex= 0; uIndex < NUM_PATRICIA_ITEMS; uIndex++) {
-    ASSERT_RETURN(trie_insert(pTrie, paArray[uIndex][0],
-			      paArray[uIndex][1],
-			      (void *) paArray[uIndex][2]) == 0,
+  for (uIndex= 0; uIndex < PATRICIA_NITEMS; uIndex++) {
+    ASSERT_RETURN(trie_insert(pTrie, PATRICIA_ITEMS[uIndex][0],
+			      PATRICIA_ITEMS[uIndex][1],
+			      (void *) PATRICIA_ITEMS[uIndex][2]) == 0,
 		  "could not insert %d/%d/%d",
-		  paArray[uIndex][0],
-		  paArray[uIndex][1],
-		  paArray[uIndex][2]);
+		  PATRICIA_ITEMS[uIndex][0],
+		  PATRICIA_ITEMS[uIndex][1],
+		  PATRICIA_ITEMS[uIndex][2]);
   }
 
   return UTEST_SUCCESS;
@@ -1079,7 +1333,20 @@ int test_patricia_insertion()
 // -----[ test_patricia_masking ]------------------------------------
 int test_patricia_masking()
 {
-  return UTEST_SKIPPED;
+  STrie * pTrie= trie_create(_trie_destroy);
+
+  ASSERT_RETURN(trie_insert(pTrie, IPV4_TO_INT(123,234,198,76), 17,
+			    (void *) 12357) == 0,
+		"could not insert");
+  ASSERT_RETURN(trie_find_exact(pTrie, IPV4_TO_INT(123,234,198,76), 17) ==
+		(void *) 12357,
+		"could not find exact-match");
+  ASSERT_RETURN(trie_find_exact(pTrie, IPV4_TO_INT(123,234,128,0), 17) ==
+		(void *) 12357,
+		"could not find exact-match");
+  trie_destroy(&pTrie);
+  
+  return UTEST_SUCCESS;
 }
 
 // -----[ test_patricia_exact ]--------------------------------------
@@ -1088,14 +1355,14 @@ int test_patricia_exact()
   unsigned int uIndex;
   void * pData;
 
-  for (uIndex= 0; uIndex < NUM_PATRICIA_ITEMS; uIndex++) {
-    pData= trie_find_exact(pTrie, paArray[uIndex][0],
-			   paArray[uIndex][1]);
-    ASSERT_RETURN((int) pData == paArray[uIndex][2],
+  for (uIndex= 0; uIndex < PATRICIA_NITEMS; uIndex++) {
+    pData= trie_find_exact(pTrie, PATRICIA_ITEMS[uIndex][0],
+			   PATRICIA_ITEMS[uIndex][1]);
+    ASSERT_RETURN((int) pData == PATRICIA_ITEMS[uIndex][2],
 		  "exact match failed for %d/%d/%d => %d",
-		  paArray[uIndex][0],
-		  paArray[uIndex][1],
-		  paArray[uIndex][2],
+		  PATRICIA_ITEMS[uIndex][0],
+		  PATRICIA_ITEMS[uIndex][1],
+		  PATRICIA_ITEMS[uIndex][2],
 		  (int) pData);
   }
 
@@ -1124,15 +1391,15 @@ int test_patricia_best()
   trie_key_t uKey, uNewKey;
   trie_key_len_t uKeyLen, uNewKeyLen;
 
-  for (uIndex= 0; uIndex < NUM_PATRICIA_ITEMS; uIndex++) {
-    uKey= paArray[uIndex][0];
-    uKeyLen= paArray[uIndex][1];
+  for (uIndex= 0; uIndex < PATRICIA_NITEMS; uIndex++) {
+    uKey= PATRICIA_ITEMS[uIndex][0];
+    uKeyLen= PATRICIA_ITEMS[uIndex][1];
     if (uKeyLen < 32) {
       uNewKeyLen= uKeyLen+1;
       uNewKey= uKey|(1 << (31-uKeyLen));
       if (trie_find_exact(pTrie, uNewKey, uNewKeyLen) == NULL) {
 	ASSERT_RETURN((int) trie_find_best(pTrie, uNewKey, uNewKeyLen)
-		      == paArray[uIndex][2],
+		      == PATRICIA_ITEMS[uIndex][2],
 		      "best-match failed for %d/%d (more specific than %d/%d)",
 		      uNewKey, uNewKeyLen, uKey, uKeyLen);
 
@@ -1140,7 +1407,7 @@ int test_patricia_best()
       uNewKey= uKey & ~(1 << (31-uKeyLen));
       if (trie_find_exact(pTrie, uNewKey, uNewKeyLen) == NULL) {
 	ASSERT_RETURN((int) trie_find_best(pTrie, uNewKey, uNewKeyLen)
-		      == paArray[uIndex][2],
+		      == PATRICIA_ITEMS[uIndex][2],
 		      "best-match failed for %d/%d (more specific than %d/%d)",
 		      uNewKey, uNewKeyLen, uKey, uKeyLen);
 
@@ -1238,15 +1505,26 @@ int test_patricia_remove()
   trie_for_each(pTrie, dump, NULL);
   fprintf(stdout, "}\n");*/
 
-  test_patricia_done();
-
   return UTEST_SUCCESS;
 }
 
 // -----[ test_patricia_enum ]---------------------------------------
 int test_patricia_enum()
 {
-  return UTEST_SKIPPED;
+  SEnumerator * pEnum;
+  void * pData;
+
+  pEnum= trie_get_enum(pTrie);
+  ASSERT_RETURN(pEnum != NULL, "trie_get_enum() returned NULL pointer");
+  while (enum_has_next(pEnum)) {
+    pData= enum_get_next(pEnum);
+    ASSERT_RETURN(pData != NULL, "enum_get_next() returned NULL pointer");
+  }
+  enum_destroy(&pEnum);
+
+  test_patricia_done();
+
+  return UTEST_SUCCESS;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -2075,26 +2353,49 @@ int test_bloom_filter_binary_operations()
 /////////////////////////////////////////////////////////////////////
 
 // -----[ definition of suite of tests ]-----------------------------
-#define ARRAY_NUM_TESTS 9
-SUnitTest ARRAY_TEST_SUITE[ARRAY_NUM_TESTS]= {
+#define ARRAY_SIZE(A) sizeof(A)/sizeof(A[0])
+
+SUnitTest STRUTILS_TESTS[]= {
+  {test_strutils_basic, "basic use"},
+  {test_strutils_convert_int, "conversion int"},
+  {test_strutils_convert_uint, "conversion unsigned int"},
+  {test_strutils_convert_long, "conversion long"},
+  {test_strutils_convert_ulong, "conversion unsigned long"},
+  {test_strutils_convert_double, "conversion double"},
+};
+#define STRUTILS_NTESTS ARRAY_SIZE(STRUTILS_TESTS)
+
+SUnitTest FIFO_TESTS[]= {
+  {test_fifo_basic, "basic use"},
+  {test_fifo_grow, "growable"},
+};
+#define FIFO_NTESTS ARRAY_SIZE(FIFO_TESTS)
+
+SUnitTest STACK_TESTS[]= {
+  {test_stack_basic, "basic use"},
+};
+#define STACK_NTESTS ARRAY_SIZE(STACK_TESTS)
+
+SUnitTest ARRAY_TESTS[]= {
   {test_array_basic, "basic use"},
+  {test_array_access, "access"},
+  {test_array_enum, "enum"},
   {test_array_copy, "copy"},
   {test_array_remove, "remove items"},
   {test_array_insert, "insert items"},
   {test_array_sort, "sort"},
   {test_array_sub, "extract sub-array"},
   {test_array_trim, "trim"},
-  {test_array_enum, "enum"},
   {test_array_add_array, "add array"},
 };
+#define ARRAY_NTESTS ARRAY_SIZE(ARRAY_TESTS)
 
-#define ARRAY_PTR_NUM_TESTS 1
-SUnitTest ARRAY_PTR_TEST_SUITE[ARRAY_PTR_NUM_TESTS]= {
+SUnitTest PTRARRAY_TESTS[]= {
   {test_ptr_array, "basic use"},
 };
+#define PTRARRAY_NTESTS ARRAY_SIZE(PTRARRAY_TESTS)
 
-#define TOKENIZER_NUM_TESTS 6
-SUnitTest TOKENIZER_TEST_SUITE[TOKENIZER_NUM_TESTS]= {
+SUnitTest TOKENIZER_TESTS[]= {
   {test_tokenizer_basic, "basic use"},
   {test_tokenizer_quotes, "quotes"},
   {test_tokenizer_quotes2, "quotes (2)"},
@@ -2102,17 +2403,17 @@ SUnitTest TOKENIZER_TEST_SUITE[TOKENIZER_NUM_TESTS]= {
   {test_tokenizer_braces, "braces"},
   {test_tokenizer_complex, "complex"},
 };
+#define TOKENIZER_NTESTS ARRAY_SIZE(TOKENIZER_TESTS)
 
-#define CLI_NUM_TESTS 4
-SUnitTest CLI_TEST_SUITE[CLI_NUM_TESTS]= {
+SUnitTest CLI_TESTS[]= {
   {test_cli_basic, "basic use"},
   {test_cli_options, "options"},
   {test_cli_varargs, "varargs"},
   {test_cli_context, "context"},
 };
+#define CLI_NTESTS ARRAY_SIZE(CLI_TESTS)
 
-#define PATRICIA_NUM_TESTS 8
-SUnitTest PATRICIA_TEST_SUITE[PATRICIA_NUM_TESTS]= {
+SUnitTest PATRICIA_TESTS[]= {
   {test_patricia_insertion, "insertion"},
   {test_patricia_masking, "masking"},
   {test_patricia_exact, "exact-match"},
@@ -2122,108 +2423,95 @@ SUnitTest PATRICIA_TEST_SUITE[PATRICIA_NUM_TESTS]= {
   {test_patricia_remove, "remove"},
   {test_patricia_enum, "enum"},
 };
+#define PATRICIA_NTESTS ARRAY_SIZE(PATRICIA_TESTS)
 
-#define FIFO_NUM_TESTS 2
-SUnitTest FIFO_TEST_SUITE[FIFO_NUM_TESTS]= {
-  {test_fifo_basic, "basic use"},
-  {test_fifo_grow, "growable"},
-};
-
-#define ASSOC_NUM_TESTS 1
-SUnitTest ASSOC_TEST_SUITE[ASSOC_NUM_TESTS]= {
+SUnitTest ASSOC_TESTS[]= {
   {test_assoc_basic, "basic use"},
 };
+#define ASSOC_NTESTS ARRAY_SIZE(ASSOC_TESTS)
 
-#define DLLIST_NUM_TESTS 1
-SUnitTest DLLIST_TEST_SUITE[DLLIST_NUM_TESTS]= {
+SUnitTest DLLIST_TESTS[]= {
   {test_dllist_basic, "basic use"},  
 };
+#define DLLIST_NTESTS ARRAY_SIZE(DLLIST_TESTS)
 
-SUnitTest HASH_TEST_SUITE[] = {
+SUnitTest HASH_TESTS[]= {
   {test_hash_creation_destruction, "creation/destruction"},
   {test_hash_insertion_search_deletion, "insertion/deletion" },
   {test_hash_reference, "references/unreferences" }
 };
-#define HASH_NUM_TESTS sizeof(HASH_TEST_SUITE)/sizeof(HASH_TEST_SUITE[0])
+#define HASH_NTESTS ARRAY_SIZE(HASH_TESTS)
 
-#define LIST_NUM_TESTS 1
-SUnitTest LIST_TEST_SUITE[LIST_NUM_TESTS]= {
+SUnitTest LIST_TESTS[]= {
   {test_list_basic, "basic use"},
 };
+#define LIST_NTESTS ARRAY_SIZE(LIST_TESTS)
 
-#define RADIX_NUM_TESTS 2
-SUnitTest RADIX_TEST_SUITE[RADIX_NUM_TESTS]= {
+SUnitTest RADIX_TESTS[]= {
   {test_radix_basic, "basic use"},
   {test_radix, "old test"},
 };
+#define RADIX_NTESTS ARRAY_SIZE(RADIX_TESTS)
 
-#define STACK_NUM_TESTS 0
-SUnitTest STACK_TEST_SUITE[STACK_NUM_TESTS]= {
-};
-
-#define STRUTILS_NUM_TESTS 0
-SUnitTest STRUTILS_TEST_SUITE[STRUTILS_NUM_TESTS]= {
-};
-
-#define SEQUENCE_NUM_TESTS 0
-SUnitTest SEQUENCE_TEST_SUITE[SEQUENCE_NUM_TESTS]= {
-};
-
-SUnitTest BIT_VECTOR_TEST_SUITE[] = {
+SUnitTest BIT_VECTOR_TESTS[] = {
   { test_bit_vector_creation_destruction, "creation/destruction" },
   { test_bit_vector_representation,	  "to_string/from_string" },
   { test_bit_vector_manipulations,	  "set/unset/get" },
   { test_bit_vector_binary_operations,	  "and/or/xor" },
   { test_bit_vector_equality,		  "equals" }
 };
-#define BIT_VECTOR_NUM_TESTS sizeof(BIT_VECTOR_TEST_SUITE)/sizeof(BIT_VECTOR_TEST_SUITE[0])
+#define BIT_VECTOR_NTESTS ARRAY_SIZE(BIT_VECTOR_TESTS)
 
-SUnitTest BLOOM_HASH_TEST_SUITE[] = {
+SUnitTest BLOOM_HASH_TESTS[] = {
   { test_bloom_hash_creation_destruction, "creation/destruction" },
   { test_bloom_hash_insertion,		  "insertion" }
 };
-#define BLOOM_HASH_NUM_TESTS sizeof(BLOOM_HASH_TEST_SUITE)/sizeof(BLOOM_HASH_TEST_SUITE[0])
+#define BLOOM_HASH_NTESTS ARRAY_SIZE(BLOOM_HASH_TESTS)
 
-SUnitTest BLOOM_FILTER_TEST_SUITE[] = {
+SUnitTest BLOOM_FILTER_TESTS[] = {
   { test_bloom_filter_creation_destruction, "creation/destruction" },
   { test_bloom_filter_insertion,	    "insertion" },
   { test_bloom_filter_membership,	    "membership" },
   { test_bloom_filter_binary_operations,    "and/or/xor" }
 };
-#define BLOOM_FILTER_NUM_TESTS sizeof(BLOOM_FILTER_TEST_SUITE)/sizeof(BLOOM_FILTER_TEST_SUITE[0])
+#define BLOOM_FILTER_NTESTS ARRAY_SIZE(BLOOM_FILTER_TESTS)
 
 SUnitTestSuite SUITES[]= {
-  {"String-Utilities", STRUTILS_NUM_TESTS, STRUTILS_TEST_SUITE},
-  {"FIFO", FIFO_NUM_TESTS, FIFO_TEST_SUITE},
-  {"Stack", STACK_NUM_TESTS, STACK_TEST_SUITE},
-  {"Sequence", SEQUENCE_NUM_TESTS, SEQUENCE_TEST_SUITE},
-  {"Array", ARRAY_NUM_TESTS, ARRAY_TEST_SUITE},
-  {"Pointer-Array", ARRAY_PTR_NUM_TESTS, ARRAY_PTR_TEST_SUITE},
-  {"Associative-Array", ASSOC_NUM_TESTS, ASSOC_TEST_SUITE},
-  {"List", LIST_NUM_TESTS, LIST_TEST_SUITE},
-  {"Doubly-Linked-List", DLLIST_NUM_TESTS, DLLIST_TEST_SUITE},
-  {"Hash-Table", HASH_NUM_TESTS, HASH_TEST_SUITE},
-  {"Radix-Tree", RADIX_NUM_TESTS, RADIX_TEST_SUITE},
-  {"Patricia-Tree", PATRICIA_NUM_TESTS, PATRICIA_TEST_SUITE},
-  {"Tokenizer",TOKENIZER_NUM_TESTS, TOKENIZER_TEST_SUITE},
-  {"CLI", CLI_NUM_TESTS, CLI_TEST_SUITE},
-  {"Bit Vector", BIT_VECTOR_NUM_TESTS, BIT_VECTOR_TEST_SUITE},
-  {"Bloom Hash", BLOOM_HASH_NUM_TESTS, BLOOM_HASH_TEST_SUITE},
-  {"Bloom Filter", BLOOM_FILTER_NUM_TESTS, BLOOM_FILTER_TEST_SUITE}
+  {"String-Utilities", STRUTILS_NTESTS, STRUTILS_TESTS},
+  {"FIFO", FIFO_NTESTS, FIFO_TESTS},
+  {"Stack", STACK_NTESTS, STACK_TESTS},
+  {"Array", ARRAY_NTESTS, ARRAY_TESTS},
+  {"Pointer-Array", PTRARRAY_NTESTS, PTRARRAY_TESTS},
+  {"Associative-Array", ASSOC_NTESTS, ASSOC_TESTS},
+  {"List", LIST_NTESTS, LIST_TESTS},
+  {"Doubly-Linked-List", DLLIST_NTESTS, DLLIST_TESTS},
+  {"Hash-Table", HASH_NTESTS, HASH_TESTS},
+  {"Radix-Tree", RADIX_NTESTS, RADIX_TESTS},
+  {"Patricia-Tree", PATRICIA_NTESTS, PATRICIA_TESTS},
+  {"Tokenizer",TOKENIZER_NTESTS, TOKENIZER_TESTS},
+  {"CLI", CLI_NTESTS, CLI_TESTS},
+  {"Bit Vector", BIT_VECTOR_NTESTS, BIT_VECTOR_TESTS},
+  {"Bloom Hash", BLOOM_HASH_NTESTS, BLOOM_HASH_TESTS},
+  {"Bloom Filter", BLOOM_FILTER_NTESTS, BLOOM_FILTER_TESTS}
 };
-#define NUM_SUITES sizeof(SUITES)/sizeof(SUITES[0])
+#define NUM_SUITES ARRAY_SIZE(SUITES)
 
 // ----- main -------------------------------------------------------
 int main(int argc, char * argv[])
 {
   int iResult= 0;
 
+  srandom(2007);
   gds_init(0);
   //gds_init(GDS_OPTION_MEMORY_DEBUG);
 
   utest_init();
+  utest_set_user(getenv("USER"));
+  utest_set_project(PACKAGE_NAME, PACKAGE_VERSION);
   utest_set_xml_logging("libgds-check.xml");
   iResult= utest_run_suites(SUITES, NUM_SUITES);
+
+  //iResult= utest_run_suite("Arrays", ARRAY_TESTS, ARRAY_NTESTS);
   utest_done();
 
   gds_destroy();
