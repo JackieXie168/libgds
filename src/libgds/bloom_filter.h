@@ -16,8 +16,11 @@ typedef struct _BloomFilter SBloomFilter;
 SBloomFilter * bloom_filter_create(uint32_t uSize, uint32_t uNbrHashFn);
 void bloom_filter_destroy(SBloomFilter ** pBloomFilter);
 int8_t bloom_filter_add(SBloomFilter * pBloomFilter, uint8_t *uKey, uint32_t uKeyLen);
-int8_t bloom_filter_add_array(SBloomFilter * pBloomFilter, uint8_t *uKey[]);
+int8_t bloom_filter_add_array(SBloomFilter * pBloomFilter, uint8_t **uKey);
 uint8_t bloom_filter_is_member(SBloomFilter * pBloomFilter, uint8_t * uKey, uint32_t uKeyLen);
 char * bloom_filter_to_string(SBloomFilter * pBloomFilter);
+int8_t bloom_filter_and(SBloomFilter * pBloomFilter1, SBloomFilter * pBloomFilter2);
+int8_t bloom_filter_or(SBloomFilter * pBloomFilter1, SBloomFilter * pBloomFilter2);
+int8_t bloom_filter_xor(SBloomFilter * pBloomFilter1, SBloomFilter * pBloomFilter2);
 
 #endif /* __BLOOM_FILTER_H__ */
