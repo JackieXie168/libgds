@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 10/04/2003
-// @lastdate 17/03/2007
+// @lastdate 19/03/2007
 // ==================================================================
 
 #ifndef __ARRAY_H__
@@ -16,6 +16,10 @@
 #define ARRAY_OPTION_UNIQUE  0x02
 
 // ----- FArrayCompare ----------------------------------------------
+/**
+ * Warning: FArrayCompare is being passed pointers to the items to be
+ * compared.
+ */
 typedef int (*FArrayCompare)(void * pItem1, void * pItem2,
 			     unsigned int uEltSize);
 // ----- FArrayDestroy ----------------------------------------------
@@ -32,6 +36,7 @@ typedef struct {
 typedef struct {
   int * data;
 } SIntArray;
+
 #define int_array_create(O) \
           (SIntArray *) _array_create(sizeof(int), O, \
           _array_compare, NULL)
@@ -111,8 +116,8 @@ extern "C" {
   int _array_set_at(SArray * pArray, unsigned int uIndex,
 		    void * pData);
   // ----- _array_get_at --------------------------------------------
-  void _array_get_at(SArray * pArray, unsigned int uIndex,
-		     void * pData);
+  int _array_get_at(SArray * pArray, unsigned int uIndex,
+		    void * pData);
   // ----- _array_sorted_find_index ---------------------------------
   int _array_sorted_find_index(SArray * pArray, void * pData,
 			       unsigned int * puIndex);
@@ -128,7 +133,7 @@ extern "C" {
   // ----- _array_copy ----------------------------------------------
   SArray * _array_copy(SArray * pArray);
   // ----- _array_remove_at -----------------------------------------
-  void _array_remove_at(SArray * pArray, unsigned int uIndex);
+  int _array_remove_at(SArray * pArray, unsigned int uIndex);
   // ----- _array_compare -------------------------------------------
   int _array_compare(void * pItem1, void * pItem2,
 		     unsigned int uEltSize);
@@ -136,7 +141,7 @@ extern "C" {
   SArray * _array_sub(SArray * pArray, unsigned int iFirst,
 		      unsigned int iLast);
   // ----- _array_add_array -----------------------------------------
-  void _array_add_aray(SArray * pArray, SArray * pSrcArray);
+  void _array_add_array(SArray * pArray, SArray * pSrcArray);
   // ----- _array_trim ----------------------------------------------
   void _array_trim(SArray * pArray, unsigned uMaxLength);
   // ----- _array_sort ----------------------------------------------

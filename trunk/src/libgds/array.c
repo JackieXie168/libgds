@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 10/04/2003
-// @lastdate 17/03/2007
+// @lastdate 19/03/2007
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -100,7 +100,7 @@ void _array_destroy(SArray ** ppArray)
 
 // ----- _array_resize_if_required ----------------------------------
 /**
- *
+ * Change the size of an array. Re-allocate memory accordingly.
  */
 static void _array_resize_if_required(SArray * pArray,
 				      unsigned int uNewLength)
@@ -125,7 +125,7 @@ static void _array_resize_if_required(SArray * pArray,
 
 // ----- _array_length -----------------------------------------------
 /**
- *
+ * Return the length of the array.
  */
 int _array_length(SArray * pArray)
 {
@@ -134,7 +134,8 @@ int _array_length(SArray * pArray)
 
 // ----- _array_set_length ------------------------------------------
 /**
- *
+ * Set the length of an array. If the new size is smaller than the
+ * original size, data will be lost.
  */
 void _array_set_length(SArray * pArray, unsigned int uNewLength)
 {
@@ -143,7 +144,11 @@ void _array_set_length(SArray * pArray, unsigned int uNewLength)
 
 // ----- array_set_at -----------------------------------------------
 /**
+ * Set the value of the element at the given index in the array.
  *
+ * RETURNS:
+ *   >=0 (index) in case of success
+ *    -1 in case of failure (index >= length)
  */
 int _array_set_at(SArray * pArray, unsigned int uIndex, void * pData)
 {
@@ -151,23 +156,36 @@ int _array_set_at(SArray * pArray, unsigned int uIndex, void * pData)
     return -1;
   memcpy(_array_elt_pos(pArray, uIndex), pData,
   	 ((SRealArray *) pArray)->uEltSize);
-  return ((SRealArray *) pArray)->uLength-1;
+  return uIndex;
 }
 
 // ----- array_get_at -----------------------------------------------
 /**
+ * Return the value at the given index in the array.
  *
+ * RETURNS:
+ *    0 in case of success
+ *   -1 in case of failure (index >= length)
  */
-void _array_get_at(SArray * pArray, unsigned int uIndex, void * pData)
+int _array_get_at(SArray * pArray, unsigned int uIndex, void * pData)
 {
+  if (uIndex >= ((SRealArray *) pArray)->uLength)
+    return -1;
+
   memcpy(pData, _array_elt_pos(pArray, uIndex),
 	 ((SRealArray *) pArray)->uEltSize);
+  return 0;
 }
 
 // ----- _array_sorted_find_index -----------------------------------
 /**
- * ITEM found => 0, INDEX of item
- * ITEM not found => -1, INDEX where insertion must occur
+ * Find the index of an element in a sorted array (using the compare
+ * function)
+ *
+ * RETURNS:
+ *    0 in case of success (the index of the element is returned)
+ *   -1 in case of failure (the index where this element would be
+ *                          placed is returned)
  */
 int _array_sorted_find_index(SArray * pArray, void * pData,
 			     unsigned int * puIndex)
@@ -205,7 +223,12 @@ int _array_sorted_find_index(SArray * pArray, void * pData,
 
 // ----- _array_insert_at -------------------------------------------
 /**
- * condition: (0 <= index < length)
+ * Insert an element in the array at the specified index.
+ *
+ * RETURNS:
+ *   >= 0 in case of success
+ *     -1 in case of failure
+ *          (index >= length)
  */
 int _array_insert_at(SArray * pArray, unsigned int uIndex, void * pData)
 {
@@ -225,7 +248,16 @@ int _array_insert_at(SArray * pArray, unsigned int uIndex, void * pData)
 
 // ----- _array_add -------------------------------------------------
 /**
+ * Add an element to the array.
+ * 1). If the array is sorted, the element is inserted according to
+ *     the ordering defined by the compare function.
+ * 2). If the array is not sorted, the element is inserted at the end
+ *     of the array
  *
+ * RETURNS:
+ *   >= 0 in case of success
+ *     -1 in case of failure
+ *          if (sorted && ARRAY_OPTION_UNIQUE && value exists)
  */
 int _array_add(SArray * pArray, void * pData)
 {
@@ -246,10 +278,16 @@ int _array_add(SArray * pArray, void * pData)
 
 // ----- array_append -----------------------------------------------
 /**
+ * Append en element at the end of the array. Note that this function
+ * should not be used with sorted arrays.
  *
+ * RETURNS:
+ *   >=0 insertion index
  */
 int _array_append(SArray * pArray, void * pData)
 {
+  assert((((SRealArray *) pArray)->uOptions & ARRAY_OPTION_SORTED) == 0);
+
   _array_resize_if_required(pArray, ((SRealArray *) pArray)->uLength+1);
 
   _array_set_at(pArray, ((SRealArray *) pArray)->uLength-1, pData);
@@ -258,7 +296,14 @@ int _array_append(SArray * pArray, void * pData)
 
 // ----- _array_for_each --------------------------------------------
 /**
+ * Execute the given callback function for each element in the array.
+ * The callback function must return 0 in case of success and !=0 in
+ * case of failure. In the later case, the array traversal will stop
+ * and the error code of the callback is returned.
  *
+ * RETURNS:
+ *     0 in case of success
+ *   !=0 in case of failure
  */
 int _array_for_each(SArray * pArray, FArrayForEach fForEach,
 		    void * pContext)
@@ -276,7 +321,10 @@ int _array_for_each(SArray * pArray, FArrayForEach fForEach,
 
 // ----- _array_copy ------------------------------------------------
 /**
+ * Make a copy of an entire array.
  *
+ * RETURNS:
+ *   a pointer to the copy
  */
 SArray * _array_copy(SArray * pArray)
 {
@@ -291,18 +339,23 @@ SArray * _array_copy(SArray * pArray)
 
 // ----- _array_remove_at -------------------------------------------
 /**
+ * Remove the element at the given index in the array.
  *
+ * RETURNS:
+ *    0 un case of success
+ *   -1 in case index is not valid
  */
-void _array_remove_at(SArray * pArray, unsigned int uIndex)
+int _array_remove_at(SArray * pArray, unsigned int uIndex)
 {
   SRealArray * pRealArray= (SRealArray *) pArray;
   unsigned int uOffset;
 
-  // Free item at given position if required
-  if (pRealArray->fDestroy != NULL)
-    pRealArray->fDestroy(_array_elt_pos(pRealArray, uIndex));
-
   if (uIndex < pRealArray->uLength) {
+
+    // Free item at given position if required
+    if (pRealArray->fDestroy != NULL)
+      pRealArray->fDestroy(_array_elt_pos(pRealArray, uIndex));
+
     // Since (uIndex >= 0), then (pRealArray->uLength >= 1) and then
     // there is no problem with the unsigned variable uOffset.
     for (uOffset= uIndex; uOffset < pRealArray->uLength-1; uOffset++) {
@@ -311,7 +364,10 @@ void _array_remove_at(SArray * pArray, unsigned int uIndex)
 	     pRealArray->uEltSize);
     }
     _array_resize_if_required(pArray, pRealArray->uLength-1);
+  } else {
+    return -1;
   }
+  return 0;
 }
 
 // ----- _array_sub -------------------------------------------------
@@ -339,7 +395,7 @@ SArray * _array_sub(SArray * pArray, unsigned int iFirst, unsigned int iLast)
 
 // ----- _array_add_array -------------------------------------------
 /**
- *
+ * Add a whole array to another array.
  */
 void _array_add_array(SArray * pArray, SArray * pSrcArray)
 {
@@ -392,6 +448,8 @@ int _array_sort(SArray * pArray, FArrayCompare fCompare)
       }
 
   FREE(pTemp);
+  ((SRealArray*) pArray)->uOptions|= ARRAY_OPTION_SORTED;
+  ((SRealArray*) pArray)->fCompare= fCompare;
   return 0;
 }
 
@@ -408,7 +466,7 @@ int _array_sort(SArray * pArray, FArrayCompare fCompare)
 int _array_quicksort(SArray * pArray, FArrayCompare fCompare)
 {
   // NOT YET IMPLEMENTED (pas le temps maintenant)
-  return 0;
+  return -1;
 }
 
 
