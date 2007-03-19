@@ -25,6 +25,8 @@ int8_t bit_vector_unset(SBitVector * pBitVector, const uint32_t uNumBit);
 int8_t bit_vector_get(SBitVector * pBitVector, const uint32_t uNumBit);
 // ----- bit_vector_to_string ----------------------------------------
 char * bit_vector_to_string(SBitVector * pBitVector);
+// ----- bit_vector_comp ---------------------------------------------
+int8_t bit_vector_comp(SBitVector * pBitVector1, SBitVector * pBitVector2);
 // ----- bit_vector_equals -------------------------------------------
 int8_t bit_vector_equals(SBitVector * pBitVector1, SBitVector * pBitVector2);
 // ----- bit_vector_and ----------------------------------------------

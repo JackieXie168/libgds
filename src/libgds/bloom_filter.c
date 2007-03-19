@@ -209,15 +209,26 @@ uint8_t bloom_filter_is_member(SBloomFilter * pBloomFilter, uint8_t * uKey, uint
 /**
  * @brief Perform a \em and operation on a bloom filter
  *
+ *  The operation is performed if :
+ *  - bloom filters are not NULL,
+ *  - they have the same size,
+ *  - they have the same number of digests msg per key.
+ *
  * @param pBloomFilter1 the first operand of the \em and operation. This bloom
  * filter contains the result of the \em and operation.
  * @param pBloomFilter2 the second operand of the \em and operation.
  *
- * @return 0 of pBloomFilter1 has been \em anded, else -1 is returned.
+ * @return 0 if pBloomFilter1 has been \em anded, else -1 is returned.
  */
 int8_t bloom_filter_and(SBloomFilter * pBloomFilter1, SBloomFilter * pBloomFilter2)
 {
   if ( !pBloomFilter1 || !pBloomFilter2 )
+    return -1;
+
+  if (pBloomFilter1->uSize != pBloomFilter2->uSize)
+    return -1;
+
+  if (pBloomFilter1->uNbrHashFn != pBloomFilter2->uNbrHashFn)
     return -1;
 
   return bit_vector_and(pBloomFilter1->pBitVector, pBloomFilter2->pBitVector);
@@ -226,15 +237,26 @@ int8_t bloom_filter_and(SBloomFilter * pBloomFilter1, SBloomFilter * pBloomFilte
 /**
  * @brief Perform a \em or operation on a bloom filter
  *
+ * The operation is performed if :
+ *  - bloom filters are not NULL,
+ *  - they have the same size,
+ *  - they have the same number of digests msg per key.
+ *
  * @param pBloomFilter1 the first operand of the \em or operation. This bloom
  * filter contains the result of the \em or operation.
  * @param pBloomFilter2 the second operand of the \em or peration.
  *
- * @return 0 of pBloomFilter1 has been \em ored, else -1 is returned.
+ * @return 0 if pBloomFilter1 has been \em ored, else -1 is returned.
  */
 int8_t bloom_filter_or(SBloomFilter * pBloomFilter1, SBloomFilter * pBloomFilter2)
 {
   if ( !pBloomFilter1 || !pBloomFilter2 )
+    return -1;
+
+  if (pBloomFilter1->uSize != pBloomFilter2->uSize)
+    return -1;
+
+  if (pBloomFilter1->uNbrHashFn != pBloomFilter2->uNbrHashFn)
     return -1;
 
   return bit_vector_or(pBloomFilter1->pBitVector, pBloomFilter2->pBitVector);
@@ -243,16 +265,53 @@ int8_t bloom_filter_or(SBloomFilter * pBloomFilter1, SBloomFilter * pBloomFilter
 /**
  * @brief Perform a \em xor operation on a bloom filter
  *
+ *  The operation is performed if :
+ *  - bloom filters are not NULL,
+ *  - they have the same size,
+ *  - they have the same number of digests msg per key.
+ *
  * @param pBloomFilter1 the first operand of the \em xor operation. This bloom
  * filter contains the result of the \em xor operation.
  * @param pBloomFilter2 the second operand of the \em xor peration.
  *
- * @return 0 of pBloomFilter1 has been \em xored, else -1 is returned.
+ * @return 0 if pBloomFilter1 has been \em xored, else -1 is returned.
  */
 int8_t bloom_filter_xor(SBloomFilter * pBloomFilter1, SBloomFilter * pBloomFilter2)
 {
   if ( !pBloomFilter1 || !pBloomFilter2 )
     return -1;
 
+  if (pBloomFilter1->uSize != pBloomFilter2->uSize)
+    return -1;
+
+  if (pBloomFilter1->uNbrHashFn != pBloomFilter2->uNbrHashFn)
+    return -1;
+
   return bit_vector_xor(pBloomFilter1->pBitVector, pBloomFilter2->pBitVector);
 }
+
+/**
+ * @brief Tests the equality of two bloom filters
+ *
+ * @param pBloomFilter1 first bloom filter
+ * @param pBloomFilter2 second bloom filter
+ *
+ * @return 0 if both bloom filters have the same number of digest msg per key
+ * and the same bit vector. 
+ *
+ * @see bit_vector_equals()
+ */
+int8_t bloom_filter_equals(SBloomFilter * pBloomFilter1, SBloomFilter * pBloomFilter2)
+{
+  if (!pBloomFilter1 && pBloomFilter2)
+    return 1;
+
+  if (!pBloomFilter1 || !pBloomFilter2)
+    return 0;
+
+  if (pBloomFilter1->uNbrHashFn != pBloomFilter2->uNbrHashFn)
+    return 0;
+
+  return bit_vector_equals(pBloomFilter1->pBitVector, pBloomFilter2->pBitVector);
+}
+
