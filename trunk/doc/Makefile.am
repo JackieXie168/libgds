@@ -1,4 +1,4 @@
-docdir := $(prefix)/share/doc/libgds
+docdir = $(prefix)/share/doc/libgds
 
 #nobase_dist_doc_DATA := html/*
 
