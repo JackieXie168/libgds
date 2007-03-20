@@ -5,7 +5,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
-// @lastdate 19/03/2007
+// @lastdate 20/03/2007
 // ==================================================================
 //
 // Example definition for a unit test suite:
@@ -31,6 +31,7 @@
 
 #define UTEST_SUCCESS 0
 #define UTEST_FAILURE -1
+#define UTEST_CRASHED -2
 #define UTEST_SKIPPED 1
 
 #ifdef __STDC_VERSION__
@@ -38,11 +39,6 @@
 #define __VARIADIC_ELLIPSIS__
 #endif
 #endif
-
-/*#define MSG_RESULT_SUCCESS()				\
-  printf("\033[70G[\033[32;1mSUCCESS\033[0m]\n")
-#define MSG_RESULT_FAIL() \
-printf("\033[70G[\033[31;1mFAIL\033[0m]\n")*/
 
 #ifdef __VARIADIC_ELLIPSIS__
 #undef ASSERT_RETURN
@@ -73,6 +69,7 @@ typedef struct {
   char * pcMessage;
   int iLine;
   char * pcFile;
+  double dDuration;
 } SUnitTest;
 
 // -----[ Suite of Unit Tests ]-----

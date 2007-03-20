@@ -5,7 +5,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
-// @lastdate 19/03/2007
+// @lastdate 20/03/2007
 // ==================================================================
 
 #include <utest.h>
@@ -16,12 +16,21 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <sys/time.h>
 #include <sys/utsname.h>
+#include <time.h>
 
-#define UTEST_FILE_MAX 2048
+//#define __UTEST_WITH_FORK__
+#ifdef __UTEST_WITH_FORK__
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
+
+#define UTEST_FILE_MAX 1024
 static char acTmpFile[UTEST_FILE_MAX];
 static int iTmpLine;
-#define UTEST_MESSAGE_MAX 2048
+#define UTEST_MESSAGE_MAX 1024
 static char acTmpMessage[UTEST_MESSAGE_MAX];
 static FILE * pXMLStream= NULL;
 
@@ -33,6 +42,7 @@ static struct {
   int iNumSkipped;
   int iNumTests;
   int iMaxFailures;
+  struct timeval tp;
 } sUTest;
 
 // -----[ utest_init ]-----------------------------------------------
@@ -86,6 +96,8 @@ void utest_perror(FILE * pStream, int iError, int iColor)
       fprintf(pStream, ""TXT_COL_RED"NOT-TESTED"TXT_DEFAULT); break;
     case UTEST_FAILURE:
       fprintf(pStream, ""TXT_COL_RED"FAILURE"TXT_DEFAULT); break;
+    case UTEST_CRASHED:
+      fprintf(pStream, ""TXT_COL_RED"!CRASH!"TXT_DEFAULT); break;
     default:
       fprintf(pStream, ""TXT_COL_RED"UNKNOWN"TXT_DEFAULT); break;
     }
@@ -95,6 +107,7 @@ void utest_perror(FILE * pStream, int iError, int iColor)
     case UTEST_SUCCESS: fprintf(pStream, "Success"); break;
     case UTEST_SKIPPED: fprintf(pStream, "Skipped"); break;
     case UTEST_FAILURE: fprintf(pStream, "Failure"); break;
+    case UTEST_CRASHED: fprintf(pStream, "Crashed"); break;
     default: fprintf(pStream, "Unknown"); break;
     }
 
@@ -140,6 +153,7 @@ void utest_set_project(const char * pcProject, const char * pcVersion)
 void utest_set_xml_logging(const char * pcFileName)
 {
   struct utsname name;
+  time_t tTime;
 
   pXMLStream= fopen(pcFileName, "w");
   if (pXMLStream == NULL) {
@@ -149,7 +163,7 @@ void utest_set_xml_logging(const char * pcFileName)
     fprintf(pXMLStream, "<?xml version=\"1.0\"?>\n");
     fprintf(pXMLStream, "<utest>\n");
     //fprintf(pXMLStream, "<utest xmlns=\"http://libgds.info.ucl.ac.be\">\n");
-    if (uname(&name) == 0) {
+    if (uname(&name) >= 0) {
       fprintf(pXMLStream, "  <uname>\n");
       fprintf(pXMLStream, "    <sysname>%s</sysname>\n", name.sysname);
       fprintf(pXMLStream, "    <nodename>%s</nodename>\n", name.nodename);
@@ -166,8 +180,12 @@ void utest_set_xml_logging(const char * pcFileName)
     if (sUTest.pcUser != NULL) {
       fprintf(pXMLStream, "    <user>%s</user>\n", sUTest.pcUser);
     }
+#ifdef __UTEST_WITH_FORK__
+    fprintf(pXMLStream, "    <option>fork</option>\n");
+#endif
     fprintf(pXMLStream, "  </info>\n");
-    //fprintf(pXMLStream, "<datetime></datetime>\n");
+    tTime= time(NULL);
+    fprintf(pXMLStream, "<datetime>%s</datetime>\n", ctime(&tTime));
   }
 }
 
@@ -203,6 +221,8 @@ void utest_write_test(SUnitTest * pTest)
 {
   printf(""TXT_POS);
   utest_perror(stdout, pTest->iResult, 1);    
+  if (pTest->iResult == UTEST_SUCCESS)
+    printf(" (%1.1fs)", pTest->dDuration);
   printf("\n");
 
   if (pXMLStream != NULL) {
@@ -219,8 +239,9 @@ void utest_write_test(SUnitTest * pTest)
       fprintf(pXMLStream, "      <file>%s</file>\n", pTest->pcFile);
       fprintf(pXMLStream, "      <line>%d</line>\n", pTest->iLine);
       fprintf(pXMLStream, "      <function></function>\n");
-    }
-    fprintf(pXMLStream, "      <duration></duration>\n");
+    } 
+    fprintf(pXMLStream, "      <duration>%f</duration>\n",
+	    pTest->dDuration);
     fprintf(pXMLStream, "    </test>\n");
   }
 }
@@ -239,6 +260,35 @@ void utest_set_message(const char * pcFile,
   vsnprintf(acTmpMessage, UTEST_MESSAGE_MAX, pcFormat, ap);
 }
 
+// -----[ _utest_time_start ]----------------------------------------
+static void _utest_time_start()
+{
+  assert(gettimeofday(&sUTest.tp, NULL) >= 0);
+}
+
+// -----[ _utest_time_stop ]-----------------------------------------
+static double _utest_time_stop()
+{
+  struct timeval tp;
+  double dDuration;
+
+  assert(gettimeofday(&tp, NULL) >= 0);
+  assert(((sUTest.tp.tv_usec <= tp.tv_usec) &&
+	  (sUTest.tp.tv_sec <= tp.tv_sec)) ||
+	 ((sUTest.tp.tv_usec > tp.tv_usec) &&
+	  (sUTest.tp.tv_sec < tp.tv_sec)));
+  if (tp.tv_sec < sUTest.tp.tv_usec) {
+    sUTest.tp.tv_sec= tp.tv_sec-sUTest.tp.tv_sec-1;
+    sUTest.tp.tv_usec= 1000000+tp.tv_usec-sUTest.tp.tv_usec;
+  } else {
+    sUTest.tp.tv_sec= tp.tv_sec-sUTest.tp.tv_sec;
+    sUTest.tp.tv_usec= tp.tv_usec-sUTest.tp.tv_usec;
+  }
+  dDuration= sUTest.tp.tv_sec;
+  dDuration+= ((double) sUTest.tp.tv_usec)/1000000;
+  return dDuration;
+}
+
 // -----[ utest_run_test ]-------------------------------------------
 /**
  * Runs a single test.
@@ -253,15 +303,111 @@ void utest_set_message(const char * pcFile,
  */
 int utest_run_test(const char * pcName, SUnitTest * pTest)
 {
-  printf("Testing: "TXT_BOLD"%s:%s"TXT_DEFAULT, pcName, pTest->pcName);
+  _utest_time_start();
   pTest->iResult= pTest->fTest();
+  pTest->dDuration= _utest_time_stop();
+
   pTest->pcMessage= acTmpMessage;
   pTest->pcFile= acTmpFile;
   pTest->iLine= iTmpLine;
 
-  utest_write_test(pTest);
   return pTest->iResult;
 }
+
+typedef struct {
+  int iResult;
+  char acMessage[UTEST_MESSAGE_MAX];
+  char acFile[UTEST_FILE_MAX];
+  int iLine;
+  double dDuration;
+} SUnitTestMsg;
+
+// -----[ utest_run_forked_test ]------------------------------------
+#ifdef __UTEST_WITH_FORK__
+int utest_run_forked_test(const char * pcName, SUnitTest * pTest)
+{
+  pid_t tPID;
+  int iPipeDes[2]; // 0:read, 1:write
+  int iStatus;
+  SUnitTestMsg sMsg;
+
+  // Create pipe
+  if (pipe(iPipeDes) != 0) {
+    perror("pipe");
+    exit(EXIT_FAILURE);
+  }
+
+  // Flush output streams
+  fflush(stdout);
+  fflush(stderr);
+  if (pXMLStream != NULL)
+    fflush(pXMLStream);
+
+  // Fork
+  tPID= fork();
+  if (tPID < 0) {
+    perror("fork");
+    close(iPipeDes[0]);
+    close(iPipeDes[1]);
+    exit(EXIT_FAILURE);
+
+  } else if (tPID == 0) {
+    // *** CHILD  CODE ***
+    close(iPipeDes[0]); // Close read direction
+    
+    sMsg.iResult= utest_run_test(pcName, pTest);
+
+    if (pTest->pcMessage != NULL)
+      strncpy(sMsg.acMessage, pTest->pcMessage, UTEST_MESSAGE_MAX);
+    else
+      sMsg.acMessage[0]= '\0';
+    if (pTest->pcFile != NULL)
+      strncpy(sMsg.acFile, pTest->pcFile, UTEST_FILE_MAX);
+    else
+      sMsg.acFile[0]= '\0';
+    sMsg.iLine= pTest->iLine;
+    sMsg.dDuration= pTest->dDuration;
+      
+    if (write(iPipeDes[1], &sMsg, sizeof(sMsg)) < 0) {
+      perror("write");
+      exit(EXIT_FAILURE);
+    }
+    close(iPipeDes[1]);
+
+    exit(EXIT_SUCCESS);
+  }
+
+  // *** FATHER CODE ***
+  close(iPipeDes[1]); // Close write direction
+
+  while (waitpid(tPID, &iStatus, 0) != tPID) {
+    perror("waitpid");
+  }
+
+  if (iStatus == 0) {
+    if (read(iPipeDes[0], &sMsg, sizeof(sMsg)) != sizeof(sMsg)) {
+      perror("read");
+      exit(EXIT_FAILURE);
+    }
+    pTest->iResult= sMsg.iResult;
+    pTest->pcMessage= NULL;
+    pTest->pcFile= NULL;
+    pTest->pcMessage= strdup(sMsg.acMessage);
+    pTest->pcFile= strdup(sMsg.acFile);
+    pTest->iLine= sMsg.iLine;
+    pTest->dDuration= sMsg.dDuration;
+  } else {
+    pTest->iResult= UTEST_CRASHED;
+    pTest->pcMessage= strdup("Test crashed");
+    pTest->pcFile= NULL;
+    pTest->iLine= 0;
+  }
+
+  close(iPipeDes[0]);
+
+  return pTest->iResult;
+}
+#endif
 
 // -----[ utest_run_suite ]------------------------------------------
 /**
@@ -281,6 +427,7 @@ int utest_run_suite(const char * pcName, SUnitTest * paTests,
 {
   int iResult= 0, iTestResult;
   unsigned int uIndex;
+  SUnitTest * pTest;
 
   utest_write_suite_open(pcName);
 
@@ -288,8 +435,18 @@ int utest_run_suite(const char * pcName, SUnitTest * paTests,
 
     sUTest.iNumTests++;
 
+    pTest= &paTests[uIndex];
+    printf("Testing: "TXT_BOLD"%s:%s"TXT_DEFAULT, pcName, pTest->pcName);
+
     // Run the test
-    iTestResult= utest_run_test(pcName, &paTests[uIndex]);
+#ifdef __UTEST_WITH_FORK__
+    iTestResult= utest_run_forked_test(pcName, pTest);
+#else
+    iTestResult= utest_run_test(pcName, pTest);
+#endif
+
+    utest_write_test(pTest);
+
     if (iTestResult != UTEST_SUCCESS) {
       if (iTestResult == UTEST_SKIPPED) {
 	sUTest.iNumSkipped++;
