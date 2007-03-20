@@ -15,6 +15,28 @@
 #include <libgds/memory.h>
 #include <libgds/str_util.h>
 
+// -----[ strsep ]--------------------------------------------------
+/**
+ * Replacement for strsep() in case it is not system-provided. We
+ * should check that strcspn() is available.
+ */
+#ifndef HAVE_STRSEP
+char * strsep(char ** ppcStr, const char * pcDelim)
+{
+  char *pcSave = *ppcStr;
+  if(*ppcStr == NULL)
+    return NULL;
+  *ppcStr = *ppcStr + strcspn(*ppcStr, pcDelim);
+  if(**ppcStr == 0)
+    *ppcStr = NULL;
+  else{
+    **ppcStr = 0;
+    (*ppcStr)++;
+  }
+  return pcSave;
+}
+#endif
+
 // ----- str_lcreate ------------------------------------------------
 /**
  *

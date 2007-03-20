@@ -15,6 +15,11 @@
 extern "C" {
 #endif
 
+  // -----[ strsep ]--------------------------------------------------
+#ifndef HAVE_STRSEP
+  char * strsep(char ** ppcStr, const char * pcDelim);
+#endif
+
   // ----- str_lcreate ----------------------------------------------
   char * str_lcreate(size_t tLen);
   // ----- str_create -----------------------------------------------
