@@ -42,16 +42,18 @@ void stack_destroy(SStack ** ppStack)
 
 // ----- stack_push -------------------------------------------------
 /**
- *
+ * RETURNS:
+ *    0 in case of success
+ *   -1 in case of failure
  */
 int stack_push(SStack * pStack, void * pItem)
 {
   if (pStack->iDepth < pStack->iMaxDepth) {
     pStack->apItems[pStack->iDepth]= pItem;
     pStack->iDepth++;
-    return 1;
+    return 0;
   }
-  return 0;
+  return -1;
 }
 
 // ----- stack_pop --------------------------------------------------
@@ -100,7 +102,9 @@ int stack_depth(SStack * pStack)
 
 // ----- stack_is_empty ---------------------------------------------
 /**
- *
+ * RETURNS:
+ *   0 if the stack is not empty
+ *   1 if the stack is empty
  */
 int stack_is_empty(SStack * pStack)
 {
