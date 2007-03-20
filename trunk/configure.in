@@ -39,6 +39,8 @@ AC_SUBST(LT_VERSION, "0")
 dnl Now arrange the build libtool
 AC_PROG_LIBTOOL
 
+AC_CHECK_FUNCS(strcspn strsep strdup)
+
 dnl Test for POSIX thread
 #ACX_PTHREAD([pthread_ok=yes], [pthread_ok=no])
 #AC_MSG_NOTICE($pthread_ok)
