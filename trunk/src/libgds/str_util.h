@@ -16,7 +16,7 @@ extern "C" {
 #endif
 
   // -----[ strsep ]--------------------------------------------------
-#ifndef HAVE_STRSEP
+#ifndef strsep
   char * strsep(char ** ppcStr, const char * pcDelim);
 #endif
 
