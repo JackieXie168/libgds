@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 10/07/2003
-// @lastdate 10/01/2005
+// @lastdate 26/06/2007
 // =================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -36,6 +36,7 @@ STokenizer * tokenizer_create(const char * pcDelimiters,
   pTokenizer->pTokens= NULL;
   pTokenizer->pcDelimiters= str_create(pcDelimiters);
   pTokenizer->iSingleDelimiter= iSingleDelimiter;
+  pTokenizer->iAllowFinalEmptyField= 0;
   if ((pcOpeningQuotes != NULL) && (pcClosingQuotes != NULL)) {
     assert(strlen(pcOpeningQuotes) == strlen(pcClosingQuotes));
     pTokenizer->pcOpeningQuotes= str_create(pcOpeningQuotes);
@@ -158,6 +159,9 @@ int tokenizer_run(STokenizer * pTokenizer, char * pcString)
       break;
     case TOKENIZER_STATE_DELIM:
       if ((cCtrlChar == '\0') || (cCtrlChar == '\n')) {
+	if (pTokenizer->iAllowFinalEmptyField) {
+	  tokens_add_copy(pTokenizer->pTokens, "");
+	}
 	iResult= TOKENIZER_SUCCESS;
       } else if ((pcQuote= strchr(pTokenizer->pcOpeningQuotes, cCtrlChar))
 		 != NULL) {
