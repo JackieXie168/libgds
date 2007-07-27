@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 16/01/2007
+// @lastdate 25/06/2007
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -37,6 +37,7 @@ SCliParam * cli_param_create(char * pcName,
   pParam->fCheck= fCheck;
   pParam->fEnum= NULL;
   pParam->tType= CLI_PARAM_TYPE_STD;
+  pParam->pcInfo= NULL;
   return pParam;
 }
 
@@ -48,6 +49,7 @@ void cli_param_destroy(SCliParam ** ppParam)
 {
   if (*ppParam != NULL) {
     str_destroy(&(*ppParam)->pcName);
+    str_destroy(&(*ppParam)->pcInfo);
     FREE(*ppParam);
     *ppParam= NULL;
   }
@@ -190,6 +192,7 @@ SCliOption * cli_option_create(char * pcName,
   pOption->pcValue= NULL;
   pOption->uPresent= 0;
   pOption->fCheck= fCheck;
+  pOption->pcInfo= NULL;
   return pOption;
 }
 
@@ -202,6 +205,7 @@ void cli_option_destroy(SCliOption ** ppOption)
   if (*ppOption != NULL) {
     str_destroy(&(*ppOption)->pcName);
     str_destroy(&(*ppOption)->pcValue);
+    str_destroy(&(*ppOption)->pcInfo);
     FREE(*ppOption);
     *ppOption= NULL;
   }
@@ -247,6 +251,23 @@ SCliOptions * cli_options_create()
 void cli_options_destroy(SCliOptions ** ppOptions)
 {
   ptr_array_destroy((SPtrArray **) ppOptions);
+}
+
+// ----- cli_options_find -------------------------------------------
+/**
+ *
+ */
+SCliOption * cli_options_find(SCliOptions * pOptions, const char * pcName)
+{
+  SCliOption sTmp;
+  SCliOption * pOption= &sTmp;
+  unsigned int uIndex;
+
+  sTmp.pcName= (char *) pcName;
+  if (ptr_array_sorted_find_index(pOptions, &pOption, &uIndex))
+    return NULL;
+
+  return (SCliOption*) pOptions->data[uIndex];
 }
 
 // ----- cli_options_add --------------------------------------------

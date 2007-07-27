@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 16/01/2007
+// @lastdate 25/06/2007
 // ==================================================================
 
 #ifndef __GDS_CLI_PARAMS_H__
@@ -32,6 +32,7 @@ typedef struct {
   uint8_t uMaxArgs;
   FCliCheckParam fCheck;
   FCliEnumParam fEnum;
+  char * pcInfo;
 } SCliParam;
 
 #ifdef __cplusplus
@@ -78,6 +79,7 @@ typedef struct {
   char * pcValue;
   uint8_t uPresent;
   FCliCheckParam fCheck;
+  char * pcInfo;
 } SCliOption;
 
 #ifdef __cplusplus
@@ -88,6 +90,8 @@ extern "C" {
   SCliOptions * cli_options_create();
   // ----- cli_options_destroy --------------------------------------
   void cli_options_destroy(SCliOptions ** ppOptions);
+  // ----- cli_options_find -----------------------------------------
+  SCliOption * cli_options_find(SCliOptions * pOptions, const char * pcName);
   // ----- cli_options_add ------------------------------------------
   int cli_options_add(SCliOptions * pOptions, char * pcName,
 		      FCliCheckParam fCheck);
