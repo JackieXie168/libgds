@@ -34,6 +34,7 @@ libgdsinclude_HEADERS = \
 	tokenizer.h \
 	tokens.h \
 	types.h \
+	utest.h \
 	xml.h 
 
 libgdsincludedir = $(includedir)/libgds
@@ -66,6 +67,7 @@ libgds_la_SOURCES =\
 	str_util.c \
 	tokenizer.c \
 	tokens.c \
+	utest.c \
 	xml.c \
 	array.h \
 	assoc_array.h \
@@ -96,4 +98,5 @@ libgds_la_SOURCES =\
 	tokenizer.h \
 	tokens.h \
 	types.h \
+	utest.h \
 	xml.h
