@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 19/03/2007
+// @lastdate 25/06/2007
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -332,43 +332,112 @@ int cli_cmd_add_option(SCliCmd * pCmd,
   return cli_options_add(pCmd->pOptions, pcName, fCheck);
 }
 
-// ----- cli_cmd_match_subcmds --------------------------------------
+// ----- _cli_cmd_match ---------------------------------------------
 /**
+ * Match the given string with the CLI command tree.
  *
+ * Return values:
+ *   CLI_MATCH_NOTHING      : could not match
+ *   CLI_MATCH_COMMAND      : matched a command (command returned)
+ *   CLI_MATCH_OPTION_NAMES : matched an option name (command returned)
+ *   CLI_MATCH_OPTION_VALUE : matched an option value (option returned)
+ *   CLI_MATCH_PARAM_VALUE  : matched a parameter value (parameter returned)
  */
-SCliCmd * cli_cmd_match_subcmds(SCli * pCli, SCliCmd * pCmd,
-				char * pcStartCmd,
-				int * piParamIndex)
+int cli_cmd_match(SCli * pCli, SCliCmd * pCmd, char * pcStartCmd,
+		  char * pcEndCmd, void ** ppCtx)
 {
   STokens * pTokens;
   int iTokenIndex= 0;
+  int iLastTokenIndex;
+  int iParamIndex;
   char * pcToken;
-  SCliCmd * pSubCmd= NULL;
-
-  if (tokenizer_run(pCli->pTokenizer, pcStartCmd) < 0) {
-    return NULL;
-  }
-
+  char * pcValue, * pcName;
+  SCliOption * pOption;
+  int iResult;
+  
+  pCli->pTokenizer->iAllowFinalEmptyField= 1;
+  iResult= tokenizer_run(pCli->pTokenizer, pcStartCmd);
+  pCli->pTokenizer->iAllowFinalEmptyField= 0;
+  if (iResult < 0)
+    return CLI_MATCH_NOTHING;
+  
   pTokens= tokenizer_get_tokens(pCli->pTokenizer);
-
+  iLastTokenIndex= tokens_get_num(pTokens)-1;
+  
   // Match all tokens...
   while (iTokenIndex < tokens_get_num(pTokens)) {
     pcToken= tokens_get_string_at(pTokens, iTokenIndex);
-    pSubCmd= cli_cmd_find_subcmd(pCmd, pcToken);
-    if (pSubCmd == NULL)
-      break;
-    iTokenIndex++;
-    pCmd= pSubCmd;
-    *piParamIndex= 0;
-    // Match params...
-    while ((iTokenIndex < tokens_get_num(pTokens)) &&
-	   (*piParamIndex < cli_cmd_get_num_params(pSubCmd))) {
-      iTokenIndex++;
-      (*piParamIndex)++;
+    
+    if ((iTokenIndex == iLastTokenIndex) &&
+	!strcmp(pcToken, "")) {
+      *ppCtx= pCmd;
+      return CLI_MATCH_COMMAND;
     }
+    
+    // Current token matches a sub-command ?
+    pCmd= cli_cmd_find_subcmd(pCmd, pcToken);
+    if (pCmd == NULL) {
+      *ppCtx= pCmd;
+      return CLI_MATCH_NOTHING;
+    }
+    iTokenIndex++;
+    
+    // Match options (if supported)...
+    while (iTokenIndex < tokens_get_num(pTokens)) {
+      pcToken= tokens_get_string_at(pTokens, iTokenIndex);
+      
+      // Is this an option ?
+      if (strncmp(pcToken, "--", 2))
+	break;
+      pcToken+= 2;
+      
+      // Does the command support options ?
+      if (pCmd->pOptions == NULL)
+	return CLI_MATCH_NOTHING;
+      
+      // Locate option name/value
+      pcValue= pcToken;
+      pcName= strsep(&pcValue, "=");
+      pOption= cli_options_find(pCmd->pOptions, pcToken);
+      if (pOption == NULL)
+	return CLI_MATCH_NOTHING;
+      
+      if (pcValue != NULL) {
+	// If we have received the name, but no value and this is the
+	// last token, need to complete value
+	if (iTokenIndex == iLastTokenIndex) {
+	  *ppCtx= pOption;
+	  return CLI_MATCH_OPTION_VALUE;
+	}
+      }
+      
+      iTokenIndex++;
+    }
+    
+    // Match params...
+    iParamIndex= 0;
+    while (iParamIndex < cli_cmd_get_num_params(pCmd)) {
+      if (iTokenIndex == iLastTokenIndex) {
+	
+	// Try to match an option ?
+	if ((pCmd->pOptions != NULL) && (pcEndCmd != NULL) &&
+	    (!strncmp(pcEndCmd, "--", 2))) {
+	  *ppCtx= pCmd;
+	  return CLI_MATCH_OPTION_NAMES;
+	}
+	
+	*ppCtx= pCmd->pParams->data[iParamIndex];
+	return CLI_MATCH_PARAM_VALUE;
+      }
+      
+      iTokenIndex++;
+      iParamIndex++;
+    }
+    
   }
-
-  return pSubCmd;
+  
+  *ppCtx= pCmd;
+  return CLI_MATCH_COMMAND;
 }
 
 // ----- _cli_cmd_process_options -----------------------------------
@@ -836,4 +905,28 @@ int cli_execute_file(SCli * pCli, FILE * pStream)
   cli_context_clear(pCli->pCtx);
 
   return CLI_SUCCESS;
+}
+
+// ----- cli_get_cmd_context --------------------------------------
+/**
+ * Returns the current command context. If there is currently no
+ * context, the root command is returned.
+ */
+SCliCmd * cli_get_cmd_context(SCli * pCli)
+{
+  SCliCmd * pCmdContext= NULL;
+  SCliCtxItem * pCtxItem;
+
+  // Get current command from context.
+  if (pCli->pCtx != NULL) {
+    pCtxItem= cli_context_top(pCli->pCtx);
+    if (pCtxItem != NULL)
+      pCmdContext= pCtxItem->pCmd;
+  }
+
+  // If no current command, return root command.
+  if (pCmdContext == NULL)
+    pCmdContext= pCli->pBaseCommand;
+
+  return pCmdContext;
 }

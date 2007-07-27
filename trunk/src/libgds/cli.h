@@ -34,6 +34,12 @@
 #define CLI_SUCCESS_TERMINATE          2
 #define CLI_SUCCESS_HELP               3
 
+#define CLI_MATCH_NOTHING      0
+#define CLI_MATCH_COMMAND      1
+#define CLI_MATCH_OPTION_NAMES 2
+#define CLI_MATCH_OPTION_VALUE 3
+#define CLI_MATCH_PARAM_VALUE  4
+
 typedef SPtrArray SCliCmds;
 
 struct TCliCmd;
@@ -132,10 +138,9 @@ extern "C" {
   int cli_cmd_add_option(SCliCmd * pCmd,
 			 char * pcName,
 			 FCliCheckParam fCheckParam);
-  // ----- cli_cmd_match_subcmds ------------------------------------
-  SCliCmd * cli_cmd_match_subcmds(SCli * pCli, SCliCmd * pCmd,
-				  char * pcStartCmd,
-				  int * piParamIndex);
+  // ----- _cli_cmd_match -------------------------------------------
+  int cli_cmd_match(SCli * pCli, SCliCmd * pCmd, char * pcStartCmd,
+		    char * pcEndCmd, void ** ppCtx);
 
 
   ///////////////////////////////////////////////////////////////////
@@ -161,6 +166,8 @@ extern "C" {
   int cli_execute_file(SCli * pCli, FILE * pStream);
   // ----- cli_execute_line -----------------------------------------
   int cli_execute_line(SCli * pCli, const char * pcLine);
+  // ----- cli_get_cmd_context --------------------------------------
+  SCliCmd * cli_get_cmd_context(SCli * pCli);
 
 #ifdef __cplusplus
 }
