@@ -32,7 +32,7 @@
 #include <libgds/list.h>
 
 typedef struct {
-  unsigned int uPtrAddr;
+  void * pPtrAddr;
   unsigned int uSize;
   char * pcFileName;
   int iLineNumber;
@@ -44,12 +44,12 @@ static long int iFreedBytes= 0;
 static long int iMaxAllocatedAtOneTime= 0;
 
 // -----[ _mem_dbg_alloc_init ]--------------------------------------
-static SMemAlloc * _mem_dbg_alloc_init(void * uPtrAddr, unsigned int uSize, 
+static SMemAlloc * _mem_dbg_alloc_init(void * pPtrAddr, unsigned int uSize, 
 				       char * pcFileName, int iLineNumber)
 {
   SMemAlloc * pAlloc= malloc(sizeof(SMemAlloc));
 
-  pAlloc->uPtrAddr= (unsigned int) uPtrAddr;
+  pAlloc->pPtrAddr= pPtrAddr;
   pAlloc->uSize= uSize;
   pAlloc->pcFileName= strdup(pcFileName);
   pAlloc->iLineNumber= iLineNumber;
@@ -63,9 +63,9 @@ static int _mem_dbg_alloc_cmp(void * pItem1, void * pItem2)
   SMemAlloc * pAlloc1 = (SMemAlloc *)pItem1;
   SMemAlloc * pAlloc2 = (SMemAlloc *)pItem2;
 
-  if (pAlloc1->uPtrAddr < pAlloc2->uPtrAddr)
+  if (pAlloc1->pPtrAddr < pAlloc2->pPtrAddr)
     return -1;
-  else if (pAlloc1->uPtrAddr > pAlloc2->uPtrAddr)
+  else if (pAlloc1->pPtrAddr > pAlloc2->pPtrAddr)
     return 1;
   else
     return 0;
@@ -89,12 +89,12 @@ static void _mem_dbg_alloc_for_each(void * pItem, void * pContext)
 {
   SMemAlloc * pAlloc = (SMemAlloc *)pItem;
   fprintf(stderr, "[%p] : %u bytes memory leak in %s (line %d) ... ", 
-      (void *)pAlloc->uPtrAddr,
-      pAlloc->uSize, 
-      pAlloc->pcFileName, 
-      pAlloc->iLineNumber);
+	  pAlloc->pPtrAddr,
+	  pAlloc->uSize, 
+	  pAlloc->pcFileName, 
+	  pAlloc->iLineNumber);
   //free the memory allocated by the process.
-  free ((void *)pAlloc->uPtrAddr);
+  free (pAlloc->pPtrAddr);
   fprintf(stderr, "freed\n");
 }
 
