@@ -5,7 +5,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
-// @lastdate 20/03/2007
+// @lastdate 20/07/2007
 // ==================================================================
 // Notes on unit testing:
 //  - keep tests short and focused on a single aspect
@@ -21,8 +21,6 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#include <utest.h>
 
 #include <libgds/array.h>
 #include <libgds/assoc_array.h>
@@ -40,6 +38,7 @@
 #include <libgds/str_util.h>
 #include <libgds/tokenizer.h>
 #include <libgds/tokens.h>
+#include <libgds/utest.h>
 
 #define IPV4_TO_INT(A,B,C,D) (((((uint32_t)(A))*256 +(uint32_t)(B))*256 +(uint32_t)( C))*256 +(uint32_t)(D))
 
@@ -2007,7 +2006,7 @@ int test_hash_insertion_search_deletion()
   for (uNbr = 0; uNbr < 20; uNbr++) {
     pItem = MALLOC(sizeof(SHashItem));
     pItem->uNbr = uNbr;
-    ASSERT_RETURN(hash_add(pHash, pItem) != -1, "%d can't be inserted (static)", uNbr);
+    ASSERT_RETURN(hash_add(pHash, pItem) != NULL , "%d can't be inserted (static)", uNbr);
   }
   for (uNbr = 0; uNbr < 20; uNbr++) {
     pItem = MALLOC(sizeof(SHashItem));
@@ -2023,7 +2022,7 @@ int test_hash_insertion_search_deletion()
   }
   pItem = MALLOC(sizeof(SHashItem));
   pItem->uNbr = 0;
-  ASSERT_RETURN(hash_del(pHash, pItem) == 0, "0 shoud not be present (static)");
+  ASSERT_RETURN(hash_del(pHash, pItem) == 0, "0 should not be present (static)");
   FREE(pItem);
   hash_destroy(&pHash);
 
@@ -2068,7 +2067,7 @@ int test_hash_reference()
     for (uNbr = 0; uNbr < 20; uNbr++) {
       pItem = MALLOC(sizeof(SHashItem));
       pItem->uNbr = uNbr;
-      ASSERT_RETURN(hash_add(pHash, pItem) != -1, "%d can't be inserted (static)", uNbr);
+      ASSERT_RETURN(hash_add(pHash, pItem) != NULL, "%d can't be inserted (static)", uNbr);
     }
   }
   for (uCpt = 0; uCpt < 9; uCpt++) {
