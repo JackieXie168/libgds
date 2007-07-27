@@ -4,7 +4,7 @@
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 03/12/2004
-// @lastdate 17/01/2007
+// @lastdate 18/07/2007
 // ==================================================================
 
 /* This code implements a hash table structure. We can insert same 
@@ -15,6 +15,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include <config.h>
 #include <libgds/array.h>
@@ -84,9 +85,12 @@ static void _hash_element_destroy(void * pHElt)
 
 // ----- _hash_element_unref ----------------------------------------
 /**
+ * Decrease the reference count for the given hash element.
  *
+ * Return value:
+ *   new reference count
  */
-static int _hash_element_unref(void * pHElt)
+static inline int _hash_element_unref(void * pHElt)
 {
   SHashElt * pHashElt= *((SHashElt **)pHElt);
 
@@ -96,9 +100,12 @@ static int _hash_element_unref(void * pHElt)
 
 // ----- _hash_element_ref ------------------------------------------
 /**
+ * Increase the reference count for the given hash element.
  *
+ * Return value:
+ *   new reference count
  */
-static int _hash_element_ref(SHashElt * pHashElt)
+static inline int _hash_element_ref(SHashElt * pHashElt)
 {
   pHashElt->uRef++;
   return pHashElt->uRef;
@@ -120,47 +127,51 @@ static SHashElt * _hash_element_init(void * pElt, SHashFunctions * pFunctions)
 
 // ----- _hash_element_search ---------------------------------------
 /**
- * RETURNS:
+ * Lookup an element in a hash table bucket (ptr-array).
+ *
+ * Return value:
  *   -1 if element could not be found.
- *   0 if element was found. In this case, *puIndex will contain the
+ *   0  if element was found. In this case, *puIndex will contain the
  *      index of the element.
  */
-static int _hash_element_search(const SPtrArray * aHashElts, void * pElt, 
-				SHashFunctions * pFunctions,
-				unsigned int * puIndex)
+static inline int _hash_element_search(const SPtrArray * aHashElts,
+				       void * pElt, 
+				       SHashFunctions * pFunctions,
+				       unsigned int * puIndex)
 {
-  unsigned int uIndex;
-  SHashElt * pHashElt= MALLOC(sizeof(SHashElt));
-
-  pHashElt->pElt= pElt;
-  pHashElt->pFunctions= pFunctions;
-  if (ptr_array_sorted_find_index(aHashElts, &pHashElt, &uIndex) == -1) {
-    FREE(pHashElt);
-    return -1;
-  }
+  SHashElt sHashElt;
+  SHashElt * pHashElt= &sHashElt;
   
-  FREE(pHashElt);
-
-  *puIndex= uIndex;
-  return 0;
+  sHashElt.pElt= pElt;
+  return ptr_array_sorted_find_index(aHashElts, &pHashElt, puIndex);
 }
 
-static void _hash_element_set_current_key(SHashElt * pHashElt, const uint32_t uHashKey)
+// -----[ _hash_element_set_current_key ]----------------------------
+/**
+ * What is the purpose of this function ?
+ */
+static inline void _hash_element_set_current_key(SHashElt * pHashElt,
+						 const uint32_t uHashKey)
 {
-  pHashElt->uCurrentKey = uHashKey;
+  pHashElt->uCurrentKey= uHashKey;
 }
 
-static uint32_t _hash_element_get_current_key(const SHashElt * pHashElt)
+// -----[ _hash_element_get_current_key ]----------------------------
+/**
+ * What is the purpose of this function ?
+ */
+static inline uint32_t _hash_element_get_current_key(const SHashElt * pHashElt)
 {
   return pHashElt->uCurrentKey;
 }
 
 // ----- _hash_element_add ------------------------------------------
 /**
- *
+ * Add an element to an hash table bucket (ptr-array).
  */
-static SHashElt * _hash_element_add(const SPtrArray * aHashElt, void * pElt, 
-				    SHashFunctions * pFunctions)
+static inline SHashElt * _hash_element_add(const SPtrArray * aHashElt,
+					   void * pElt, 
+					   SHashFunctions * pFunctions)
 {
   SHashElt * pHashElt= _hash_element_init(pElt, pFunctions);
   ptr_array_add(aHashElt, &pHashElt);
@@ -169,7 +180,11 @@ static SHashElt * _hash_element_add(const SPtrArray * aHashElt, void * pElt,
 
 // ----- hash_init ---------------------------------------------------
 /**
+ * Create a new hash table.
  *
+ * Note on parameters:
+ *   resize-threshold (use 0 to avoid re-hashing)
+ *   
  */
 SHash * hash_init(const uint32_t uHashSize, const float fResizeThreshold, 
 		  FHashEltCompare fEltCompare, 
@@ -197,8 +212,12 @@ SHash * hash_init(const uint32_t uHashSize, const float fResizeThreshold,
   return pHash;
 }
 
-
-static SPtrArray * _hash_get_hash_array(SHash * pHash, uint32_t uHashKey)
+// -----[ _hash_get_hash_array ]-------------------------------------
+/**
+ * Initialize a new hash table bucket (ptr-array).
+ */
+static inline SPtrArray * _hash_get_hash_array(SHash * pHash,
+					       uint32_t uHashKey)
 {
   assert(uHashKey < pHash->uHashSize);
 
@@ -211,6 +230,10 @@ static SPtrArray * _hash_get_hash_array(SHash * pHash, uint32_t uHashKey)
   return pHash->aHash[uHashKey];
 }
 
+// -----[ _hash_compute_key ]----------------------------------------
+/**
+ * Wrapper for computing the hash key for an element.
+ */
 static uint32_t _hash_compute_key(const SHash * pHash, const void * pElt)
 {
   return pHash->pFunctions->fHashCompute(pElt, pHash->uHashSize);
@@ -218,7 +241,7 @@ static uint32_t _hash_compute_key(const SHash * pHash, const void * pElt)
 
 // ----- hash_rehash -------------------------------------------------
 /**
- * 
+ * Re-hash the entire hash table.
  */
 static void _hash_rehash(SHash * pHash)
 {
@@ -269,44 +292,76 @@ static void _hash_rehash(SHash * pHash)
 
 // ----- hash_add ----------------------------------------------------
 /**
+ * Add a new element to the hash-table. If the element already exists,
+ * i.e. if it is the same as an already existing element according to
+ * the comparison function, then the reference count of the existing
+ * element is incremented.
  *
- * returns -1 if error else the key at which the elt has been added
- *
+ * Return value:
+ * - element did not exist:
+ *   The pointer to the element in the hash-table is returned. If the
+ *   return value is equal to pElt, that means that a new element was
+ *   added.
+ * - element already exists:
+ *   The pointer to the existing element is returned. If the return
+ *   value is different from pElt, that means that an equivalent
+ *   element was already in the hash table.
  */
-int hash_add(SHash * pHash, void * pElt)
+void * hash_add(SHash * pHash, void * pElt)
 {
   unsigned int uIndex= 0;
   SHashElt * pHashElt;
   SPtrArray * aHashElt;
   uint32_t uHashKey;
 
-  uHashKey = _hash_compute_key(pHash, pElt);
-  aHashElt = _hash_get_hash_array(pHash, uHashKey);
+  uHashKey= _hash_compute_key(pHash, pElt);
 
+  // Return the hash bucket for this key (create the bucket if required)
+  aHashElt= _hash_get_hash_array(pHash, uHashKey);
+
+  // Lookup in the bucket for an existing element
   if (_hash_element_search(aHashElt, pElt, pHash->pFunctions, &uIndex) == -1) {
+
+    // Element does not exist yet
+
+    // ----- re-hashing ? -------------------------------------------
+    // If the hash occupancy threshold is higher than configured,
+    // increase the hash table size and re-hash every element.
+    // Note: this is disabled if threshold == 0
     if (pHash->fResizeThreshold != 0.0) {
       if (++pHash->uEltCount >
 	  (uint32_t)((float)pHash->uHashSize*pHash->fResizeThreshold)) {
 	_hash_rehash(pHash);
-	/* Get the new array of the hash table to add the elt as the hash table
-	 * size has changed */
-	uHashKey = _hash_compute_key(pHash, pElt);
-	aHashElt = _hash_get_hash_array(pHash, uHashKey);
+	// Recompute the new element's key and find the new bucket as
+	// the hash table size has changed.
+	uHashKey= _hash_compute_key(pHash, pElt);
+	aHashElt= _hash_get_hash_array(pHash, uHashKey);
       }
     }
+
     pHashElt= _hash_element_add(aHashElt, pElt, pHash->pFunctions);
     _hash_element_set_current_key(pHashElt, uHashKey);
+
   } else {
+
+    // Element already exists
     pHashElt= aHashElt->data[uIndex];
+
   }
 
+  // Increase reference count for existing / new element
   _hash_element_ref(pHashElt);
-  return uHashKey;
+
+  return pHashElt->pElt;
 }
 
 // ----- hash_search -------------------------------------------------
 /**
- * returns NULL if no elt found else the pointer to this elt
+ * Lookup an element equivalent to pElt.
+ *
+ * Return value:
+ *   NULL if no elt found
+ *   pointer to found elt otherwise
  */
 void * hash_search(const SHash * pHash, void * pElt)
 {
@@ -315,10 +370,12 @@ void * hash_search(const SHash * pHash, void * pElt)
   SHashElt * pHashEltSearched = NULL;
   uint32_t uHashKey= pHash->pFunctions->fHashCompute(pElt, pHash->uHashSize);
 
-  if ((aHashElts = pHash->aHash[uHashKey]) != NULL) {
+  aHashElts = pHash->aHash[uHashKey];
+  if (aHashElts != NULL) {
     if (_hash_element_search(aHashElts, pElt, pHash->pFunctions,
-			    &uIndex) != -1) 
+			     &uIndex) != -1) {
       _array_get_at((SArray*)aHashElts, uIndex, &pHashEltSearched);
+    }
   }
 
   return (pHashEltSearched == NULL) ? NULL : pHashEltSearched->pElt;
@@ -326,8 +383,12 @@ void * hash_search(const SHash * pHash, void * pElt)
 
 // ----- hash_del ----------------------------------------------------
 /**
- *  returns 0 if no elt deleted (unreferenced) else 1 if unreferenced 
- *  otherwise 2 if deleted
+ * Remove an element from the hash table.
+ *
+ * Return value:
+ *   0 if no elt was deleted or unreferenced
+ *   1 if one element was unreferenced 
+ *   2 if one element was deleted (refcount became 0)
  */
 int hash_del(SHash * pHash, void * pElt)
 {
@@ -338,7 +399,7 @@ int hash_del(SHash * pHash, void * pElt)
   
   if ( (aHashElt = pHash->aHash[uHashKey]) != NULL) {
     if (_hash_element_search(aHashElt, pElt, pHash->pFunctions,
-			    &uIndex) != -1) {
+			     &uIndex) != -1) {
       iRet= 1;
       if (_hash_element_unref(&aHashElt->data[uIndex]) <= 0){
 	iRet= 2;
@@ -347,17 +408,19 @@ int hash_del(SHash * pHash, void * pElt)
       }
     }
   }
-/*  if (iRet == 0)
-    fprintf(stderr, "hash_del> No elt unreferenced.\n");*/
 
   return iRet;
 }
 
-// -----[ hash_info ]------------------------------------------------
+// -----[ hash_get_refcnt ]------------------------------------------
 /**
  * Return number of references on the given item.
+ *
+ * Return value:
+ *   0 if the element does not exist
+ *   reference counter otherwise
  */
-uint32_t hash_info(const SHash * pHash, void * pItem)
+uint32_t hash_get_refcnt(const SHash * pHash, void * pItem)
 {
   unsigned int uIndex;
   SPtrArray * pHashItems;
@@ -427,6 +490,29 @@ int hash_for_each(const SHash * pHash, FHashForEach fHashForEach,
     }
   }
   return 0;
+}
+
+void hash_dump(const SHash * pHash)
+{
+  uint32_t uHashKey, uIndex;
+  SPtrArray * pHashItems;
+  void * pItem;
+  SHashElt * pHashElt;
+
+  fprintf(stderr, "**********************************\n");
+  fprintf(stderr, "hash-size: %d\n", pHash->uHashSize);
+  for (uHashKey= 0; uHashKey < pHash->uHashSize; uHashKey++) {
+    pHashItems= pHash->aHash[uHashKey];
+    if (pHashItems != NULL) {
+      fprintf(stderr, "->key:%d (%d)\n", uHashKey, ptr_array_length(pHashItems));
+      for (uIndex= 0; uIndex < ptr_array_length(pHashItems); uIndex++) {
+	pHashElt= (SHashElt *) pHashItems->data[uIndex];
+	pItem= pHashElt->pElt;
+	fprintf(stderr, "  [%d]: (%p) refcnt:%d\n", uIndex, pItem, pHashElt->uRef);
+      }
+    }
+  }
+  fprintf(stderr, "**********************************\n");
 }
 
 // ----- hash_destroy ------------------------------------------------
