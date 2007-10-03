@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 25/06/2007
+// @lastdate 26/08/2007
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -763,35 +763,22 @@ int cli_register_cmd(SCli * pCli, SCliCmd * pCmd)
  */
 void cli_perror(SLogStream * pStream, int iErrorCode)
 {
+#define LOG(M) log_printf(pStream, "%s", M); break;
   switch (iErrorCode) {
-  case CLI_SUCCESS:
-    log_printf(pStream, "success\n"); break;
-  case CLI_ERROR_GENERIC:
-    log_printf(pStream, "error\n"); break;
-  case CLI_ERROR_UNEXPECTED:
-    log_printf(pStream, "unexpected error\n"); break;
-  case CLI_ERROR_UNKNOWN_COMMAND:
-    log_printf(pStream, "unknown command\n"); break;
-  case CLI_ERROR_MISSING_PARAM:
-    log_printf(pStream, "missing parameter\n"); break;
-  case CLI_ERROR_TOO_MANY_PARAMS:
-    log_printf(pStream, "too many parameters (vararg)\n"); break;
-  case CLI_ERROR_NOT_A_COMMAND:
-    log_printf(pStream, "not a command\n"); break;
-  case CLI_ERROR_COMMAND_FAILED:
-    log_printf(pStream, "command failed\n"); break;
-  case CLI_ERROR_BAD_PARAM:
-    log_printf(pStream, "bad parameter value\n"); break;
-  case CLI_ERROR_CTX_CREATE:
-    log_printf(pStream, "unable to create context\n"); break;
-  case CLI_ERROR_UNKNOWN_OPTION:
-    log_printf(pStream, "unknown option\n"); break;
-  case CLI_ERROR_BAD_OPTION:
-    log_printf(pStream, "bad option value\n"); break;
-  case CLI_WARNING_EMPTY_COMMAND:
-    log_printf(pStream, "empty command\n"); break;
-  default:
-    log_printf(pStream, "unknown error\n");
+  case CLI_SUCCESS: LOG("success");
+  case CLI_ERROR_GENERIC: LOG("error");
+  case CLI_ERROR_UNEXPECTED: LOG("unexpected error");
+  case CLI_ERROR_UNKNOWN_COMMAND: LOG("unknown command");
+  case CLI_ERROR_MISSING_PARAM: LOG("missing parameter");
+  case CLI_ERROR_TOO_MANY_PARAMS: LOG("too many parameters (vararg)");
+  case CLI_ERROR_NOT_A_COMMAND: LOG("not a command");
+  case CLI_ERROR_COMMAND_FAILED: LOG("command failed");
+  case CLI_ERROR_BAD_PARAM: LOG("bad parameter value");
+  case CLI_ERROR_CTX_CREATE: LOG("unable to create context");
+  case CLI_ERROR_UNKNOWN_OPTION: LOG("unknown option");
+  case CLI_ERROR_BAD_OPTION: LOG("bad option value");
+  case CLI_WARNING_EMPTY_COMMAND: LOG("empty command");
+  default: LOG("unknown error");
   }
 }
 
@@ -858,7 +845,7 @@ int cli_execute_line(SCli * pCli, const char * pcLine)
     if (iResult < 0) {
       log_printf(pLogErr, "\033[0;31;1mError: ");
       cli_perror(pLogErr, iResult);
-      log_printf(pLogErr, "\033[0m");
+      log_printf(pLogErr, "\033[0m\n");
       cli_perror_details(pLogErr, iResult, pCli, pcLine);
     }
   }
