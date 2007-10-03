@@ -34,7 +34,7 @@ MAIN_VERSION=1
 # RELEASE_VERSION (mandatory)
 #   is the release main version (minor)
 #
-RELEASE_VERSION=3
+RELEASE_VERSION=4
 #
 # BUILD_VERSION (mandatory)
 #   is the build number
@@ -44,7 +44,8 @@ BUILD_VERSION=0
 # LIBRARY_VERSION (optional)
 #   is the library version
 #
-LIBRARY_VERSION=`grep "LDFLAGS" src/libgds/Makefile.am | sed 's:^.*LDFLAGS.*=.*-version-info \([0-9]*\)\:\([0-9]*\)\:\([0-9]*\)$:\1.\2:'`
+#LIBRARY_VERSION=`grep "LDFLAGS" src/libgds/Makefile.am | sed 's:^.*LDFLAGS.*=.*-version-info \([0-9]*\)\:\([0-9]*\)\:\([0-9]*\)$:\1.\2:'`
+LIBRARY_VERSION=`grep "LT_RELEASE" configure.in | sed 's:^AC_SUBST(LT_RELEASE, \[\(.*\)\])$:\1:'`
 #
 # VERSION
 #   
