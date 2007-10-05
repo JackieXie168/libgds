@@ -1,0 +1,9 @@
+libgds for Debian
+-----------------
+
+This package has *not* been compiled with the options memory-debug and xml
+
+if you want to do this, you have to download the source
+and compile libGDS yourself.
+
+ -- Sebastien Tandel <sebastien@tandel.be>  Sat, 10 Mar 2007 19:23:49 +0100
