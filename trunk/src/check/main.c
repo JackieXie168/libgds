@@ -5,7 +5,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
-// @lastdate 20/07/2007
+// @lastdate 05/10/2007
 // ==================================================================
 // Notes on unit testing:
 //  - keep tests short and focused on a single aspect
@@ -2717,7 +2717,7 @@ int main(int argc, char * argv[])
   gds_init(0);
   //gds_init(GDS_OPTION_MEMORY_DEBUG);
 
-  utest_init();
+  utest_init(0);
   utest_set_user(getenv("USER"));
   utest_set_project(PACKAGE_NAME, PACKAGE_VERSION);
   utest_set_xml_logging("libgds-check.xml");
