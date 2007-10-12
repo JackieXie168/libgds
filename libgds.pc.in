@@ -5,6 +5,6 @@ includedir=@includedir@
 
 Name: libgds
 Description: Library of generic data structures
-Version: @LT_RELEASE@
+Version: @LIBGDS_LT_RELEASE@
 Libs: -L${libdir} -lgds
 Cflags: -I${includedir}
