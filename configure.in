@@ -5,7 +5,7 @@ dnl @author Bruno Quoitin (bqu@info.ucl.ac.be)
 dnl @version 2007-04-07
 dnl =================================================================
 
-AC_INIT([libgds], [1.4.0])
+AC_INIT([libgds], [1.4.1])
 AC_CONFIG_SRCDIR(src/libgds/fifo.h)
 AC_PREREQ(2.57)
 AC_PREFIX_DEFAULT(/usr/local)
@@ -35,7 +35,7 @@ AC_TYPE_SIZE_T
 
 dnl Now arrange the build libtool
 AC_PROG_LIBTOOL
-AC_SUBST(LIBGDS_LT_RELEASE, [1.4.0])
+AC_SUBST(LIBGDS_LT_RELEASE, [1.4.1])
 
 AC_CHECK_FUNCS(strcspn strsep strdup)
 
