@@ -39,7 +39,7 @@ RELEASE_VERSION=4
 # BUILD_VERSION (mandatory)
 #   is the build number
 #
-BUILD_VERSION=0
+BUILD_VERSION=1
 #
 # LIBRARY_VERSION (optional)
 #   is the library version
@@ -65,7 +65,7 @@ CONF_OPTIONS_COMMON=
 # VALID_EXEC (optional)
 #   is the name of a command used to validate the project.
 #
-#VALID_EXEC=
+VALID_EXEC="make check"
 #
 # PUBLISH_URL (optional)
 #   is the SCP URL where the distribution will be published
