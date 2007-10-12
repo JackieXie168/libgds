@@ -94,8 +94,10 @@ static void _mem_dbg_alloc_for_each(void * pItem, void * pContext)
 	  pAlloc->pcFileName, 
 	  pAlloc->iLineNumber);
   //free the memory allocated by the process.
-  free (pAlloc->pPtrAddr);
-  fprintf(stderr, "freed\n");
+  // No, we shouldn't do that !
+  /*free (pAlloc->pPtrAddr);
+    fprintf(stderr, "freed");*/
+  fprintf(stderr, "\n");
 }
 
 // -----[ memory_debug_track_alloc ]---------------------------------
