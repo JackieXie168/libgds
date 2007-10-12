@@ -33,11 +33,9 @@ AC_CHECK_HEADER(inttypes.h)
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_SIZE_T
 
-AC_SUBST(LT_RELEASE, [1.4])
-AC_SUBST(LT_VERSION, [0])
-
 dnl Now arrange the build libtool
 AC_PROG_LIBTOOL
+AC_SUBST(LIBGDS_LT_RELEASE, [1.4.0])
 
 AC_CHECK_FUNCS(strcspn strsep strdup)
 

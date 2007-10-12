@@ -2,7 +2,7 @@ INCLUDES = -I..
 AM_CFLAGS = -L/usr/lib
 
 lib_LTLIBRARIES = libgds.la
-libgds_la_LDFLAGS = -no-undefined -release $(LT_RELEASE) -version-info $(LT_VERSION)
+libgds_la_LDFLAGS = -no-undefined -release $(LIBGDS_LT_RELEASE)
 libgds_la_LIBADD = -lm -lz
 libgdsinclude_HEADERS = \
 	array.h \
