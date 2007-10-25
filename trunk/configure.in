@@ -5,7 +5,7 @@ dnl @author Bruno Quoitin (bqu@info.ucl.ac.be)
 dnl @version 2007-04-07
 dnl =================================================================
 
-AC_INIT([libgds], [1.4.1])
+AC_INIT([libgds], [1.4.2])
 AC_CONFIG_SRCDIR(src/libgds/fifo.h)
 AC_PREREQ(2.57)
 AC_PREFIX_DEFAULT(/usr/local)
@@ -35,7 +35,7 @@ AC_TYPE_SIZE_T
 
 dnl Now arrange the build libtool
 AC_PROG_LIBTOOL
-AC_SUBST(LIBGDS_LT_RELEASE, [1.4.1])
+AC_SUBST(LIBGDS_LT_RELEASE, [1.4.2])
 
 AC_CHECK_FUNCS(strcspn strsep strdup)
 
@@ -108,7 +108,7 @@ if test "x$gds_config_doxygen" = "xyes"; then
 fi
 AM_CONDITIONAL(WITH_DOXYGEN, [test "x$HAVE_DOXYGEN" = "xyes"])
 
-AC_OUTPUT(Makefile src/Makefile src/libgds/Makefile src/check/Makefile doc/Makefile libgds.pc)
+AC_OUTPUT(Makefile src/Makefile src/libgds/Makefile src/check/Makefile doc/Makefile libgds.pc libgds.spec)
 
 if test "x$gds_config_xml" = "xyes"; then
   config_xml_msg="yes"
