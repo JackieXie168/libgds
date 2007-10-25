@@ -43,6 +43,9 @@ static struct {
   int iWithFork;
 } sUTest;
 
+static void _utest_time_start();
+static double _utest_time_stop();
+
 // -----[ utest_init ]-----------------------------------------------
 void utest_init(int iMaxFail)
 {
@@ -282,18 +285,11 @@ static double _utest_time_stop()
   double dDuration;
 
   assert(gettimeofday(&tp, NULL) >= 0);
-  assert(((sUTest.tp.tv_sec = tp.tv_sec) &&
+  assert(((sUTest.tp.tv_sec == tp.tv_sec) &&
 	  (sUTest.tp.tv_usec <= tp.tv_usec)) ||
 	 (sUTest.tp.tv_sec < tp.tv_sec));
-  if (tp.tv_sec < sUTest.tp.tv_usec) {
-    sUTest.tp.tv_sec= tp.tv_sec-sUTest.tp.tv_sec-1;
-    sUTest.tp.tv_usec= 1000000+tp.tv_usec-sUTest.tp.tv_usec;
-  } else {
-    sUTest.tp.tv_sec= tp.tv_sec-sUTest.tp.tv_sec;
-    sUTest.tp.tv_usec= tp.tv_usec-sUTest.tp.tv_usec;
-  }
-  dDuration= sUTest.tp.tv_sec;
-  dDuration+= ((double) sUTest.tp.tv_usec)/1000000;
+  dDuration= tp.tv_sec-sUTest.tp.tv_sec;
+  dDuration+= (((double) tp.tv_usec)-sUTest.tp.tv_usec)/1000000;
   return dDuration;
 }
 
