@@ -5,7 +5,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
-// @lastdate 24/10/2007
+// @lastdate 26/10/2007
 // ==================================================================
 
 #include <utest.h>
@@ -285,9 +285,10 @@ static double _utest_time_stop()
   double dDuration;
 
   assert(gettimeofday(&tp, NULL) >= 0);
-  assert(((sUTest.tp.tv_sec == tp.tv_sec) &&
-	  (sUTest.tp.tv_usec <= tp.tv_usec)) ||
-	 (sUTest.tp.tv_sec < tp.tv_sec));
+  
+  /* Note that gettimeofday() is not monotonic, that is it can go
+     back in time. In this case, the test duration will eventually
+     be reported as negative. */
   dDuration= tp.tv_sec-sUTest.tp.tv_sec;
   dDuration+= (((double) tp.tv_usec)-sUTest.tp.tv_usec)/1000000;
   return dDuration;
