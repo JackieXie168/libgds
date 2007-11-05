@@ -2,8 +2,9 @@
 // @(#)fifo.c
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Damien Saucez (damien.saucez@uclouvain.be)
 // @date 28/11/2002
-// @lastdate 17/03/2007
+// @lastdate 05/11/2007
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -140,4 +141,23 @@ void * fifo_pop(SFIFO * pFIFO)
 uint32_t fifo_depth(SFIFO * pFIFO)
 {
   return pFIFO->uCurrentDepth;
+}
+
+// ----- fifo_get_at ------------------------------------------------
+/**
+ * Get the iPos'th element in the queue pFIFO.
+ * Return the element at the iPos position in the queue. If iPos
+ * is out of the bounds of the queue, a NULL is returned.
+ * PARAM:  pFIFO: the queue
+ * 	   iPos:  position in the queue (0 is the head of the queue)
+ * RETURN: If iPos valid, element at position iPos in pFIFO is returned.
+ *	   Otherwise a NULL is returned.
+ */
+void * fifo_get_at(SFIFO * pFIFO, unsigned int iPos)
+{
+	if (pFIFO && iPos < pFIFO->uCurrentDepth){
+		return pFIFO->ppItems[(pFIFO->uStartIndex + iPos) %\
+			pFIFO->uMaxDepth];
+	}
+	return NULL;
 }

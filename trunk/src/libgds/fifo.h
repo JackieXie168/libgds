@@ -2,8 +2,9 @@
 // @(#)fifo.h
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Damien Saucez (damien.saucez@uclouvain.be)
 // @date 28/11/2002
-// @lastdate 17/03/2007
+// @lastdate 05/11/2007
 // ==================================================================
 
 #ifndef __FIFO_H__
@@ -42,6 +43,8 @@ extern "C" {
   void * fifo_pop(SFIFO * pFIFO);
   // -----[ fifo_depth ]---------------------------------------------
   uint32_t fifo_depth(SFIFO * pFIFO);
+  // -----[ fifo_get_at ]--------------------------------------------
+  void * fifo_get_at(SFIFO * pFIFO, unsigned int iIndex);
 
 #ifdef __cplusplus
 }
