@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 17/01/2007
+// @lastdate 20/11/2007
 // ==================================================================
 
 #ifndef __GDS_CLI_H__
@@ -77,14 +77,24 @@ typedef struct {
 } SCliCtxItem;
 
 typedef struct {
+  int    iErrorCode;   // Last error code
+  int    iLineNumber;  // Line number of last command
+  int    iUserError;   // Last application error code
+                       // (has a meaning only if last command failed)
+  char * pcUserError;  // Last application error message
+                       // (has a meaning only if last command failed)
+} SCliErrorDetails;
+
+typedef struct {
   STokenizer      * pTokenizer;
   SCliCmd         * pBaseCommand;
-  SCliContext     * pCtx;         // Current execution context (stack)
-  FCliExitOnError   fExitOnError; // Exit callback function
-  FCliHelp          fHelp;        // Help callback function
+  SCliContext     * pCtx;            // Current execution context (stack)
+  FCliExitOnError   fExitOnError;    // Exit callback function
+  FCliHelp          fHelp;           // Help callback function
   // --- Variables used for error reporting purpose ---
-  int uExecTokenIndex;     // Index to current token in command-line
-  SCliParam * pExecParam;  // Parameter which is currently expected
+  int               uExecTokenIndex; // Index to current token in command-line
+  SCliParam       * pExecParam;      // Parameter which is currently expected
+  SCliErrorDetails  sErrorDetails;
 } SCli;
 
 #ifdef __cplusplus
@@ -162,12 +172,19 @@ extern "C" {
   int cli_register_cmd(SCli * pCli, SCliCmd * pCmd);
   // ----- cli_perror -----------------------------------------------
   void cli_perror(SLogStream * pStream, int iErrorCode);
+  // ----- cli_strerror -----------------------------------------------
+  char * cli_strerror(int iErrorCode);
   // ----- cli_execute_file -----------------------------------------
   int cli_execute_file(SCli * pCli, FILE * pStream);
   // ----- cli_execute_line -----------------------------------------
   int cli_execute_line(SCli * pCli, const char * pcLine);
   // ----- cli_get_cmd_context --------------------------------------
   SCliCmd * cli_get_cmd_context(SCli * pCli);
+  // ----- cli_get_error_details ------------------------------------
+  int cli_get_error_details(SCli * pCli, SCliErrorDetails * psDetails);
+  // ----- cli_set_user_error -----------------------------------------
+  void cli_set_user_error(SCli * pCli, char * pcFormat, ...);
+
 
 #ifdef __cplusplus
 }
