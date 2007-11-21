@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 26/08/2007
+// @lastdate 20/11/2007
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -16,6 +16,7 @@
 #include <libgds/log.h>
 #include <libgds/memory.h>
 #include <libgds/str_util.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -571,6 +572,7 @@ SCli * cli_create()
   pCli->pBaseCommand= NULL;
   pCli->pExecParam= NULL;
   pCli->pCtx= cli_context_create();
+  pCli->sErrorDetails.pcUserError= NULL;
   return pCli;
 }
 
@@ -584,6 +586,8 @@ void cli_destroy(SCli ** ppCli)
     tokenizer_destroy(&(*ppCli)->pTokenizer);
     cli_context_destroy(&(*ppCli)->pCtx);
     cli_cmd_destroy(&(*ppCli)->pBaseCommand);
+    if ((*ppCli)->sErrorDetails.pcUserError != NULL)
+      free((*ppCli)->sErrorDetails.pcUserError);
     FREE(*ppCli);
     *ppCli= NULL;
   }
@@ -615,6 +619,8 @@ static int _cli_execute_cmd(SCli * pCli, SCliCmd * pCmd)
 {
   int iResult;
   STokens * pTokens= tokenizer_get_tokens(pCli->pTokenizer);
+
+  cli_set_user_error(pCli, NULL);
 
   pCli->pCtx->pCmd= pCmd;
   // Init command fields (param values and options)
@@ -743,7 +749,8 @@ int cli_execute_ctx(SCli * pCli, char * pcCmd, void * pUserData)
  */
 int cli_execute(SCli * pCli, char * pcCmd)
 {
-  return cli_execute_ctx(pCli, pcCmd, NULL);
+  pCli->sErrorDetails.iErrorCode= cli_execute_ctx(pCli, pcCmd, NULL);
+  return pCli->sErrorDetails.iErrorCode;
 }
 
 // ----- cli_register_cmd -------------------------------------------
@@ -763,23 +770,48 @@ int cli_register_cmd(SCli * pCli, SCliCmd * pCmd)
  */
 void cli_perror(SLogStream * pStream, int iErrorCode)
 {
-#define LOG(M) log_printf(pStream, "%s", M); break;
+  char * pcErrorStr= cli_strerror(iErrorCode);
+  if (pcErrorStr != NULL)
+    log_printf(pStream, pcErrorStr);
+  else
+    log_printf(pStream, "unknown error (%i)", iErrorCode);
+}
+
+// ----- cli_strerror -----------------------------------------------
+/**
+ *
+ */
+char * cli_strerror(int iErrorCode)
+{
   switch (iErrorCode) {
-  case CLI_SUCCESS: LOG("success");
-  case CLI_ERROR_GENERIC: LOG("error");
-  case CLI_ERROR_UNEXPECTED: LOG("unexpected error");
-  case CLI_ERROR_UNKNOWN_COMMAND: LOG("unknown command");
-  case CLI_ERROR_MISSING_PARAM: LOG("missing parameter");
-  case CLI_ERROR_TOO_MANY_PARAMS: LOG("too many parameters (vararg)");
-  case CLI_ERROR_NOT_A_COMMAND: LOG("not a command");
-  case CLI_ERROR_COMMAND_FAILED: LOG("command failed");
-  case CLI_ERROR_BAD_PARAM: LOG("bad parameter value");
-  case CLI_ERROR_CTX_CREATE: LOG("unable to create context");
-  case CLI_ERROR_UNKNOWN_OPTION: LOG("unknown option");
-  case CLI_ERROR_BAD_OPTION: LOG("bad option value");
-  case CLI_WARNING_EMPTY_COMMAND: LOG("empty command");
-  default: LOG("unknown error");
+  case CLI_SUCCESS:
+    return "success";
+  case CLI_ERROR_GENERIC:
+    return "error";
+  case CLI_ERROR_UNEXPECTED:
+    return "unexpected error";
+  case CLI_ERROR_UNKNOWN_COMMAND:
+    return "unknown command";
+  case CLI_ERROR_MISSING_PARAM:
+    return "missing parameter";
+  case CLI_ERROR_TOO_MANY_PARAMS:
+    return "too many parameters (vararg)";
+  case CLI_ERROR_NOT_A_COMMAND:
+    return "not a command";
+  case CLI_ERROR_COMMAND_FAILED:
+    return "command failed";
+  case CLI_ERROR_BAD_PARAM:
+    return "bad parameter value";
+  case CLI_ERROR_CTX_CREATE:
+    return "unable to create context";
+  case CLI_ERROR_UNKNOWN_OPTION:
+    return "unknown option";
+  case CLI_ERROR_BAD_OPTION:
+    return "bad option value";
+  case CLI_WARNING_EMPTY_COMMAND:
+    return "empty command";
   }
+  return NULL;
 }
 
 // ----- cli_perror_details -----------------------------------------
@@ -804,28 +836,37 @@ void cli_perror_details(SLogStream * pStream, int iResult, SCli * pCli,
     for (iIndex= 0; iIndex < pCli->uExecTokenIndex; iIndex++)
       log_printf(pStream, "%s ", tokens_get_string_at(pTokens, iIndex));
     log_printf(pStream, "^^^\"\n");
-    if (((iResult == CLI_ERROR_UNKNOWN_COMMAND) ||
-	(iResult == CLI_ERROR_NOT_A_COMMAND)) &&
-	(pCli->pCtx->pCmd != NULL)) {
-      log_printf(pStream, "*** expect : ");
 
-      for (iIndex= 0;
-	   iIndex < cli_cmd_get_num_subcmds(pCli->pCtx->pCmd);
-	   iIndex++) {
-	if (iIndex > 0)
-	  log_printf(pStream, ", ");
-	log_printf(pStream, "%s",
-		cli_cmd_get_subcmd_at(pCli->pCtx->pCmd, iIndex)->pcName);
+    switch (iResult) {
+    case CLI_ERROR_UNKNOWN_COMMAND:
+    case CLI_ERROR_NOT_A_COMMAND:
+      if (pCli->pCtx->pCmd != NULL) {
+	log_printf(pStream, "*** expect : ");
+
+	for (iIndex= 0;
+	     iIndex < cli_cmd_get_num_subcmds(pCli->pCtx->pCmd);
+	     iIndex++) {
+	  if (iIndex > 0)
+	    log_printf(pStream, ", ");
+	  log_printf(pStream, "%s",
+		     cli_cmd_get_subcmd_at(pCli->pCtx->pCmd, iIndex)->pcName);
+	}
+	log_printf(pStream, "\n");
       }
-      log_printf(pStream, "\n");
-    } else if (((iResult == CLI_ERROR_MISSING_PARAM) ||
-		(iResult == CLI_ERROR_BAD_PARAM)) &&
-	       (pCli->pExecParam != NULL)) {
-      log_printf(pStream, "*** expect : %s\n", pCli->pExecParam->pcName);
-    } else if (iResult == CLI_ERROR_UNKNOWN_OPTION) {
+      break;
+
+    case CLI_ERROR_MISSING_PARAM:
+    case CLI_ERROR_BAD_PARAM:
+      if (pCli->pExecParam != NULL) {
+	log_printf(pStream, "*** expect : %s\n", pCli->pExecParam->pcName);
+      }
+      break;
+
+    case CLI_ERROR_UNKNOWN_OPTION:
+    case CLI_ERROR_BAD_OPTION:
       //log_printf(pStream, "*** option : %s\n", pCli->pcOption);
-    } else if (iResult == CLI_ERROR_BAD_OPTION) {
-      //log_printf(pStream, "*** option : %s\n", pCli->pcOption);
+      break;
+      
     }
   }
 }
@@ -843,6 +884,8 @@ int cli_execute_line(SCli * pCli, const char * pcLine)
     // Parse and execute command
     iResult= cli_execute(pCli, (char *) pcLine);
     if (iResult < 0) {
+      if (pCli->sErrorDetails.pcUserError != NULL)
+	log_printf(pLogErr, "Error: %s\n", pCli->sErrorDetails.pcUserError);
       log_printf(pLogErr, "\033[0;31;1mError: ");
       cli_perror(pLogErr, iResult);
       log_printf(pLogErr, "\033[0m\n");
@@ -863,7 +906,7 @@ int cli_execute_file(SCli * pCli, FILE * pStream)
   int iLen;
   char acLine[MAX_CLI_LINE_LENGTH];
   int iResult;
-  uint32_t uLineNumber= 1;
+  pCli->sErrorDetails.iLineNumber= 1;
 
   /* Execute all lines in the input file... */
   while (fgets(acLine, sizeof(acLine), pStream) != NULL) {
@@ -874,18 +917,20 @@ int cli_execute_file(SCli * pCli, FILE * pStream)
 
     iResult= cli_execute_line(pCli, acLine);
     if (iResult < 0) {
-      log_printf(pLogErr, "Error: in script file, line %u\n", uLineNumber);
+      log_printf(pLogErr, "Error: in script file, line %d\n",
+		 pCli->sErrorDetails.iLineNumber);
 
       // In case of error, we call the exit-on-error function (if
       // it is defined). The decision to stop depends on the error
-      // code returned by this function. Otherwise, we just exit.
+      // code returned by this function. If the fExitOnError function
+      // is not defined, we just return the error code.
       if (pCli->fExitOnError != NULL)
 	iResult= pCli->fExitOnError(iResult);
       if (iResult)
 	return iResult;
 
     }
-    uLineNumber++;
+    pCli->sErrorDetails.iLineNumber++;
   }
 
   /* Clear the context (if required) */
@@ -916,4 +961,31 @@ SCliCmd * cli_get_cmd_context(SCli * pCli)
     pCmdContext= pCli->pBaseCommand;
 
   return pCmdContext;
+}
+
+// ----- cli_get_error_details --------------------------------------
+int cli_get_error_details(SCli * pCli, SCliErrorDetails * psDetails)
+{
+  memcpy(psDetails, &pCli->sErrorDetails, sizeof(SCliErrorDetails));
+  return pCli->sErrorDetails.iErrorCode;
+}
+
+// ----- cli_set_user_error -----------------------------------------
+void cli_set_user_error(SCli * pCli, char * pcFormat, ...)
+{
+#define CLI_USER_ERROR_BUFFER_SIZE 1000
+  static char acBuffer[CLI_USER_ERROR_BUFFER_SIZE];
+  va_list ap;
+
+  if (pCli->sErrorDetails.pcUserError != NULL) {
+    free(pCli->sErrorDetails.pcUserError);
+    pCli->sErrorDetails.pcUserError= NULL;
+  }
+
+  if (pcFormat != NULL) {
+    va_start(ap, pcFormat);
+    vsnprintf(acBuffer, CLI_USER_ERROR_BUFFER_SIZE, pcFormat, ap);
+    
+    pCli->sErrorDetails.pcUserError= strdup(acBuffer);
+  }
 }
