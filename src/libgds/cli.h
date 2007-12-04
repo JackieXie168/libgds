@@ -63,6 +63,7 @@ struct TCliCmd {
   char * pcName;
   SCliCmds * pSubCmds;
   SCliParams * pParams;
+  SCliCmd * pParent;
   STokens * pParamValues;
   SCliOptions * pOptions;
   FCliContextCreate fCtxCreate;
