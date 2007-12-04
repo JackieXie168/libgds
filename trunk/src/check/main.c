@@ -3,9 +3,9 @@
 //
 // Generic Data Structures (libgds): validation application.
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.b)
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
-// @lastdate 05/10/2007
+// @lastdate 04/12/2007
 // ==================================================================
 // Notes on unit testing:
 //  - keep tests short and focused on a single aspect
@@ -73,10 +73,87 @@ void int_array_shuffle(int aiArray[], unsigned int uSize)
 // GDS_CHECK_STRUTILS
 /////////////////////////////////////////////////////////////////////
 
-// -----[ test_strutils_basic ]--------------------------------------
-int test_strutils_basic()
+// -----[ test_strutils_create ]-------------------------------------
+static int test_strutils_create()
 {
-  return UTEST_SKIPPED;
+  char * pcStr= str_create("Hello");
+  ASSERT_RETURN(pcStr != NULL, "str_create() should not return NULL");
+  ASSERT_RETURN(strcmp(pcStr, "Hello") == 0,
+		"incorrect string content");
+  str_destroy(&pcStr);
+  ASSERT_RETURN(pcStr == NULL, "destroyed string should be NULL");
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_strutils_create_null ]--------------------------------
+static int test_strutils_create_null()
+{
+  char * pcStr= str_create(NULL);
+  ASSERT_RETURN(pcStr != NULL, "str_create() should not return NULL");
+  ASSERT_RETURN(strcmp(pcStr, "") == 0,
+		"incorrect string content");
+  str_destroy(&pcStr);
+  ASSERT_RETURN(pcStr == NULL, "destroyed string should be NULL");
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_strutils_lcreate ]------------------------------------
+static int test_strutils_lcreate()
+{
+  char * pcStr= str_lcreate(10);
+  ASSERT_RETURN(pcStr != NULL, "str_lcreate() should not return NULL");
+  ASSERT_RETURN(*pcStr == '\0', "not NUL-terminated");
+  str_destroy(&pcStr);
+  ASSERT_RETURN(pcStr == NULL, "destroyed string should be NULL");
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_strutils_append ]-------------------------------------
+static int test_strutils_append()
+{
+  char * pcStr= str_create("Hello");
+  pcStr= str_append(&pcStr, " World");
+  ASSERT_RETURN(pcStr != NULL, "str_append() should not return NULL");
+  ASSERT_RETURN(strcmp(pcStr, "Hello World") == 0,
+		"incorrect string content");
+  str_destroy(&pcStr);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_strutils_append_null ]--------------------------------
+static int test_strutils_append_null()
+{
+  char * pcStr= str_create("Hello");
+  pcStr= str_append(&pcStr, NULL);
+  ASSERT_RETURN(pcStr != NULL, "str_append() should not return NULL");
+  ASSERT_RETURN(strcmp(pcStr, "Hello") == 0,
+		"incorrect string content");
+  str_destroy(&pcStr);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_strutils_prepend ]------------------------------------
+static int test_strutils_prepend()
+{
+  char * pcStr= str_create("World");
+  pcStr= str_prepend(&pcStr, "Hello ");
+  ASSERT_RETURN(pcStr != NULL, "str_prepend() should not return NULL");
+  ASSERT_RETURN(strcmp(pcStr, "Hello World") == 0,
+		"incorrect string content");
+  str_destroy(&pcStr);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_strutils_prepend_null ]-------------------------------
+static int test_strutils_prepend_null()
+{
+  char * pcStr= str_create("World");
+  pcStr= str_prepend(&pcStr, NULL);
+  ASSERT_RETURN(pcStr != NULL, "str_prepend() should not return NULL");
+  ASSERT_RETURN(strcmp(pcStr, "World") == 0,
+		"incorrect string content");
+  str_destroy(&pcStr);
+  return UTEST_SUCCESS;
 }
 
 #define INT32_MIN_STR "-2147483648"
@@ -204,12 +281,16 @@ int test_strutils_convert_ulong()
 // -----[ test_strutils_convert_double ]-----------------------------
 int test_strutils_convert_double()
 {
-  /*
-  // ----- str_as_double --------------------------------------------
-  int str_as_double(const char * pcString, double * pdValue);
-  */
+#define DOUBLE_MAX_DELTA 0.0001
+  double dValue;
 
-  return UTEST_SKIPPED;
+  ASSERT_RETURN(str_as_double("0.123", &dValue) == 0,
+		"conversion should succeed");
+  dValue-= 0.123;
+  ASSERT_RETURN((dValue < DOUBLE_MAX_DELTA) &&
+		(dValue > -DOUBLE_MAX_DELTA),
+		"incorrect conversion result");
+  return UTEST_SUCCESS;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -316,8 +397,8 @@ int test_fifo_grow()
 #define STACK_NITEMS 5
 int STACK_ITEMS[STACK_NITEMS];
 
-// -----[ test_stack_init ]------------------------------------------
-int test_stack_init()
+// -----[ _test_stack_init ]-----------------------------------------
+static int _test_stack_init()
 {
   unsigned int uIndex;
 
@@ -329,20 +410,28 @@ int test_stack_init()
   return UTEST_SUCCESS;
 }
 
+// -----[ test_stack_create ]----------------------------------------
+static int test_stack_create()
+{
+  SStack * pStack= stack_create(STACK_NITEMS);
+  ASSERT_RETURN(pStack != NULL, "stack_create() should not return NULL");
+  ASSERT_RETURN(stack_depth(pStack) == 0, "incorret stack depth");
+  ASSERT_RETURN(stack_is_empty(pStack), "stack should be empty");
+  stack_destroy(&pStack);
+  ASSERT_RETURN(pStack == NULL, "destroyed stack should be NULL");
+  return UTEST_SUCCESS;
+}
+
 // -----[ test_stack_basic ]-----------------------------------------
-int test_stack_basic()
+static int test_stack_basic()
 {
   SStack * pStack;
   unsigned int uIndex;
 
-  test_stack_init();
+  _test_stack_init();
 
   pStack= stack_create(STACK_NITEMS);
   ASSERT_RETURN(pStack != NULL, "stack_create() returned NULL");
-
-  // Check length (0)
-  ASSERT_RETURN(stack_depth(pStack) == 0, "incorrect stack length");
-  ASSERT_RETURN(stack_is_empty(pStack) != 0, "stack should be empty");
 
   // Push data onto stack
   for (uIndex= 0; uIndex < STACK_NITEMS; uIndex++) {
@@ -374,13 +463,41 @@ int test_stack_basic()
 // -----[ test_stack_copy ]------------------------------------------
 int test_stack_copy()
 {
-  return UTEST_SKIPPED;
+  unsigned int uIndex;
+  SStack * pStack1= stack_create(STACK_NITEMS);
+  SStack * pStack2;
+  _test_stack_init();
+  for (uIndex= 0; uIndex < STACK_NITEMS; uIndex++)
+    stack_push(pStack1, (void *) STACK_ITEMS[uIndex]);
+  pStack2= stack_copy(pStack1);
+  ASSERT_RETURN(pStack2 != NULL, "stack_copy() should not return NULL");
+  ASSERT_RETURN(stack_depth(pStack2) == STACK_NITEMS,
+		"incorrect stack depth");
+  for (uIndex= 0; uIndex < STACK_NITEMS; uIndex++)
+    ASSERT_RETURN(pStack1->apItems[uIndex] == pStack2->apItems[uIndex],
+		  "stack content is not equal");
+  stack_destroy(&pStack1);
+  stack_destroy(&pStack2);
+  return UTEST_SUCCESS;
 }
 
 // -----[ test_stack_equal ]-----------------------------------------
 int test_stack_equal()
 {
-  return UTEST_SKIPPED;
+  unsigned int uIndex;
+  SStack * pStack1= stack_create(STACK_NITEMS);
+  SStack * pStack2= stack_create(STACK_NITEMS);
+  for (uIndex= 0; uIndex < STACK_NITEMS; uIndex++)
+    stack_push(pStack1, (void *) STACK_ITEMS[uIndex]);
+  for (uIndex= 0; uIndex < STACK_NITEMS; uIndex++)
+    stack_push(pStack2, (void *) STACK_ITEMS[uIndex]);
+  ASSERT_RETURN(stack_equal(pStack1, pStack2), "stacks should be equal");
+  if (pStack2->apItems[0] == 0)
+    pStack2->apItems[0]= (void *) 1;
+  else
+    pStack2->apItems[0]= (void *) ((int) pStack2->apItems[0]) - 1;
+  ASSERT_RETURN(stack_equal(pStack1, pStack2) == 0, "stacks should not be equal");
+  return UTEST_SUCCESS;
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -2559,7 +2676,13 @@ int test_bloom_filter_binary_operations()
 #define ARRAY_SIZE(A) sizeof(A)/sizeof(A[0])
 
 SUnitTest STRUTILS_TESTS[]= {
-  {test_strutils_basic, "basic use"},
+  {test_strutils_create, "create"},
+  {test_strutils_create_null, "create (null)"},
+  {test_strutils_lcreate, "lcreate"},
+  {test_strutils_append, "append"},
+  {test_strutils_append_null, "append (null)"},
+  {test_strutils_prepend, "prepend"},
+  {test_strutils_prepend_null, "prepend (null)"},
   {test_strutils_convert_int, "conversion int"},
   {test_strutils_convert_uint, "conversion unsigned int"},
   {test_strutils_convert_long, "conversion long"},
@@ -2575,6 +2698,7 @@ SUnitTest FIFO_TESTS[]= {
 #define FIFO_NTESTS ARRAY_SIZE(FIFO_TESTS)
 
 SUnitTest STACK_TESTS[]= {
+  {test_stack_create, "create"},
   {test_stack_basic, "basic use"},
   {test_stack_copy, "copy"},
   {test_stack_equal, "comparison"},
