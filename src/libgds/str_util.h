@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 24/07/2003
-// @lastdate 15/01/2007
+// @lastdate 04/12/2007
 // =================================================================
 
 #ifndef __GDS_STR_UTIL_H__
@@ -37,6 +37,11 @@ extern "C" {
   char * str_nappend(char ** ppcString,
 		     const char * pcStrToAppend,
 		     size_t tLen);
+  // ----- str_prepend ----------------------------------------------
+  char * str_prepend(char ** ppcString, const char * pcStrToPrepend);
+  // ----- str_translate --------------------------------------------
+  void str_translate(char * pcString, const char * pcSrcChars,
+		     const char * pcDstChars);
 
 
   ///////////////////////////////////////////////////////////////////
