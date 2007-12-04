@@ -108,7 +108,7 @@ extern "C" {
   // ----- _array_destroy -------------------------------------------
   void _array_destroy(SArray ** ppArray);
   // ----- _array_length --------------------------------------------
-  int _array_length(SArray * pArray);
+  unsigned int _array_length(SArray * pArray);
   // ----- _array_set_length ----------------------------------------
   void _array_set_length(SArray * pArray,
 			 unsigned int uNewLength);
