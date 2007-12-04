@@ -24,6 +24,8 @@
 #define CLI_OPENING_QUOTES "\""
 #define CLI_CLOSING_QUOTES "\""
 
+static inline void _cli_cmds_set_parent(SCliCmds * pCmds,
+					SCliCmd * pParent);
 
 /////////////////////////////////////////////////////////////////////
 //
@@ -42,14 +44,13 @@ static void _cli_cmd_init(SCliCmd * pCmd)
     cli_options_init(pCmd->pOptions);
 }
 
-// ----- cli_cmd_create ---------------------------------------------
-/**
- *
- */
-SCliCmd * cli_cmd_create(char * pcName,
-			 FCliCommand fCommand,
-			 SCliCmds * pSubCmds,
-			 SCliParams * pParams)
+// -----[ _cli_cmd_create ]------------------------------------------
+static SCliCmd * _cli_cmd_create(char * pcName,
+				 FCliCommand fCommand,
+				 FCliContextCreate fCtxCreate,
+				 FCliContextDestroy fCtxDestroy,
+				 SCliCmds * pSubCmds,
+				 SCliParams * pParams)
 {
   SCliCmd * pCmd= (SCliCmd *) MALLOC(sizeof(SCliCmd));
 
@@ -58,17 +59,37 @@ SCliCmd * cli_cmd_create(char * pcName,
   pCmd->pOptions= NULL;
   pCmd->pParams= pParams;
   pCmd->pSubCmds= pSubCmds;
-  pCmd->fCtxCreate= NULL;
-  pCmd->fCtxDestroy= NULL;
+
+  pCmd->pParent= NULL;
+  pCmd->fCtxCreate= fCtxCreate;
+  pCmd->fCtxDestroy= fCtxDestroy;
   pCmd->fCommand= fCommand;
   pCmd->pcHelp= NULL;
   pCmd->pParamValues= NULL;
+
+  if (pSubCmds != NULL)
+    _cli_cmds_set_parent(pSubCmds, pCmd);
   return pCmd;
+}
+
+// ----- cli_cmd_create ---------------------------------------------
+/**
+ * Create a CLI command (executable).
+ */
+SCliCmd * cli_cmd_create(char * pcName,
+			 FCliCommand fCommand,
+			 SCliCmds * pSubCmds,
+			 SCliParams * pParams)
+{
+  return _cli_cmd_create(pcName,
+			 fCommand,
+			 NULL, NULL,
+			 pSubCmds, pParams);
 }
 
 // ----- cli_cmd_create_ctx -----------------------------------------
 /**
- *
+ * Create a CLI context command (not executable).
  */
 SCliCmd * cli_cmd_create_ctx(char * pcName,
 			     FCliContextCreate fCtxCreate,
@@ -76,24 +97,15 @@ SCliCmd * cli_cmd_create_ctx(char * pcName,
 			     SCliCmds * pSubCmds,
 			     SCliParams * pParams)
 {
-  SCliCmd * pCmd= (SCliCmd *) MALLOC(sizeof(SCliCmd));
-
-  pCmd->pcName= (char *) MALLOC(sizeof(char)*(strlen(pcName)+1));
-  strcpy(pCmd->pcName, pcName);
-  pCmd->pOptions= NULL;
-  pCmd->pParams= pParams;
-  pCmd->pSubCmds= pSubCmds;
-  pCmd->fCtxCreate= fCtxCreate;
-  pCmd->fCtxDestroy= fCtxDestroy;
-  pCmd->fCommand= NULL;
-  pCmd->pcHelp= NULL;
-  pCmd->pParamValues= NULL;
-  return pCmd;
+  return _cli_cmd_create(pcName,
+			 NULL,
+			 fCtxCreate, fCtxDestroy,
+			 pSubCmds, pParams);
 }
 
 // ----- cli_cmd_destroy --------------------------------------------
 /**
- *
+ * Destroy a CLI command.
  */
 void cli_cmd_destroy(SCliCmd ** ppCmd)
 {
@@ -154,7 +166,8 @@ void cli_cmd_dump(SLogStream * pStream, char * pcPrefix, SCliCmd * pCmd)
 // ----- _cli_cmds_item_compare -------------------------------------
 /**
  * Compare two commands based on their names. The alphanumeric
- * ordering is used for the comparison.
+ * ordering is used for the comparison. This is used for sorting
+ * commands in the CLI command tree.
  */
 static int _cli_cmds_item_compare(void * pItem1, void * pItem2,
 				  unsigned int EltSize)
@@ -201,6 +214,37 @@ void cli_cmds_destroy(SCliCmds ** ppCmds)
   ptr_array_destroy((SPtrArray **) ppCmds);
 }
 
+// ----- cli_cmds_add -----------------------------------------------
+/**
+ * Add a command (pCmd) in the list (pCmds).
+ */
+int cli_cmds_add(SCliCmds * pCmds, SCliCmd * pCmd)
+{
+  return ptr_array_add((SPtrArray *) pCmds, &pCmd);
+}
+
+// -----[ cli_cmds_get_num ]-----------------------------------------
+/**
+ * Get the number of commands.
+ */
+int cli_cmds_get_num(SCliCmds * pCmds)
+{
+  return ptr_array_length(pCmds);
+}
+
+// -----[ _cli_cmds_set_parent ]-------------------------------------
+/**
+ * Set the parent field of all the commands in this set.
+ */
+static inline void _cli_cmds_set_parent(SCliCmds * pCmds,
+					SCliCmd * pParent)
+{
+  unsigned int uIndex;
+
+  for (uIndex= 0; uIndex < cli_cmds_get_num(pCmds); uIndex++)
+    ((SCliCmd *) pCmds->data[uIndex])->pParent= pParent;
+}
+
 // ----- cli_matching_cmds ------------------------------------------
 /**
  * Create a sublist of the commands included in the list (pCmds). Only
@@ -232,15 +276,6 @@ SCliCmds * cli_matching_cmds(SCliCmds * pCmds, const char * pcText)
   return pMatchingCmds;
 }
 
-
-// ----- cli_cmds_add -----------------------------------------------
-/**
- * Add a command (pCmd) in the list (pCmds).
- */
-int cli_cmds_add(SCliCmds * pCmds, SCliCmd * pCmd)
-{
-  return ptr_array_add((SPtrArray *) pCmds, &pCmd);
-}
 
 // ----- cli_cmd_find_submd -----------------------------------------
 /**
@@ -285,6 +320,7 @@ int cli_cmd_add_subcmd(SCliCmd * pCmd, SCliCmd * pSubCmd)
 {
   if (pCmd->pSubCmds == NULL)
     pCmd->pSubCmds= cli_cmds_create();
+  pSubCmd->pParent= pCmd;
   return cli_cmds_add(pCmd->pSubCmds, pSubCmd);
 }
 
