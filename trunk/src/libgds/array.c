@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 10/04/2003
-// @lastdate 19/03/2007
+// @lastdate 04/12/2007
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -127,7 +127,7 @@ static void _array_resize_if_required(SArray * pArray,
 /**
  * Return the length of the array.
  */
-int _array_length(SArray * pArray)
+unsigned int _array_length(SArray * pArray)
 {
   return ((SRealArray *) pArray)->uLength;
 }
