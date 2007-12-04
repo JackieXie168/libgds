@@ -141,9 +141,9 @@ check_project_version()
     if [ ! -z "$LIBRARY_VERSION" ]; then
 	info "Checking project/library versions..."
 	echo "  library: $LIBRARY_VERSION"
-	local PROJECT_VERSION_SHORT=`echo "$PROJECT_VERSION" | sed 's:^\([0-9]*\.[0-9]*\).*$:\1:'`
-	echo "  project: $PROJECT_VERSION_SHORT"
-	if [ "$PROJECT_VERSION_SHORT" != "$LIBRARY_VERSION" ]; then
+	#local PROJECT_VERSION_SHORT=`echo "$PROJECT_VERSION" | sed 's:^\([0-9]*\.[0-9]*\).*$:\1:'`
+	echo "  project: $PROJECT_VERSION"
+	if [ "$PROJECT_VERSION" != "$LIBRARY_VERSION" ]; then
 	    error "project/library versions mismatch."
 	fi
     fi
