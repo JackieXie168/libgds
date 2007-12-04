@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 24/07/2003
-// @lastdate 15/01/2007
+// @lastdate 04/12/2007
 // =================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -39,33 +39,63 @@ char * strsep(char ** ppcStr, const char * pcDelim)
 
 // ----- str_lcreate ------------------------------------------------
 /**
+ * Create a string of the given size (+ NUL-termination).
  *
+ * Pre: tLen >= 0
+ *
+ * Post: (result != NULL) && (result NUL-terminated)
  */
 char * str_lcreate(size_t tLen)
 {
-  return (char *) MALLOC(sizeof(char)*(tLen+1));
+  char * pcNewString= (char *) MALLOC(sizeof(char)*(tLen+1));
+  *pcNewString= '\0';
+  return pcNewString;
 }
 
 // ----- str_create -------------------------------------------------
 /**
+ * Create a copy of the given string. If the source string is NULL,
+ * the resulting string will be an empty, NUL-terminated string.
  *
+ * Pre: (pcString == NULL) || (pcString NUL-terminated)
+ * 
+ * Post: (result != NULL) && (result NUL-terminated)
  */
 char * str_create(const char * pcString)
 {
-  char * pcNewString= str_lcreate(strlen(pcString));
-  strcpy(pcNewString, pcString);
-  return pcNewString;
+  char * pcNewString;
+
+  if (pcString != NULL) {
+    pcNewString= str_lcreate(strlen(pcString));
+    strcpy(pcNewString, pcString);
+    return pcNewString;
+  } else
+    return str_lcreate(0);
 }
 
 // ----- str_ncreate ------------------------------------------------
 /**
+ * Create a copy of the given string with at most the given number of
+ * characters (resulting string buffer will be of size len+1).
  *
+ * Pre: (tLen >= 0) && ((pcString == NULL) || (pcString NUL-terminated))
+ *
+ * Post:(result != NULL) && (result NUL-terminated)
  */
 char * str_ncreate(const char * pcString, size_t tLen)
 {
-  char * pcNewString= str_lcreate(tLen+1);
-  strncpy(pcNewString, pcString, tLen);
-  pcNewString[tLen]= '\0';
+  char * pcNewString= NULL;
+
+  if ((pcString != NULL) && (tLen > 0)) {
+    pcNewString= str_lcreate(tLen+1);
+    strncpy(pcNewString, pcString, tLen);
+
+    // strncpy() does not guarantee to NUL-terminate the string. We
+    // have to this explicitly.
+    pcNewString[tLen]= '\0';
+  } else
+    pcNewString= str_lcreate(0);
+
   return pcNewString;
 }
 
@@ -81,7 +111,9 @@ char * str_lextend(char ** ppcString, size_t tNewLen)
 
 // ----- str_destroy ------------------------------------------------
 /**
+ * Free the given string.
  *
+ * Post: *ppcString == NULL
  */
 void str_destroy(char ** ppcString)
 {
@@ -93,18 +125,26 @@ void str_destroy(char ** ppcString)
 
 // ----- str_append -------------------------------------------------
 /**
- * PRE: ppcString initialized (allocated) && (pStrToAppend != NULL)
- * POST: ppcString updated with new string. New string also returned.
+ * Append a string to another.
+ *
+ * Pre:
+ *   *ppcString is valid and NUL-terminated
+ *   pcToAppend can be NULL
+ *
+ * Post: (result != NULL) && (result NUL-terminated)
  */
-char * str_append(char ** ppcString, const char * pcStrToAppend)
+char * str_append(char ** ppcString, const char * pcToAppend)
 {
-  size_t tLenToAppend= strlen(pcStrToAppend);
+  size_t tLenToAppend= 0;
+  size_t tLen;
+
+  if (pcToAppend != NULL)
+    tLenToAppend= strlen(pcToAppend);
 
   if (tLenToAppend > 0) {
-    *ppcString= str_lextend(ppcString, strlen(*ppcString)+tLenToAppend);
-    // The following line is not the most efficient since I guess it
-    // has to recompute the length of *ppcString before appending !!!
-    strcat(*ppcString, pcStrToAppend);
+    tLen= strlen(*ppcString);
+    *ppcString= str_lextend(ppcString, tLen+tLenToAppend);
+    strcpy((*ppcString)+tLen, pcToAppend);
   }
   return *ppcString;
 }
@@ -124,6 +164,60 @@ char * str_nappend(char ** ppcString, const char * pcStrToAppend,
     (*ppcString)[strlen(*ppcString)+tLen]= '\0';
   }
   return *ppcString;
+}
+
+// ----- str_prepend ------------------------------------------------
+/**
+ * Prepend a string with another.
+ *
+ * Pre:
+ *   pcString is valid and NUL-terminated
+ *   pcToPrepend can be NULL
+ *
+ * Post: (return != NULL) && (return NUL-terminated)
+ */
+char * str_prepend(char ** ppcString, const char * pcToPrepend)
+{
+  size_t tLenToPrepend= 0;
+  size_t tLen;
+  char * pcNewString;
+
+  if (pcToPrepend != NULL)
+    tLenToPrepend= strlen(pcToPrepend);
+
+  if (tLenToPrepend > 0) {
+    tLen= strlen(*ppcString);
+    pcNewString= str_ncreate(pcToPrepend, tLen+tLenToPrepend);
+    // The following line is not the most efficient since I guess it
+    // has to recompute the length of *ppcString before appending !!!
+    strcat(pcNewString, *ppcString);
+    *ppcString= pcNewString;
+  }
+  return *ppcString;
+}
+
+// ----- str_translate ----------------------------------------------
+/**
+ * Translate the characters in the string.
+ *
+ * Pre:
+ *   - all input strings are valid and NUL-terminated
+ *   - the length of both characters sets are equal
+ */
+void str_translate(char * pcString, const char * pcSrcChars,
+		   const char * pcDstChars)
+{
+  char * pcCharPos;
+  char * pcStrPos= pcString;
+
+  while (*pcStrPos != 0) {
+    pcCharPos= strchr(pcSrcChars, *pcStrPos);
+    if (pcCharPos != NULL) {
+      pcCharPos+= pcDstChars-pcSrcChars;
+      *pcStrPos= *pcCharPos;
+    }
+    pcStrPos++;
+  }
 }
 
 // ----- str_as_long ------------------------------------------------
