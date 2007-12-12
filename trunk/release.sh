@@ -39,7 +39,7 @@ RELEASE_VERSION=4
 # BUILD_VERSION (mandatory)
 #   is the build number
 #
-BUILD_VERSION=2
+BUILD_VERSION=4
 #
 # LIBRARY_VERSION (optional)
 #   is the library version
@@ -61,6 +61,11 @@ CONF_OPTIONS[0]=""
 #   is a set of common configure options
 #                            
 CONF_OPTIONS_COMMON=
+#
+# BUILDROOT (mandatory)
+#   location where package will be extracted/built/tested
+#
+BUILDROOT="/tmp"
 #
 # VALID_EXEC (optional)
 #   is the name of a command used to validate the project.
