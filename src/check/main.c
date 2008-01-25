@@ -298,7 +298,7 @@ int test_strutils_convert_double()
 /////////////////////////////////////////////////////////////////////
 
 #define FIFO_NITEMS 5
-int FIFO_ITEMS[FIFO_NITEMS];
+size_t FIFO_ITEMS[FIFO_NITEMS];
 
 // -----[ test_fifo_init ]-------------------------------------------
 int test_fifo_init()
@@ -346,7 +346,7 @@ int test_fifo_basic()
 
   // Pop data
   for (uIndex= 0; uIndex < FIFO_NITEMS; uIndex++) {
-    ASSERT_RETURN((int) fifo_pop(pFIFO)
+    ASSERT_RETURN((size_t) fifo_pop(pFIFO)
 		  == FIFO_ITEMS[uIndex],
 		  "incorrect value pop'ed");
   }
@@ -395,7 +395,7 @@ int test_fifo_grow()
 /////////////////////////////////////////////////////////////////////
 
 #define STACK_NITEMS 5
-int STACK_ITEMS[STACK_NITEMS];
+size_t STACK_ITEMS[STACK_NITEMS];
 
 // -----[ _test_stack_init ]-----------------------------------------
 static int _test_stack_init()
@@ -450,7 +450,7 @@ static int test_stack_basic()
 
   // Pop data from stack
   for (uIndex= 0; uIndex < STACK_NITEMS; uIndex++) {
-    ASSERT_RETURN((int) stack_pop(pStack)
+    ASSERT_RETURN((size_t) stack_pop(pStack)
 		  == STACK_ITEMS[STACK_NITEMS-uIndex-1],
 		  "incorrect value pop'ed");
   }  
@@ -495,7 +495,7 @@ int test_stack_equal()
   if (pStack2->apItems[0] == 0)
     pStack2->apItems[0]= (void *) 1;
   else
-    pStack2->apItems[0]= (void *) ((int) pStack2->apItems[0]) - 1;
+    pStack2->apItems[0]= (void *) ((size_t) pStack2->apItems[0]) - 1;
   ASSERT_RETURN(stack_equal(pStack1, pStack2) == 0, "stacks should not be equal");
   return UTEST_SUCCESS;
 }
@@ -969,7 +969,7 @@ int test_ptr_array()
 /////////////////////////////////////////////////////////////////////
 
 #define LIST_NITEMS 1024
-int LIST_ITEMS[LIST_NITEMS];
+size_t LIST_ITEMS[LIST_NITEMS];
 
 // -----[ test_list_init ]-------------------------------------------
 int test_list_init()
@@ -1011,9 +1011,9 @@ int test_list_basic()
   // Get content
   for (uIndex= 0; uIndex < LIST_NITEMS; uIndex++) {
     pData= list_get_index(pList, uIndex);
-    ASSERT_RETURN(pData == (void *) uIndex,
+    ASSERT_RETURN((size_t) pData == uIndex,
 		  "incorrect value for list_get_index() %d=>%d",
-		  (int) pData, uIndex);
+		  (size_t) pData, uIndex);
   }
 
   list_destroy(&pList);
@@ -1032,7 +1032,7 @@ static int _test_dllist_for_each(void * pUserData, void * pContext)
 }
 
 #define DLLIST_NUM_ITEMS 1024
-int DLLIST_ITEMS[DLLIST_NUM_ITEMS];
+size_t DLLIST_ITEMS[DLLIST_NUM_ITEMS];
 
 // -----[ test_dllist_init ]---------------------------------------
 int test_dllist_init()
@@ -1539,7 +1539,7 @@ void dump_best(STrie * pTrie, trie_key_t uKey, trie_key_len_t uKeyLen)
 
 STrie * pTrie= NULL;
 #define PATRICIA_NITEMS 9
-long PATRICIA_ITEMS[PATRICIA_NITEMS][4]=  {
+size_t PATRICIA_ITEMS[PATRICIA_NITEMS][4]=  {
   {IPV4_TO_INT(0, 128, 0, 0), 16, 100, 0},
   {IPV4_TO_INT(0, 192, 0, 0), 15, 200, 0},
   {IPV4_TO_INT(0, 0, 0, 0), 16, 1, 0},
@@ -1617,12 +1617,12 @@ int test_patricia_exact()
   for (uIndex= 0; uIndex < PATRICIA_NITEMS; uIndex++) {
     pData= trie_find_exact(pTrie, PATRICIA_ITEMS[uIndex][0],
 			   PATRICIA_ITEMS[uIndex][1]);
-    ASSERT_RETURN((int) pData == PATRICIA_ITEMS[uIndex][2],
+    ASSERT_RETURN((size_t) pData == PATRICIA_ITEMS[uIndex][2],
 		  "exact match failed for %d/%d/%d => %d",
 		  PATRICIA_ITEMS[uIndex][0],
 		  PATRICIA_ITEMS[uIndex][1],
 		  PATRICIA_ITEMS[uIndex][2],
-		  (int) pData);
+		  (size_t) pData);
   }
 
   return UTEST_SUCCESS;
@@ -1657,7 +1657,7 @@ int test_patricia_best()
       uNewKeyLen= uKeyLen+1;
       uNewKey= uKey|(1 << (31-uKeyLen));
       if (trie_find_exact(pTrie, uNewKey, uNewKeyLen) == NULL) {
-	ASSERT_RETURN((int) trie_find_best(pTrie, uNewKey, uNewKeyLen)
+	ASSERT_RETURN((size_t) trie_find_best(pTrie, uNewKey, uNewKeyLen)
 		      == PATRICIA_ITEMS[uIndex][2],
 		      "best-match failed for %d/%d (more specific than %d/%d)",
 		      uNewKey, uNewKeyLen, uKey, uKeyLen);
@@ -1665,7 +1665,7 @@ int test_patricia_best()
       }
       uNewKey= uKey & ~(1 << (31-uKeyLen));
       if (trie_find_exact(pTrie, uNewKey, uNewKeyLen) == NULL) {
-	ASSERT_RETURN((int) trie_find_best(pTrie, uNewKey, uNewKeyLen)
+	ASSERT_RETURN((size_t) trie_find_best(pTrie, uNewKey, uNewKeyLen)
 		      == PATRICIA_ITEMS[uIndex][2],
 		      "best-match failed for %d/%d (more specific than %d/%d)",
 		      uNewKey, uNewKeyLen, uKey, uKeyLen);
@@ -1688,7 +1688,7 @@ int test_patricia_update()
   // Check that inserting an already existing value is refused
   ASSERT_RETURN(trie_insert(pTrie, uKey, uKeyLen, pData) == 0,
 		"did not refuse to update existing value %d/%d/%d",
-		uKey, uKeyLen, (int) pData);
+		uKey, uKeyLen, (size_t) pData);
   // Use replace instead
   /*ASSERT_RETURN(trie_replace(pTrie, uKey, uKeyLen, pData) == 0,
 		"could not update %d/%d/%d",
@@ -1696,7 +1696,7 @@ int test_patricia_update()
   pTemp= trie_find_exact(pTrie, uKey, uKeyLen);
   ASSERT_RETURN(pData == pTemp,
 		"exact-match failed %d/%d/%d => %d",
-		uKey, uKeyLen, (int) pData, (int) pTemp);
+		uKey, uKeyLen, (size_t) pData, (size_t) pTemp);
 
   return UTEST_SUCCESS;
 }
@@ -1712,11 +1712,11 @@ int test_patricia_replace()
   // Check that replacing an unexisting value is refused
   ASSERT_RETURN(trie_replace(pTrie, uKey, uKeyLen, pData) != 0,
 		"did not refuse to replace an un-existing value %d/%d/%d",
-		uKey, uKeyLen, (int) pData);
+		uKey, uKeyLen, (size_t) pData);
   pTemp= trie_find_exact(pTrie, uKey, uKeyLen);
   ASSERT_RETURN(pData == pTemp,
 		"exact-match failed %d/%d/%d => %d",
-		uKey, uKeyLen, (int) pData, (int) pTemp);
+		uKey, uKeyLen, (size_t) pData, (size_t) pTemp);
 
   return UTEST_SUCCESS;
 }
@@ -2053,10 +2053,10 @@ int test_cli_context()
 
 typedef struct _HashItem {
   uint32_t uNbr;
-}SHashItem;
+} SHashItem;
 
 // -----[ _hash_cmp ]------------------------------------------------
-int _hash_cmp(void * pElt1, void * pElt2, unsigned int uEltSize)
+static int _hash_cmp(void * pElt1, void * pElt2, unsigned int uEltSize)
 {
   SHashItem * pItem1 = (SHashItem *)pElt1;
   SHashItem * pItem2 = (SHashItem *)pElt2;
@@ -2070,7 +2070,7 @@ int _hash_cmp(void * pElt1, void * pElt2, unsigned int uEltSize)
 }
 
 // -----[ _hash_destroy ]-------------------------------------------
-void _hash_destroy(void * pElt)
+static void _hash_destroy(void * pElt)
 {
   SHashItem * pItem = (SHashItem *)pElt;
   
@@ -2081,7 +2081,7 @@ void _hash_destroy(void * pElt)
 
 
 // -----[ _hash_fct ]------------------------------------------------
-uint32_t _hash_fct(const void * pElt, const uint32_t uHashSize)
+static uint32_t _hash_fct(const void * pElt, const uint32_t uHashSize)
 {
   SHashItem * pItem = (SHashItem *)pElt;
 
@@ -2089,11 +2089,11 @@ uint32_t _hash_fct(const void * pElt, const uint32_t uHashSize)
 }
 
 // -----[ _hash_for_each ]-------------------------------------------
-int _hash_for_each(void * pElt, void * pContext)
+/*static int _hash_for_each(void * pElt, void * pContext)
 {
-  fprintf(stderr, "for-each-item: %d\n", (unsigned int) pElt);
+  //fprintf(stderr, "for-each-item: %d\n", (size_t) pElt);
   return 0;
-}
+  }*/
 
 //
 int test_hash_creation_destruction()
