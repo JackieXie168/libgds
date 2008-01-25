@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 04/01/2007
-// @lastdate 04/01/2007
+// @lastdate 20/12/2007
 // ==================================================================
 
 #ifndef __LIBGDS_MEMODY_DEBUG_H__
@@ -18,24 +18,27 @@
 				    list) */
 #define MEM_FLAG_TRACK_LEAK 0x02
 
-// -----[ memory_debug_track_alloc ]---------------------------------
-extern inline void memory_debug_track_alloc(void * pNewPtr,
-					    size_t size,
-					    char * pcFileName,
-					    int iLineNumber);
-// -----[ memory_debug_track_realloc ]-------------------------------
-extern inline void memory_debug_track_realloc(void * pNewPtr,
-					      void * pPtr,
-					      size_t size,
-					      char * pcFileName,
-					      int iLineNumber);
-// -----[ memory_debug_track_free ]----------------------------------
-extern inline void memory_debug_track_free(void * pPtr,
-					   char * pcFileName,
-					   int iLineNumber);
-// -----[ memory_debug_init ]----------------------------------------
-extern void memory_debug_init(int iTrack);
-// -----[ memory_debug_destroy ]-------------------------------------
-extern void memory_debug_destroy();
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+  // -----[ memory_debug_track_alloc ]-------------------------------
+  void memory_debug_track_alloc(void * pNewPtr, size_t size,
+				char * pcFileName, int iLineNumber);
+  // -----[ memory_debug_track_realloc ]-----------------------------
+  void memory_debug_track_realloc(void * pNewPtr, void * pPtr,
+				  size_t size, char * pcFileName,
+				  int iLineNumber);
+  // -----[ memory_debug_track_free ]--------------------------------
+  void memory_debug_track_free(void * pPtr, char * pcFileName,
+			       int iLineNumber);
+  // -----[ memory_debug_init ]--------------------------------------
+  void memory_debug_init(int iTrack);
+  // -----[ memory_debug_destroy ]-----------------------------------
+  void memory_debug_destroy();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __LIBGDS_MEMORY_DEBUG_H__ */

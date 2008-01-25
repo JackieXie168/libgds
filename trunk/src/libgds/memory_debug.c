@@ -4,7 +4,7 @@
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 17/05/2005
-// @lastdate 04/01/2007
+// @lastdate 20/12/2007
 // ==================================================================
 // Implementation of a kind of garbage collector to detect the origin
 // of some memory bugs. It can be used to debug two types of memory
@@ -101,10 +101,10 @@ static void _mem_dbg_alloc_for_each(void * pItem, void * pContext)
 }
 
 // -----[ memory_debug_track_alloc ]---------------------------------
-inline void memory_debug_track_alloc(void * pNewPtr,
-				     size_t size,
-				     char * pcFileName,
-				     int iLineNumber)
+void memory_debug_track_alloc(void * pNewPtr,
+			      size_t size,
+			      char * pcFileName,
+			      int iLineNumber)
 {
   SMemAlloc * pAlloc = NULL;
 
@@ -122,11 +122,11 @@ inline void memory_debug_track_alloc(void * pNewPtr,
 }
 
 // -----[ memory_debug_track_realloc ]-------------------------------
-inline void memory_debug_track_realloc(void * pNewPtr,
-				       void * pPtr,
-				       size_t size,
-				       char * pcFileName,
-				       int iLineNumber)
+void memory_debug_track_realloc(void * pNewPtr,
+				void * pPtr,
+				size_t size,
+				char * pcFileName,
+				int iLineNumber)
 {
   SMemAlloc * pAlloc = NULL, * pAllocSearched = NULL;
   int iIndex = 0;
@@ -161,9 +161,9 @@ inline void memory_debug_track_realloc(void * pNewPtr,
 }
 
 // -----[ memory_debug_track_free ]----------------------------------
-inline void memory_debug_track_free(void * pPtr,
-				    char * pcFileName,
-				    int iLineNumber)
+void memory_debug_track_free(void * pPtr,
+			     char * pcFileName,
+			     int iLineNumber)
 {
   SMemAlloc * pAlloc = NULL, * pAllocSearched = NULL;
   int iIndex = 0;
