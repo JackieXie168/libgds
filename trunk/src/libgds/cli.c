@@ -953,7 +953,7 @@ int cli_execute_file(SCli * pCli, FILE * pStream)
 
     iResult= cli_execute_line(pCli, acLine);
     if (iResult < 0) {
-      log_printf(pLogErr, "Error: in script file, line %d\n",
+      log_printf(pLogErr, "*** in script file, line %d\n",
 		 pCli->sErrorDetails.iLineNumber);
 
       // In case of error, we call the exit-on-error function (if
@@ -1010,7 +1010,7 @@ int cli_get_error_details(SCli * pCli, SCliErrorDetails * psDetails)
 void cli_set_user_error(SCli * pCli, char * pcFormat, ...)
 {
 #define CLI_USER_ERROR_BUFFER_SIZE 1000
-  static char acBuffer[CLI_USER_ERROR_BUFFER_SIZE];
+  char acBuffer[CLI_USER_ERROR_BUFFER_SIZE];
   va_list ap;
 
   if (pCli->sErrorDetails.pcUserError != NULL) {
