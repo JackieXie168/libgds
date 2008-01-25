@@ -517,14 +517,3 @@ SEnumerator * _array_get_enum(SArray * pArray)
 }
 
 
-#define ARRAY_DESTROY_TEMPLATE(P, T) \
-inline void P##_array_destroy(T ** ppArray) { \
-  _array_destroy((SArray **) ppArray); }
-
-ARRAY_DESTROY_TEMPLATE(double, SDoubleArray)
-ARRAY_DESTROY_TEMPLATE(int, SIntArray)
-ARRAY_DESTROY_TEMPLATE(ptr, SPtrArray)
-ARRAY_DESTROY_TEMPLATE(uint16, SUInt16Array)
-ARRAY_DESTROY_TEMPLATE(uint32, SUInt32Array)
-
-#undef ARRAY_DESTROY_TEMPLATE
