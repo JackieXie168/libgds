@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 10/04/2003
-// @lastdate 19/03/2007
+// @lastdate 20/12/2007
 // ==================================================================
 
 #ifndef __ARRAY_H__
@@ -153,8 +153,9 @@ extern "C" {
 }
 #endif
 
-#define ARRAY_DESTROY_TEMPLATE(P, T)		\
-inline void P##_array_destroy(T ** ppArray);
+#define ARRAY_DESTROY_TEMPLATE(P, T) \
+inline static void P##_array_destroy(T ** ppArray) { \
+  _array_destroy((SArray **) ppArray); }
 
 ARRAY_DESTROY_TEMPLATE(double, SDoubleArray)
 ARRAY_DESTROY_TEMPLATE(int, SIntArray)
