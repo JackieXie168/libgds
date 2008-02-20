@@ -84,7 +84,7 @@ static void _mem_dbg_alloc_destroy(void ** pItem)
   }
 }
 
-// -----[ _mem_dbg_allow_dor_each ]----------------------------------
+// -----[ _mem_dbg_alloc_for_each ]----------------------------------
 static void _mem_dbg_alloc_for_each(void * pItem, void * pContext)
 {
   SMemAlloc * pAlloc = (SMemAlloc *)pItem;
