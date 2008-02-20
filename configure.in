@@ -1,11 +1,11 @@
 dnl =================================================================
 dnl configure.in for libgds
 dnl
-dnl @author Bruno Quoitin (bqu@info.ucl.ac.be)
-dnl @version 2007-04-07
+dnl @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
+dnl @version 2008-02-20
 dnl =================================================================
 
-AC_INIT([libgds], [1.4.4])
+AC_INIT([libgds], [1.4.5])
 AC_CONFIG_SRCDIR(src/libgds/fifo.h)
 AC_PREREQ(2.57)
 AC_PREFIX_DEFAULT(/usr/local)
@@ -19,7 +19,8 @@ dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_INSTALL
 
-CFLAGS="-Wall -Werror -O2 --std=gnu99 $CFLAGS"
+CFLAGS="-Wall -O2 --std=gnu99 $CFLAGS"
+#CFLAGS="-Wall -Werror -O2 --std=gnu99 $CFLAGS"
 
 dnl GNU package
 AC_DEFINE([_GNU_SOURCE], 1,
@@ -35,7 +36,7 @@ AC_TYPE_SIZE_T
 
 dnl Now arrange the build libtool
 AC_PROG_LIBTOOL
-AC_SUBST(LIBGDS_LT_RELEASE, [1.4.4])
+AC_SUBST(LIBGDS_LT_RELEASE, [1.4.5])
 
 AC_CHECK_FUNCS(strcspn strsep strdup)
 
