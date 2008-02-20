@@ -4,12 +4,17 @@
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 03/12/2004
-// @lastdate 18/07/2007
+// @lastdate 31/01/2008
 // ==================================================================
 
-/* This code implements a hash table structure. We can insert same 
- * elements as many as it is needed. It is managed with a reference 
- * counter.
+/**
+ * This code implements a hash table structure. The hash table is
+ * implemented using a dynamic array. Each array cell can contain a
+ * sorted list of elements to manage collisions.
+ *
+ * The same element can be inserted as many times as needed. Each
+ * element is associated with a reference counter. An element is
+ * freed as soon as its reference counter drops to 0.
  */
 
 #include <assert.h>
@@ -500,15 +505,15 @@ void hash_dump(const SHash * pHash)
   SHashElt * pHashElt;
 
   fprintf(stderr, "**********************************\n");
-  fprintf(stderr, "hash-size: %d\n", pHash->uHashSize);
+  fprintf(stderr, "hash-size: %u\n", pHash->uHashSize);
   for (uHashKey= 0; uHashKey < pHash->uHashSize; uHashKey++) {
     pHashItems= pHash->aHash[uHashKey];
     if (pHashItems != NULL) {
-      fprintf(stderr, "->key:%d (%d)\n", uHashKey, ptr_array_length(pHashItems));
+      fprintf(stderr, "->key:%d (%u)\n", uHashKey, ptr_array_length(pHashItems));
       for (uIndex= 0; uIndex < ptr_array_length(pHashItems); uIndex++) {
 	pHashElt= (SHashElt *) pHashItems->data[uIndex];
 	pItem= pHashElt->pElt;
-	fprintf(stderr, "  [%d]: (%p) refcnt:%d\n", uIndex, pItem, pHashElt->uRef);
+	fprintf(stderr, "  [%u]: (%p) refcnt:%u\n", uIndex, pItem, pHashElt->uRef);
       }
     }
   }
