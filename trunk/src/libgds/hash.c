@@ -426,7 +426,7 @@ int hash_del(hash_t * hash, void * item)
  *   0 if the element does not exist
  *   reference counter otherwise
  */
-uint32_t hash_get_refcnt(const hash_t * hash, void * item)
+unsigned int hash_get_refcnt(const hash_t * hash, void * item)
 {
   unsigned int index;
   SPtrArray * pHashItems;
@@ -511,7 +511,7 @@ void hash_dump(const hash_t * hash)
   for (key= 0; key < hash->size; key++) {
     pHashItems= hash->items[key];
     if (pHashItems != NULL) {
-      fprintf(stderr, "->key:%d (%u)\n", key, ptr_array_length(pHashItems));
+      fprintf(stderr, "->key:%u (%u)\n", (unsigned int) key, ptr_array_length(pHashItems));
       for (index= 0; index < ptr_array_length(pHashItems); index++) {
 	elt= (hash_elt_t *) pHashItems->data[index];
 	fprintf(stderr, "  [%u]: (%p) refcnt:%u\n",
