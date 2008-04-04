@@ -612,7 +612,7 @@ int test_array_access()
 // -----[ test_array_enum ]------------------------------------------
 int test_array_enum()
 {
-  SEnumerator * pEnum= _array_get_enum((SArray *) pArray);
+  enum_t * pEnum= _array_get_enum((SArray *) pArray);
   int * piData;
   unsigned int uIndex;
 
@@ -1770,7 +1770,7 @@ int test_patricia_remove()
 // -----[ test_patricia_enum ]---------------------------------------
 int test_patricia_enum()
 {
-  SEnumerator * pEnum;
+  enum_t * pEnum;
   void * pData;
 
   pEnum= trie_get_enum(pTrie);
@@ -2098,7 +2098,7 @@ static uint32_t _hash_fct(const void * pElt, const uint32_t uHashSize)
 //
 int test_hash_creation_destruction()
 {
-  SHash * pHash;
+  hash_t* pHash;
 
   pHash= hash_init(6, 0, _hash_cmp, _hash_destroy, _hash_fct);
   ASSERT_RETURN(pHash, "hash can't be created");
@@ -2114,7 +2114,7 @@ int test_hash_creation_destruction()
 
 int test_hash_insertion_search_deletion()
 {
-  SHash * pHash;
+  hash_t* pHash;
   uint32_t uNbr;
   SHashItem * pItem;
 
@@ -2174,7 +2174,7 @@ int test_hash_insertion_search_deletion()
 
 int test_hash_reference()
 {
-  SHash * pHash;
+  hash_t* pHash;
   uint32_t uNbr, uCpt;
   SHashItem * pItem;
 
@@ -2252,8 +2252,8 @@ int test_hash_done()
 int test_hash_old()
 {
   /*
-  SHash * pHash;
-  SEnumerator * pEnum;
+  hash_t* pHash;
+  enum_t * pEnum;
   uint32_t uNbr;
   
   // static mode
@@ -2325,7 +2325,7 @@ int test_hash_for_each()
 int test_hash_enum()
 {
   /*
-  SEnumerator * pEnum;
+  enum_t * pEnum;
 
   pEnum= hash_get_enum(pHash);
   while (enum_has_next(pEnum)) {
@@ -2675,7 +2675,7 @@ int test_bloom_filter_binary_operations()
 // -----[ definition of suite of tests ]-----------------------------
 #define ARRAY_SIZE(A) sizeof(A)/sizeof(A[0])
 
-SUnitTest STRUTILS_TESTS[]= {
+unit_test_t STRUTILS_TESTS[]= {
   {test_strutils_create, "create"},
   {test_strutils_create_null, "create (null)"},
   {test_strutils_lcreate, "lcreate"},
@@ -2691,13 +2691,13 @@ SUnitTest STRUTILS_TESTS[]= {
 };
 #define STRUTILS_NTESTS ARRAY_SIZE(STRUTILS_TESTS)
 
-SUnitTest FIFO_TESTS[]= {
+unit_test_t FIFO_TESTS[]= {
   {test_fifo_basic, "basic use"},
   {test_fifo_grow, "growable"},
 };
 #define FIFO_NTESTS ARRAY_SIZE(FIFO_TESTS)
 
-SUnitTest STACK_TESTS[]= {
+unit_test_t STACK_TESTS[]= {
   {test_stack_create, "create"},
   {test_stack_basic, "basic use"},
   {test_stack_copy, "copy"},
@@ -2705,7 +2705,7 @@ SUnitTest STACK_TESTS[]= {
 };
 #define STACK_NTESTS ARRAY_SIZE(STACK_TESTS)
 
-SUnitTest ARRAY_TESTS[]= {
+unit_test_t ARRAY_TESTS[]= {
   {test_array_basic, "basic use"},
   {test_array_access, "access"},
   {test_array_enum, "enum"},
@@ -2719,12 +2719,12 @@ SUnitTest ARRAY_TESTS[]= {
 };
 #define ARRAY_NTESTS ARRAY_SIZE(ARRAY_TESTS)
 
-SUnitTest PTRARRAY_TESTS[]= {
+unit_test_t PTRARRAY_TESTS[]= {
   {test_ptr_array, "basic use"},
 };
 #define PTRARRAY_NTESTS ARRAY_SIZE(PTRARRAY_TESTS)
 
-SUnitTest TOKENIZER_TESTS[]= {
+unit_test_t TOKENIZER_TESTS[]= {
   {test_tokenizer_basic, "basic use"},
   {test_tokenizer_quotes, "quotes"},
   {test_tokenizer_quotes2, "quotes (2)"},
@@ -2734,7 +2734,7 @@ SUnitTest TOKENIZER_TESTS[]= {
 };
 #define TOKENIZER_NTESTS ARRAY_SIZE(TOKENIZER_TESTS)
 
-SUnitTest CLI_TESTS[]= {
+unit_test_t CLI_TESTS[]= {
   {test_cli_basic, "basic use"},
   {test_cli_options, "options"},
   {test_cli_varargs, "varargs"},
@@ -2742,7 +2742,7 @@ SUnitTest CLI_TESTS[]= {
 };
 #define CLI_NTESTS ARRAY_SIZE(CLI_TESTS)
 
-SUnitTest PATRICIA_TESTS[]= {
+unit_test_t PATRICIA_TESTS[]= {
   {test_patricia_insertion, "insertion"},
   {test_patricia_masking, "masking"},
   {test_patricia_exact, "exact-match"},
@@ -2754,18 +2754,18 @@ SUnitTest PATRICIA_TESTS[]= {
 };
 #define PATRICIA_NTESTS ARRAY_SIZE(PATRICIA_TESTS)
 
-SUnitTest ASSOC_TESTS[]= {
+unit_test_t ASSOC_TESTS[]= {
   {test_assoc_basic, "basic use"},
   {test_assoc_for_each, "for-each"},
 };
 #define ASSOC_NTESTS ARRAY_SIZE(ASSOC_TESTS)
 
-SUnitTest DLLIST_TESTS[]= {
+unit_test_t DLLIST_TESTS[]= {
   {test_dllist_basic, "basic use"},  
 };
 #define DLLIST_NTESTS ARRAY_SIZE(DLLIST_TESTS)
 
-SUnitTest HASH_TESTS[]= {
+unit_test_t HASH_TESTS[]= {
   {test_hash_creation_destruction, "creation/destruction"},
   {test_hash_insertion_search_deletion, "insertion/deletion" },
   {test_hash_reference, "references/unreferences" },
@@ -2775,12 +2775,12 @@ SUnitTest HASH_TESTS[]= {
 };
 #define HASH_NTESTS ARRAY_SIZE(HASH_TESTS)
 
-SUnitTest LIST_TESTS[]= {
+unit_test_t LIST_TESTS[]= {
   {test_list_basic, "basic use"},
 };
 #define LIST_NTESTS ARRAY_SIZE(LIST_TESTS)
 
-SUnitTest RADIX_TESTS[]= {
+unit_test_t RADIX_TESTS[]= {
   {test_radix_basic, "basic use"},
   {test_radix_old, "old test"},
   {test_radix_old_ipv4, "old IPv4 test"},
@@ -2789,7 +2789,7 @@ SUnitTest RADIX_TESTS[]= {
 };
 #define RADIX_NTESTS ARRAY_SIZE(RADIX_TESTS)
 
-SUnitTest BIT_VECTOR_TESTS[] = {
+unit_test_t BIT_VECTOR_TESTS[] = {
   { test_bit_vector_creation_destruction, "creation/destruction" },
   { test_bit_vector_representation,	  "to_string/from_string" },
   { test_bit_vector_manipulations,	  "set/unset/get" },
@@ -2798,13 +2798,13 @@ SUnitTest BIT_VECTOR_TESTS[] = {
 };
 #define BIT_VECTOR_NTESTS ARRAY_SIZE(BIT_VECTOR_TESTS)
 
-SUnitTest BLOOM_HASH_TESTS[] = {
+unit_test_t BLOOM_HASH_TESTS[] = {
   { test_bloom_hash_creation_destruction, "creation/destruction" },
   { test_bloom_hash_insertion,		  "insertion" }
 };
 #define BLOOM_HASH_NTESTS ARRAY_SIZE(BLOOM_HASH_TESTS)
 
-SUnitTest BLOOM_FILTER_TESTS[] = {
+unit_test_t BLOOM_FILTER_TESTS[] = {
   { test_bloom_filter_creation_destruction, "creation/destruction" },
   { test_bloom_filter_insertion,	    "insertion" },
   { test_bloom_filter_membership,	    "membership" },
@@ -2812,7 +2812,7 @@ SUnitTest BLOOM_FILTER_TESTS[] = {
 };
 #define BLOOM_FILTER_NTESTS ARRAY_SIZE(BLOOM_FILTER_TESTS)
 
-SUnitTestSuite SUITES[]= {
+unit_test_suite_t SUITES[]= {
   {"String-Utilities", STRUTILS_NTESTS, STRUTILS_TESTS},
   {"FIFO", FIFO_NTESTS, FIFO_TESTS},
   {"Stack", STACK_NTESTS, STACK_TESTS},
