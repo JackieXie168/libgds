@@ -3,35 +3,55 @@
 //
 // List enumerator object.
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 10/08/2005
-// @lastdate 10/08/2005
+// $Id$
 // ==================================================================
 
 #ifndef __GDS_ENUMERATOR_H__
 #define __GDS_ENUMERATOR_H__
 
-typedef int (*FEnumeratorHasNext)(void * pContext);
-typedef void * (*FEnumeratorGetNext)(void * pContext);
-typedef void (*FEnumeratorDestroy)(void * pContext);
+typedef int    (*FEnumeratorHasNext)(void * ctx);
+typedef void * (*FEnumeratorGetNext)(void * ctx);
+typedef void   (*FEnumeratorDestroy)(void * ctx);
 
 typedef struct {
-  void * pContext;
-  FEnumeratorHasNext fHasNext;
-  FEnumeratorGetNext fGetNext;
-  FEnumeratorDestroy fDestroy;
-} SEnumerator;
+  FEnumeratorHasNext  has_next;
+  FEnumeratorGetNext  get_next;
+  FEnumeratorDestroy  destroy;
+} enum_ops_t;
 
-// ----- enum_create ------------------------------------------------
-extern SEnumerator * enum_create(void * pContext,
-				 FEnumeratorHasNext fHasNext,
-				 FEnumeratorGetNext fGetNext,
-				 FEnumeratorDestroy fDestroy);
-// ----- enum_destroy -----------------------------------------------
-extern void enum_destroy(SEnumerator ** ppEnum);
+typedef struct {
+  void       * ctx;
+  enum_ops_t   ops;
+} enum_t;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+  // ----- enum_create ------------------------------------------------
+  enum_t * enum_create(void * ctx,
+		       FEnumeratorHasNext has_next,
+		       FEnumeratorGetNext get_next,
+		       FEnumeratorDestroy destroy);
+  // ----- enum_destroy -----------------------------------------------
+  void enum_destroy(enum_t ** enum_ref);
+  
+#ifdef __cplusplus
+}
+#endif
+
 // ----- enum_has_next ----------------------------------------------
-extern int enum_has_next(SEnumerator * pEnum);
+static inline int enum_has_next(enum_t * enu)
+{
+  return enu->ops.has_next(enu->ctx);
+}
+
 // ----- enum_get_next ----------------------------------------------
-extern void * enum_get_next(SEnumerator * pEnum);
+static inline void * enum_get_next(enum_t * enu)
+{
+  return enu->ops.get_next(enu->ctx);
+}
 
 #endif /* __GDS_ENUMERATOR_H__ */

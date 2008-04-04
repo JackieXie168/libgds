@@ -3,9 +3,9 @@
 //
 // List enumerator object.
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 10/08/2005
-// @lastdate 10/08/2005
+// $Id$
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -17,38 +17,26 @@
 #include <libgds/enumerator.h>
 
 // ----- enum_create ------------------------------------------------
-SEnumerator * enum_create(void * pContext,
-			  FEnumeratorHasNext fHasNext,
-			  FEnumeratorGetNext fGetNext,
-			  FEnumeratorDestroy fDestroy)
+enum_t * enum_create(void * ctx,
+		     FEnumeratorHasNext has_next,
+		     FEnumeratorGetNext get_next,
+		     FEnumeratorDestroy destroy)
 {
-  SEnumerator * pEnum= (SEnumerator *) MALLOC(sizeof(SEnumerator));
-  pEnum->pContext= pContext;
-  pEnum->fHasNext= fHasNext;
-  pEnum->fGetNext= fGetNext;
-  pEnum->fDestroy= fDestroy;
-  return pEnum;
+  enum_t * enu= (enum_t *) MALLOC(sizeof(enum_t));
+  enu->ctx= ctx;
+  enu->ops.has_next= has_next;
+  enu->ops.get_next= get_next;
+  enu->ops.destroy= destroy;
+  return enu;
 }
 
 // ----- enum_destroy -----------------------------------------------
-void enum_destroy(SEnumerator ** ppEnum)
+void enum_destroy(enum_t ** enum_ref)
 {
-  if (*ppEnum != NULL) {
-    if ((*ppEnum)->fDestroy != NULL)
-      (*ppEnum)->fDestroy((*ppEnum)->pContext);
-    FREE(*ppEnum);
-    *ppEnum= NULL;
+  if (*enum_ref != NULL) {
+    if ((*enum_ref)->ops.destroy != NULL)
+      (*enum_ref)->ops.destroy((*enum_ref)->ctx);
+    FREE(*enum_ref);
+    *enum_ref= NULL;
   }
-}
-
-// ----- enum_has_next ----------------------------------------------
-int enum_has_next(SEnumerator * pEnum)
-{
-  return pEnum->fHasNext(pEnum->pContext);
-}
-
-// ----- enum_get_next ----------------------------------------------
-void * enum_get_next(SEnumerator * pEnum)
-{
-  return pEnum->fGetNext(pEnum->pContext);
 }
