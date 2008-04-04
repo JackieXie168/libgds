@@ -2081,7 +2081,7 @@ static void _hash_destroy(void * pElt)
 
 
 // -----[ _hash_fct ]------------------------------------------------
-static uint32_t _hash_fct(const void * pElt, const uint32_t uHashSize)
+static uint32_t _hash_fct(const void * pElt, const unsigned int uHashSize)
 {
   SHashItem * pItem = (SHashItem *)pElt;
 
@@ -2577,13 +2577,13 @@ int sha1_check()
   return 0;
 }
 
-int _bloom_print_for_each(void * pItem, void * pCtx)
+/*int _bloom_print_for_each(void * pItem, void * pCtx)
 {
   uint32_t uItem = *(uint32_t *) pItem;
 
   printf("%02x|", uItem);
   return 0;
-}
+}*/
 
 int test_bloom_hash_creation_destruction()
 {
