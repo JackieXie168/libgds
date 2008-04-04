@@ -225,7 +225,7 @@ void utest_write_suite_close()
 }
 
 // ----[ utest_write_test ]------------------------------------------
-void utest_write_test(SUnitTest * pTest)
+void utest_write_test(unit_test_t * pTest)
 {
   printf(""TXT_POS);
   utest_perror(stdout, pTest->iResult, 1);    
@@ -306,17 +306,29 @@ static double _utest_time_stop()
  *    0 on success
  *   -1 on failure
  */
-int utest_run_test(const char * pcName, SUnitTest * pTest)
+int utest_run_test(const char * suite_name, unit_test_t * test,
+		   FUnitTest before, FUnitTest after)
 {
+  int result;
+
   _utest_time_start();
-  pTest->iResult= pTest->fTest();
-  pTest->dDuration= _utest_time_stop();
+  
+  if (before != NULL)
+    result= before();
+  if (result == UTEST_SUCCESS)
+    result= test->fTest();
+  if (result == UTEST_SUCCESS)
+    if (after != NULL)
+      result= after();
 
-  pTest->pcMessage= acTmpMessage;
-  pTest->pcFile= acTmpFile;
-  pTest->iLine= iTmpLine;
+  test->dDuration= _utest_time_stop();
+  test->iResult= result;
 
-  return pTest->iResult;
+  test->pcMessage= acTmpMessage;
+  test->pcFile= acTmpFile;
+  test->iLine= iTmpLine;
+
+  return test->iResult;
 }
 
 typedef struct {
@@ -325,15 +337,16 @@ typedef struct {
   char acFile[UTEST_FILE_MAX];
   int iLine;
   double dDuration;
-} SUnitTestMsg;
+} unit_test_msg_t;
 
 // -----[ utest_run_forked_test ]------------------------------------
-int utest_run_forked_test(const char * pcName, SUnitTest * pTest)
+int utest_run_forked_test(const char * suite_name, unit_test_t * test,
+			  FUnitTest before, FUnitTest after)
 {
   pid_t tPID;
   int iPipeDes[2]; // 0:read, 1:write
   int iStatus;
-  SUnitTestMsg sMsg;
+  unit_test_msg_t msg;
 
   // Create pipe
   if (pipe(iPipeDes) != 0) {
@@ -359,20 +372,20 @@ int utest_run_forked_test(const char * pcName, SUnitTest * pTest)
     // *** CHILD  CODE ***
     close(iPipeDes[0]); // Close read direction
     
-    sMsg.iResult= utest_run_test(pcName, pTest);
+    msg.iResult= utest_run_test(suite_name, test, before, after);
 
-    if (pTest->pcMessage != NULL)
-      strncpy(sMsg.acMessage, pTest->pcMessage, UTEST_MESSAGE_MAX);
+    if (test->pcMessage != NULL)
+      strncpy(msg.acMessage, test->pcMessage, UTEST_MESSAGE_MAX);
     else
-      sMsg.acMessage[0]= '\0';
-    if (pTest->pcFile != NULL)
-      strncpy(sMsg.acFile, pTest->pcFile, UTEST_FILE_MAX);
+      msg.acMessage[0]= '\0';
+    if (test->pcFile != NULL)
+      strncpy(msg.acFile, test->pcFile, UTEST_FILE_MAX);
     else
-      sMsg.acFile[0]= '\0';
-    sMsg.iLine= pTest->iLine;
-    sMsg.dDuration= pTest->dDuration;
+      msg.acFile[0]= '\0';
+    msg.iLine= test->iLine;
+    msg.dDuration= test->dDuration;
       
-    if (write(iPipeDes[1], &sMsg, sizeof(sMsg)) < 0) {
+    if (write(iPipeDes[1], &msg, sizeof(msg)) < 0) {
       perror("write");
       exit(EXIT_FAILURE);
     }
@@ -389,27 +402,27 @@ int utest_run_forked_test(const char * pcName, SUnitTest * pTest)
   }
 
   if (iStatus == 0) {
-    if (read(iPipeDes[0], &sMsg, sizeof(sMsg)) != sizeof(sMsg)) {
+    if (read(iPipeDes[0], &msg, sizeof(msg)) != sizeof(msg)) {
       perror("read");
       exit(EXIT_FAILURE);
     }
-    pTest->iResult= sMsg.iResult;
-    pTest->pcMessage= NULL;
-    pTest->pcFile= NULL;
-    pTest->pcMessage= strdup(sMsg.acMessage);
-    pTest->pcFile= strdup(sMsg.acFile);
-    pTest->iLine= sMsg.iLine;
-    pTest->dDuration= sMsg.dDuration;
+    test->iResult= msg.iResult;
+    test->pcMessage= NULL;
+    test->pcFile= NULL;
+    test->pcMessage= strdup(msg.acMessage);
+    test->pcFile= strdup(msg.acFile);
+    test->iLine= msg.iLine;
+    test->dDuration= msg.dDuration;
   } else {
-    pTest->iResult= UTEST_CRASHED;
-    pTest->pcMessage= strdup("Test crashed");
-    pTest->pcFile= NULL;
-    pTest->iLine= 0;
+    test->iResult= UTEST_CRASHED;
+    test->pcMessage= strdup("Test crashed");
+    test->pcFile= NULL;
+    test->iLine= 0;
   }
 
   close(iPipeDes[0]);
 
-  return pTest->iResult;
+  return test->iResult;
 }
 
 // -----[ utest_run_suite ]------------------------------------------
@@ -425,36 +438,37 @@ int utest_run_forked_test(const char * pcName, SUnitTest * pTest)
  *    0 on success
  *   -1 on failure (at least one test failed)
  */
-int utest_run_suite(const char * pcName, SUnitTest * paTests,
-		    unsigned int uNumTests)
+int utest_run_suite(const char * suite_name, unit_test_t * tests,
+		    unsigned int num_tests,
+		    FUnitTest before, FUnitTest after)
 {
-  int iResult= 0, iTestResult;
-  unsigned int uIndex;
-  SUnitTest * pTest;
+  int result= 0, test_result;
+  unsigned int index;
+  unit_test_t * test;
 
-  utest_write_suite_open(pcName);
+  utest_write_suite_open(suite_name);
 
-  for (uIndex= 0; uIndex < uNumTests; uIndex++) {
+  for (index= 0; index < num_tests; index++) {
 
     sUTest.iNumTests++;
 
-    pTest= &paTests[uIndex];
-    printf("Testing: "TXT_BOLD"%s:%s"TXT_DEFAULT, pcName, pTest->pcName);
+    test= &tests[index];
+    printf("Testing: "TXT_BOLD"%s:%s"TXT_DEFAULT, suite_name, test->pcName);
 
     // Run the test
     if (sUTest.iWithFork) {
-      iTestResult= utest_run_forked_test(pcName, pTest);
+      test_result= utest_run_forked_test(suite_name, test, before, after);
     } else {
-      iTestResult= utest_run_test(pcName, pTest);
+      test_result= utest_run_test(suite_name, test, before, after);
     }
 
-    utest_write_test(pTest);
+    utest_write_test(test);
 
-    if (iTestResult != UTEST_SUCCESS) {
-      if (iTestResult == UTEST_SKIPPED) {
+    if (test_result != UTEST_SUCCESS) {
+      if (test_result == UTEST_SKIPPED) {
 	sUTest.iNumSkipped++;
       } else {
-	iResult= -1;
+	result= -1;
 	sUTest.iNumFailures++;
 	if ((sUTest.iMaxFailures != 0) &&
 	    (sUTest.iNumFailures > sUTest.iMaxFailures)) {
@@ -466,24 +480,26 @@ int utest_run_suite(const char * pcName, SUnitTest * paTests,
 
   utest_write_suite_close();
 
-  return iResult;
+  return result;
 }
 
 // -----[ utest_run_suites ]---------------------------------------
-int utest_run_suites(SUnitTestSuite * paSuites, unsigned int uNumSuites)
+int utest_run_suites(unit_test_suite_t * suites, unsigned int num_suites)
 {
-  unsigned int uIndex;
-  int iResult= 0;
+  unsigned int index;
+  int result= 0;
 
-  for (uIndex= 0; uIndex < uNumSuites; uIndex++) {
-    iResult= utest_run_suite(paSuites[uIndex].pcName,
-			     paSuites[uIndex].acTests,
-			     paSuites[uIndex].uNumTests);
+  for (index= 0; index < num_suites; index++) {
+    result= utest_run_suite(suites[index].pcName,
+			    suites[index].acTests,
+			    suites[index].uNumTests,
+			    suites[index].before,
+			    suites[index].after);
     if ((sUTest.iMaxFailures != 0) &&
 	(sUTest.iNumFailures > sUTest.iMaxFailures)) {
       break;
     }
   }
-  return iResult;
+  return result;
 }
 
