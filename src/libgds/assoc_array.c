@@ -1,9 +1,9 @@
 // ==================================================================
 // @(#)assoc_array.c
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 05/01/2007
-// @lastdate 17/03/2007
+// $Id$
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -150,47 +150,43 @@ int assoc_array_for_each(SAssocArray * pArray, FAssocArrayForEach fForEach,
 //
 /////////////////////////////////////////////////////////////////////
 
-// -----[ SEnumContext ]---------------------------------------------
 typedef struct {
-  unsigned int uIndex;
-  SAssocArray * pArray;
-} SEnumContext;
+  unsigned int   index;
+  SAssocArray  * array;
+} _enum_ctx_t;
 
 // -----[ _enum_has_next ]-------------------------------------------
-static int _enum_has_next(void * pContext)
+static int _enum_has_next(void * ctx)
 {
-  SEnumContext * pEnumContext= (SEnumContext *) pContext;
-  return (pEnumContext->uIndex
-	  < _array_length((SArray *) pEnumContext->pArray));
+  _enum_ctx_t * enum_ctx= (_enum_ctx_t *) ctx;
+  return (enum_ctx->index  < _array_length((SArray *) enum_ctx->array));
 }
 
 // -----[ _enum_get_next ]-------------------------------------------
-static void * _enum_get_next(void * pContext)
+static void * _enum_get_next(void * ctx)
 {
-  SEnumContext * pEnumContext;
-  SAssocItem * pItem;
+  _enum_ctx_t * enum_ctx= (_enum_ctx_t *) ctx;
+  SAssocItem * item;
   
-  pEnumContext= (SEnumContext *) pContext;
-  _array_get_at((SArray *) pEnumContext->pArray,
-		pEnumContext->uIndex, &pItem);
-  return pItem->pcKey;
+  _array_get_at((SArray *) enum_ctx->array, enum_ctx->index, &item);
+  return item->pcKey;
 }
 
 // -----[ _enum_destroy ]--------------------------------------------
-static void _enum_destroy(void * pContext)
+static void _enum_destroy(void * ctx)
 {
-  SEnumContext * pEnumContext= (SEnumContext *) pContext;
-  FREE(pEnumContext);
+  _enum_ctx_t * enum_ctx= (_enum_ctx_t *) ctx;
+  FREE(enum_ctx);
 }
 
 // -----[ assoc_array_get_enum ]-------------------------------------
-SEnumerator * assoc_array_get_enum(SAssocArray * pArray)
+enum_t * assoc_array_get_enum(SAssocArray * array)
 {
-  SEnumContext * pContext=
-    (SEnumContext *) MALLOC(sizeof(SEnumContext));
-  pContext->pArray= pArray;
-  pContext->uIndex= 0;
-  return enum_create(pContext,
+  _enum_ctx_t * ctx=
+    (_enum_ctx_t *) MALLOC(sizeof(_enum_ctx_t));
+  ctx->array= array;
+  ctx->index= 0;
+  return enum_create(ctx,
 		     _enum_has_next,
 		     _enum_get_next,
 		     _enum_destroy);

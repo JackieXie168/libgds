@@ -3,9 +3,9 @@
 //
 // Patricia tree implementation.
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 17/05/2005
-// @lastdate 18/01/2007
+// $Id$
 // ==================================================================
 
 #ifndef __PATRICIA_TREE_H__
@@ -67,7 +67,7 @@ extern "C" {
   // -----[ trie_get_array ]-----------------------------------------
   SPtrArray * trie_get_array(STrie * pTrie);
   // -----[ trie_get_enum ]------------------------------------------
-  SEnumerator * trie_get_enum(STrie * pTrie);
+  enum_t * trie_get_enum(STrie * pTrie);
   // -----[ trie_num_nodes ]-----------------------------------------
   int trie_num_nodes(STrie * pTrie);
 

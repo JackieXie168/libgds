@@ -194,7 +194,7 @@ char * bit_vector_to_string(SBitVector * pBitVector)
 {
   char * pStr;
   char * pStrToRet;
-  SEnumerator * pEnum;
+  enum_t * pEnum;
   uint32_t uCptBits;
   uint32_t uSegment;
 
@@ -225,8 +225,8 @@ char * bit_vector_to_string(SBitVector * pBitVector)
  */
 int8_t bit_vector_equals(SBitVector * pBitVector1, SBitVector * pBitVector2)
 {
-  SEnumerator * pEnum1;
-  SEnumerator * pEnum2;
+  enum_t * pEnum1;
+  enum_t * pEnum2;
   uint32_t uSegment1;
   uint32_t uSegment2;
 
@@ -267,8 +267,8 @@ int8_t bit_vector_equals(SBitVector * pBitVector1, SBitVector * pBitVector2)
  */
 int8_t bit_vector_comp(SBitVector * pBitVector1, SBitVector * pBitVector2)
 {
-  SEnumerator * pEnum1;
-  SEnumerator * pEnum2;
+  enum_t * pEnum1;
+  enum_t * pEnum2;
   uint32_t uSegment1;
   uint32_t uSegment2;
 
@@ -340,8 +340,8 @@ static int _bit_vector_binary_operation_enum(const EBitVectorOperation op,
 					      SBitVector * pBitVector1, 
 					      SBitVector * pBitVector2)
 {
-  SEnumerator * pEnum1;
-  SEnumerator * pEnum2;
+  enum_t * pEnum1;
+  enum_t * pEnum2;
   uint32_t uSegment1;
   uint32_t uSegment2;
 

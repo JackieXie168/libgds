@@ -3,9 +3,9 @@
 //
 // Patricia tree implementation.
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 17/05/2005
-// @lastdate 17/03/2007
+// $Id$
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -581,7 +581,7 @@ static SPtrArray * _trie_get_array(STrie * pTrie)
 // ----- STrieEnumContext -------------------------------------------
 typedef struct {
   SPtrArray * pArray;
-  SEnumerator * pEnum;
+  enum_t * pEnum;
 } STrieEnumContext;
 
 // -----[ _trie_get_enum_has_next ]----------------------------------
@@ -608,7 +608,7 @@ static void _trie_get_enum_destroy(void * pContext)
 }
 
 // -----[ trie_get_enum ]--------------------------------------------
-SEnumerator * trie_get_enum(STrie * pTrie)
+enum_t * trie_get_enum(STrie * pTrie)
 {
   STrieEnumContext * pContext=
     (STrieEnumContext *) MALLOC(sizeof(STrieEnumContext));

@@ -1,9 +1,9 @@
 // ==================================================================
 // @(#)assoc_array.h
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 05/01/2007
-// @lastdate 17/03/2007
+// $Id$
 // ==================================================================
 
 #ifndef __GDS_ASSOC_ARRAY_H__
@@ -38,7 +38,7 @@ extern "C" {
 			   FAssocArrayForEach fForEach,
 			   void * pContext);
   // -----[ assoc_array_get_enum ]-----------------------------------
-  SEnumerator * assoc_array_get_enum(SAssocArray * pArray);
+  enum_t * assoc_array_get_enum(SAssocArray * pArray);
 
 #ifdef __cplusplus
 }

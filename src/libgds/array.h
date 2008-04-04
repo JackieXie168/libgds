@@ -1,9 +1,9 @@
 // ==================================================================
 // @(#)array.h
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 10/04/2003
-// @lastdate 20/12/2007
+// $Id$
 // ==================================================================
 
 #ifndef __ARRAY_H__
@@ -147,7 +147,7 @@ extern "C" {
   // ----- _array_sort ----------------------------------------------
   int _array_sort(SArray * pArray, FArrayCompare fCompare);
   // ----- _array_get_enum ------------------------------------------
-  SEnumerator * _array_get_enum(SArray * pArray);
+  enum_t * _array_get_enum(SArray * pArray);
   
 #ifdef __cplusplus
 }

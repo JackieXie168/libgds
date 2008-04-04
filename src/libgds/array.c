@@ -1,9 +1,9 @@
 // ==================================================================
 // @(#)array.c
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 10/04/2003
-// @lastdate 04/12/2007
+// $Id$
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -24,12 +24,16 @@
                        ((SRealArray *) A)->uLength
 
 typedef struct {
-  uint8_t ** data;
-  unsigned int uLength;
-  unsigned int uEltSize;
-  uint8_t uOptions;
-  FArrayCompare fCompare;
-  FArrayDestroy fDestroy;
+  FArrayCompare compare;
+  FArrayDestroy destroy;
+} _array_ops_t;
+
+typedef struct {
+  uint8_t      ** data;
+  unsigned int    uLength;
+  unsigned int    uEltSize;
+  uint8_t         uOptions;
+  _array_ops_t    ops;
 } SRealArray;
 
 // ----- _array_compare ---------------------------------------------
@@ -59,8 +63,8 @@ SArray * _array_create(unsigned int uEltSize, uint8_t uOptions,
   pRealArray->uEltSize= uEltSize;
   pRealArray->data= NULL;
   pRealArray->uOptions= uOptions;
-  pRealArray->fCompare= fCompare;
-  pRealArray->fDestroy= fDestroy;
+  pRealArray->ops.compare= fCompare;
+  pRealArray->ops.destroy= fDestroy;
   return (SArray *) pRealArray;
 }
 
@@ -73,7 +77,7 @@ void _array_set_fdestroy(SArray * pArray, FArrayDestroy fDestroy)
 {
   SRealArray * pRealArray = (SRealArray *)pArray;
 
-  pRealArray->fDestroy = fDestroy;
+  pRealArray->ops.destroy = fDestroy;
 }
 
 // ----- _array_destroy ----------------------------------------------
@@ -88,9 +92,9 @@ void _array_destroy(SArray ** ppArray)
 
   if (*ppRealArray != NULL) {
     if ((*ppRealArray)->uLength > 0) {
-      if ((*ppRealArray)->fDestroy != NULL)
+      if ((*ppRealArray)->ops.destroy != NULL)
 	for (uIndex= 0; uIndex < (*ppRealArray)->uLength; uIndex++)
-	  (*ppRealArray)->fDestroy(_array_elt_pos((*ppRealArray), uIndex));
+	  (*ppRealArray)->ops.destroy(_array_elt_pos((*ppRealArray), uIndex));
       FREE((*ppRealArray)->data);
     }
     FREE(*ppRealArray);
@@ -197,8 +201,9 @@ int _array_sorted_find_index(SArray * pArray, void * pData,
 
   while (uSize > 0) {
     iCompareResult=
-      (((SRealArray *) pArray)->fCompare(_array_elt_pos(pArray, uPos), pData,
-					 ((SRealArray *) pArray)->uEltSize));
+      (((SRealArray *) pArray)->ops.compare(_array_elt_pos(pArray, uPos),
+					    pData,
+					    ((SRealArray *) pArray)->uEltSize));
     if (!iCompareResult) {
       *puIndex= uPos;
       return 0;
@@ -330,8 +335,8 @@ SArray * _array_copy(SArray * pArray)
 {
   SArray * pNewArray= _array_create(((SRealArray *) pArray)->uEltSize,
 				    ((SRealArray *) pArray)->uOptions,
-				    ((SRealArray *) pArray)->fCompare,
-				    ((SRealArray *) pArray)->fDestroy);
+				    ((SRealArray *) pArray)->ops.compare,
+				    ((SRealArray *) pArray)->ops.destroy);
   _array_set_length(pNewArray, ((SRealArray *)pArray)->uLength);
   memcpy(pNewArray->data, pArray->data, _array_size(pArray));
   return pNewArray;
@@ -353,8 +358,8 @@ int _array_remove_at(SArray * pArray, unsigned int uIndex)
   if (uIndex < pRealArray->uLength) {
 
     // Free item at given position if required
-    if (pRealArray->fDestroy != NULL)
-      pRealArray->fDestroy(_array_elt_pos(pRealArray, uIndex));
+    if (pRealArray->ops.destroy != NULL)
+      pRealArray->ops.destroy(_array_elt_pos(pRealArray, uIndex));
 
     // Since (uIndex >= 0), then (pRealArray->uLength >= 1) and then
     // there is no problem with the unsigned variable uOffset.
@@ -384,8 +389,8 @@ SArray * _array_sub(SArray * pArray, unsigned int iFirst, unsigned int iLast)
   pSubArray= (SRealArray *)
     _array_create(((SRealArray *) pArray)->uEltSize,
 		  ((SRealArray *) pArray)->uOptions,
-		  ((SRealArray *) pArray)->fCompare,
-		  ((SRealArray *) pArray)->fDestroy);
+		  ((SRealArray *) pArray)->ops.compare,
+		  ((SRealArray *) pArray)->ops.destroy);
   pSubArray->uLength= iLast-iFirst+1;
   pSubArray->data= (uint8_t **) MALLOC(pSubArray->uEltSize*pSubArray->uLength);
   memcpy(pSubArray->data, _array_elt_pos(pArray, iFirst),
@@ -434,22 +439,22 @@ void _array_trim(SArray * pArray, unsigned uMaxLength)
  */
 int _array_sort(SArray * pArray, FArrayCompare fCompare)
 {
-  int iIndex, iIndex2;
+  unsigned int index, index2;
   void * pTemp= MALLOC(((SRealArray *) pArray)->uEltSize);
 
-  for (iIndex= 0; iIndex < _array_length(pArray); iIndex++)
-    for (iIndex2= iIndex; iIndex2 > 0; iIndex2--)
-      if (fCompare(_array_elt_pos(pArray, iIndex2-1),
-		   _array_elt_pos(pArray, iIndex2),
+  for (index= 0; index < _array_length(pArray); index++)
+    for (index2= index; index2 > 0; index2--)
+      if (fCompare(_array_elt_pos(pArray, index2-1),
+		   _array_elt_pos(pArray, index2),
 		   ((SRealArray *) pArray)->uEltSize) > 0) {
-	_array_elt_copy_from(pArray, pTemp, iIndex2);
-	_array_elt_copy(pArray, iIndex2, iIndex2-1);
-	_array_elt_copy_to(pArray, iIndex2-1, pTemp);
+	_array_elt_copy_from(pArray, pTemp, index2);
+	_array_elt_copy(pArray, index2, index2-1);
+	_array_elt_copy_to(pArray, index2-1, pTemp);
       }
 
   FREE(pTemp);
   ((SRealArray*) pArray)->uOptions|= ARRAY_OPTION_SORTED;
-  ((SRealArray*) pArray)->fCompare= fCompare;
+  ((SRealArray*) pArray)->ops.compare= fCompare;
   return 0;
 }
 
@@ -465,7 +470,7 @@ int _array_sort(SArray * pArray, FArrayCompare fCompare)
  */
 int _array_quicksort(SArray * pArray, FArrayCompare fCompare)
 {
-  // NOT YET IMPLEMENTED (pas le temps maintenant)
+  // NOT YET IMPLEMENTED
   return -1;
 }
 
@@ -476,44 +481,42 @@ int _array_quicksort(SArray * pArray, FArrayCompare fCompare)
 //
 /////////////////////////////////////////////////////////////////////
 
-// -----[ SArrayEnumContext ]----------------------------------------
 typedef struct {
-  unsigned int uIndex;
-  SArray * pArray;
-} SArrayEnumContext;
+  unsigned int   index;
+  SArray       * array;
+} _enum_ctx_t;
 
-// -----[ _array_get_enum_has_next ]---------------------------------
-static int _array_get_enum_has_next(void * pContext)
+// -----[ _enum_has_next ]-------------------------------------------
+static int _enum_has_next(void * ctx)
 {
-  SArrayEnumContext * pArrayContext= (SArrayEnumContext *) pContext;
-  return (pArrayContext->uIndex < _array_length(pArrayContext->pArray));
+  _enum_ctx_t * enum_ctx= (_enum_ctx_t *) ctx;
+  return (enum_ctx->index < _array_length(enum_ctx->array));
 }
 
-// -----[ _array_get_enum_get_next ]---------------------------------
-static void * _array_get_enum_get_next(void * pContext)
+// -----[ _enum_get_next ]-------------------------------------------
+static void * _enum_get_next(void * ctx)
 {
-  SArrayEnumContext * pArrayContext= (SArrayEnumContext *) pContext;
-  return _array_elt_pos(pArrayContext->pArray, pArrayContext->uIndex++);
+  _enum_ctx_t * enum_ctx= (_enum_ctx_t *) ctx;
+  return _array_elt_pos(enum_ctx->array, enum_ctx->index++);
 }
 
-// -----[ _array_get_enum_destroy ]----------------------------------
-static void _array_get_enum_destroy(void * pContext)
+// -----[ _enum_destroy ]--------------------------------------------
+static void _enum_destroy(void * ctx)
 {
-  SArrayEnumContext * pArrayContext= (SArrayEnumContext *) pContext;
-  FREE(pArrayContext);
+  _enum_ctx_t * enum_ctx= (_enum_ctx_t *) ctx;
+  FREE(enum_ctx);
 }
 
 // -----[ _array_get_enum ]------------------------------------------
-SEnumerator * _array_get_enum(SArray * pArray)
+enum_t * _array_get_enum(SArray * array)
 {
-  SArrayEnumContext * pContext=
-    (SArrayEnumContext *) MALLOC(sizeof(SArrayEnumContext));
-  pContext->pArray= pArray;
-  pContext->uIndex= 0;
-  return enum_create(pContext,
-		     _array_get_enum_has_next,
-		     _array_get_enum_get_next,
-		     _array_get_enum_destroy);
+  _enum_ctx_t * ctx= (_enum_ctx_t *) MALLOC(sizeof(_enum_ctx_t));
+  ctx->array= array;
+  ctx->index= 0;
+  return enum_create(ctx,
+		     _enum_has_next,
+		     _enum_get_next,
+		     _enum_destroy);
 }
 
 

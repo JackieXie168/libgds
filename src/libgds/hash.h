@@ -1,10 +1,11 @@
+
 // ==================================================================
 // @(#)hash.h
 //
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 03/12/2004
-// @lastdate 18/07/2007
+// $Id$
 // ==================================================================
 
 #ifndef __GDS_HASH_H__
@@ -13,47 +14,47 @@
 #include <libgds/enumerator.h>
 #include <libgds/types.h>
 
-typedef int (*FHashEltCompare) (void * pElt1, void * pElt2,
-                                unsigned int uEltSize);
-typedef void (*FHashEltDestroy) (void * pElt);
-typedef uint32_t (*FHashCompute) (const void * pElt,
-				  const uint32_t uHashSize);
-typedef int (*FHashForEach) (void * pElt, void * pContext);
+typedef int      (*FHashEltCompare) (void * item1, void * item2,
+				     unsigned int item_size);
+typedef void     (*FHashEltDestroy) (void * item);
+typedef uint32_t (*FHashCompute) (const void * item,
+				  const unsigned int hash_size);
+typedef int      (*FHashForEach) (void * item, void * ctx);
 
-typedef struct HashTable SHash;
+typedef struct hash_table_t hash_t;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
   // -----[ hash_init ]----------------------------------------------
-  SHash * hash_init(const uint32_t uHashSize,
-		    const float fResizeThreshold,
-		    FHashEltCompare fEltCompare, 
-		    FHashEltDestroy fEltDestroy, 
-		    FHashCompute fHashCompute);
+  hash_t * hash_init(const unsigned int size,
+		     const float resize_threshold,
+		     FHashEltCompare elt_cmp,
+		     FHashEltDestroy elt_destroy,
+		     FHashCompute hash_compute);
   // -----[ hash_add ]-----------------------------------------------
-  void * hash_add(SHash * pHash, void * pElt);
+  void * hash_add(hash_t * hash, void * item);
   // -----[ hash_del ]-----------------------------------------------
-  int hash_del(SHash * pHash, void * pElt);
+  int hash_del(hash_t * hash, void * item);
   // -----[ hash_search ]--------------------------------------------
-  void * hash_search(const SHash * pHash, void * pElt);
+  void * hash_search(const hash_t * hash, void * item);
   // ---- hash_destroy ----------------------------------------------
-  void hash_destroy(SHash ** pHash);
+  void hash_destroy(hash_t ** hash_ref);
 
   // -----[ hash_get_refcnt ]----------------------------------------
-  uint32_t hash_get_refcnt(const SHash * pHash, void * pItem);
+  unsigned int hash_get_refcnt(const hash_t * hash, void * item);
   // -----[ hash_for_each ]------------------------------------------
-  int hash_for_each(const SHash * pHash, FHashForEach fHashForEach, 
-		    void * pContext);
+  int hash_for_each(const hash_t * hash, FHashForEach for_each,
+		    void * ctx);
   // -----[ hash_for_each_key ]--------------------------------------
-  int hash_for_each_key(const SHash * pHash, FHashForEach fHashForEach, 
-			void * pContext);
+  int hash_for_each_key(const hash_t * hash, FHashForEach for_each, 
+			void * ctx);
   // -----[ hash_get_enum ]------------------------------------------
-  SEnumerator * hash_get_enum(SHash * pHash);
+  enum_t * hash_get_enum(hash_t * hash);
 
   // -----[ hash_dump ]----------------------------------------------
-  void hash_dump(const SHash * pHash);
+  void hash_dump(const hash_t * hash);
 
 #ifdef __cplusplus
 }
