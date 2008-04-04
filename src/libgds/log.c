@@ -35,7 +35,7 @@ SLogStream * log_create_stream(FILE * pStream)
 /**
  *
  */
-SLogStream * log_create_file(char * pcFileName)
+SLogStream * log_create_file(const char * pcFileName)
 {
   SLogStream * pLogStream= NULL;
   FILE * pFile;
@@ -141,36 +141,44 @@ int log_enabled(SLogStream * pLogStream, ELogLevel eLevel)
   return (eLevel >= pLogStream->eLevel);
 }
 
-// ----- log_printf -------------------------------------------------
+// -----[ log_vprintf ]----------------------------------------------
 /**
  *
  */
-void log_printf(SLogStream * pLogStream, char * pcFormat, ...)
+void log_vprintf(SLogStream * log, const char * format, va_list ap)
 {
-  static char acBuffer[LOG_STREAM_BUFFER_SIZE];
-  va_list ap;
-
-  switch (pLogStream->eType) {
+  char * str;
+  switch (log->eType) {
   case LOG_TYPE_STREAM:
   case LOG_TYPE_FILE:
-    assert(pLogStream->pStream != NULL);
-    va_start(ap, pcFormat);
-    vfprintf(pLogStream->pStream, pcFormat, ap);
-    /*if ((uLevel > LOG_LEVEL_WARNING) &&
-	(pLogStream->pStream != stderr))
-	vfprintf(stderr, pcFormat, ap);*/
+    assert(log->pStream != NULL);
+    vfprintf(log->pStream, format, ap);
     break;
 
   case LOG_TYPE_CALLBACK:
-    assert(pLogStream->sCallback.fCallback != NULL);
-    va_start(ap, pcFormat);
-    vsnprintf(acBuffer, LOG_STREAM_BUFFER_SIZE, pcFormat, ap);
-    pLogStream->sCallback.fCallback(pLogStream->sCallback.pContext, acBuffer);
+    assert(log->sCallback.fCallback != NULL);
+    assert(vasprintf(&str, format, ap) >= 0);
+    assert(str != NULL);
+    log->sCallback.fCallback(log->sCallback.pContext, str);
+    free(str);
     break;
 
   default:
     abort();
   }
+}
+
+// ----- log_printf -------------------------------------------------
+/**
+ *
+ */
+void log_printf(SLogStream * log, const char * format, ...)
+{
+  va_list ap;
+
+  va_start(ap, format);
+  log_vprintf(log, format, ap);
+  va_end(ap);
 }
 
 // -----[ log_flush ]------------------------------------------------
@@ -197,7 +205,7 @@ void log_flush(SLogStream * pLogStream)
 /**
  *
  */
-void log_perror(SLogStream * pLogStream, char * pcFormat, ...)
+void log_perror(SLogStream * pLogStream, const char * pcFormat, ...)
 {
   va_list ap;
 
@@ -206,6 +214,7 @@ void log_perror(SLogStream * pLogStream, char * pcFormat, ...)
     log_printf(pLogStream, pcFormat, ap);
     log_printf(pLogStream, "%s\n", strerror(errno));
   }
+  va_end(ap);
 }
 
 // ----- log_str2level ----------------------------------------------

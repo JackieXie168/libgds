@@ -75,7 +75,7 @@ extern "C" {
   // -----[ log_create_stream ]--------------------------------------
   SLogStream * log_create_stream(FILE * pStream);
   // -----[ log_create_file ]----------------------------------------
-  SLogStream * log_create_file(char * pcFileName);
+  SLogStream * log_create_file(const char * pcFileName);
   // -----[ log_create_callback ]------------------------------------
   SLogStream * log_create_callback(FLogStreamCallback fCallback,
 					  void * pContext);
@@ -88,11 +88,13 @@ extern "C" {
   // ----- log_enabled ----------------------------------------------
   int log_enabled(SLogStream * pLogStream, ELogLevel eLevel);
   // ----- log_printf -----------------------------------------------
-  void log_printf(SLogStream * pLogStream, char * pcFormat, ...);
+  void log_printf(SLogStream * log, const char * format, ...);
+  // -----[ log_vprintf ]--------------------------------------------
+  void log_vprintf(SLogStream * log, const char * format, va_list ap);
   // -----[ log_flush ]----------------------------------------------
   void log_flush(SLogStream * pLogStream);
   // ----- log_perror -----------------------------------------------
-  void log_perror(SLogStream * pLogStream, char * pcFormat, ...);
+  void log_perror(SLogStream * pLogStream, const char * pcFormat, ...);
 
 #ifdef __cplusplus
 }
