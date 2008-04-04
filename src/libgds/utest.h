@@ -3,9 +3,9 @@
 //
 // Generic Data Structures (libgds): unit testing framework.
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
-// @lastdate 20/07/2007
+// @lastdate 03/0/2008
 // ==================================================================
 //
 // Example definition for a unit test suite:
@@ -15,6 +15,8 @@
 //   {test_basic, "basic use"},
 //   {test_advanced, "advanced use"},
 // };
+//
+// utest_run_suite("Suite #1", NUM_TESTS, TEST_SUITE, NULL, NULL);
 //
 // ==================================================================
 
@@ -70,14 +72,16 @@ typedef struct {
   int iLine;
   char * pcFile;
   double dDuration;
-} SUnitTest;
+} unit_test_t;
 
 // -----[ Suite of Unit Tests ]-----
 typedef struct {
-  char * pcName;
-  unsigned int uNumTests;
-  SUnitTest * acTests;
-} SUnitTestSuite;
+  char         * pcName;
+  unsigned int   uNumTests;
+  unit_test_t  * acTests;
+  FUnitTest      before;
+  FUnitTest      after;
+} unit_test_suite_t;
 
 #ifdef __cplusplus
 extern "C" {
@@ -91,10 +95,12 @@ extern "C" {
   void utest_set_message(const char * pcFile, int iLine,
 			 const char * pcFormat, ...);
   // -----[ utest_run_suite ]----------------------------------------
-  int utest_run_suite(const char * pcName, SUnitTest * paTests,
-		      unsigned int uNumTests);
+  int utest_run_suite(const char * suite_name, unit_test_t * tests,
+		      unsigned int num_tests,
+		      FUnitTest before, FUnitTest after);
   // -----[ utest_run_suites ]---------------------------------------
-  int utest_run_suites(SUnitTestSuite * paSuites, unsigned int uNumSuites);
+  int utest_run_suites(unit_test_suite_t * suites,
+		       unsigned int num_suites);
 
   // -----[ utest_set_fork ]-----------------------------------------
   void utest_set_fork();
