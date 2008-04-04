@@ -1,0 +1,75 @@
+Name: libgds
+Summary: Library of Generic Data Structures (libGDS)
+Packager: Bruno Quoitin (bruno.quoitin@uclouvain.be)
+%define version @VERSION@
+Version: %{version}
+%define release 1%{?dist}
+Release: %{release}
+License: GPL/LGPL
+Vendor: The libGDS Team
+Url: http://libgds.info.ucl.ac.be
+#Copyright: Copyright (C) 2003,2004,2005,2006,2007 The libGDS Team
+Source: http://libgds.info.ucl.ac.be/downloads/%{name}-%{version}.tar.gz
+Group: Development/Libraries
+%define mybuildroot /var/tmp/%{name}-build
+BuildRoot: %{mybuildroot}
+#ExclusiveArch: i386
+
+%description
+libGDS is a library of functions and generic data structures that we use in various projects such as C-BGP. The library contains dynamic arrays, hash tables, radix trees, Patricia trees, tokenizers, FIFO queues, stacks, string management functions and memory management functions.
+
+libGDS is written in C and is provided under the LGPL license. The text of the LGPL license is available here and more information can be obtained from the Free Software Foundation.
+
+%prep
+%setup -q -n %{name}-%{version}
+
+%build
+CFLAGS="$RPM_OPT_FLAGS"
+./configure \
+	--prefix=%{_prefix} \
+	--bindir=%{_bindir} \
+	--mandir=%{_mandir} \
+	--localstatedir=%{_localstatedir} \
+	--libdir=%{_libdir} \
+	--datadir=%{_datadir} \
+	--includedir=%{_includedir} \
+	--sysconfdir=%{_sysconfdir}
+make
+make check
+
+%install
+rm -rf $RPM_BUILD_ROOT
+make prefix=$RPM_BUILD_ROOT%{_prefix} bindir=$RPM_BUILD_ROOT%{_bindir} \
+    mandir=$RPM_BUILD_ROOT%{_mandir} libdir=$RPM_BUILD_ROOT%{_libdir} \
+    localstatedir=$RPM_BUILD_ROOT%{_localstatedir} \
+    datadir=$RPM_BUILD_ROOT%{_datadir} \
+    includedir=$RPM_BUILD_ROOT%{_includedir} \
+    sysconfdir=$RPM_BUILD_ROOT%{_sysconfdir} install
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+%post -p /sbin/ldconfig
+
+%postun -p /sbin/ldconfig
+
+%files
+%defattr(-,root,root)
+%{_prefix}/lib/*.so
+
+%package devel
+Summary: Library of Generic Data Structures (libGDS) - Development package
+Group: Development/Libraries
+Requires: %{name} = %{version}
+%description devel
+libGDS is a library of functions and generic data structures that we use in various projects such as C-BGP. The library contains dynamic arrays, hash tables, radix trees, Patricia trees, tokenizers, FIFO queues, stacks, string management functions and memory management functions.
+
+libGDS is written in C and is provided under the LGPL license. The text of the LGPL license is available here and more information can be obtained from the Free Software Foundation.
+
+%files devel
+%defattr(-,root,root)
+%{_prefix}/include/libgds
+%{_prefix}/lib/*.a
+%{_prefix}/lib/*.la
+%{_prefix}/lib/pkgconfig/libgds.pc
+
