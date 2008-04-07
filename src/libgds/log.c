@@ -136,30 +136,36 @@ void log_set_file(SLog * pLog, char * pcFileName)
 /**
  *
  */
-int log_enabled(SLogStream * pLogStream, ELogLevel eLevel)
+int log_enabled(SLogStream * stream, ELogLevel level)
 {
-  return (eLevel >= pLogStream->eLevel);
+  if (stream == NULL)
+    return 0;
+  return (level >= stream->eLevel);
 }
 
 // -----[ log_vprintf ]----------------------------------------------
 /**
  *
  */
-void log_vprintf(SLogStream * log, const char * format, va_list ap)
+void log_vprintf(SLogStream * stream, const char * format, va_list ap)
 {
   char * str;
-  switch (log->eType) {
+
+  if (stream == NULL)
+    return;
+
+  switch (stream->eType) {
   case LOG_TYPE_STREAM:
   case LOG_TYPE_FILE:
-    assert(log->pStream != NULL);
-    vfprintf(log->pStream, format, ap);
+    assert(stream->pStream != NULL);
+    vfprintf(stream->pStream, format, ap);
     break;
 
   case LOG_TYPE_CALLBACK:
-    assert(log->sCallback.fCallback != NULL);
+    assert(stream->sCallback.fCallback != NULL);
     assert(vasprintf(&str, format, ap) >= 0);
     assert(str != NULL);
-    log->sCallback.fCallback(log->sCallback.pContext, str);
+    stream->sCallback.fCallback(stream->sCallback.pContext, str);
     free(str);
     break;
 
@@ -172,12 +178,12 @@ void log_vprintf(SLogStream * log, const char * format, va_list ap)
 /**
  *
  */
-void log_printf(SLogStream * log, const char * format, ...)
+void log_printf(SLogStream * stream, const char * format, ...)
 {
   va_list ap;
 
   va_start(ap, format);
-  log_vprintf(log, format, ap);
+  log_vprintf(stream, format, ap);
   va_end(ap);
 }
 
@@ -185,12 +191,15 @@ void log_printf(SLogStream * log, const char * format, ...)
 /**
  *
  */
-void log_flush(SLogStream * pLogStream)
+void log_flush(SLogStream * stream)
 {
-  switch (pLogStream->eType) {
+  if (stream == NULL)
+    return;
+
+  switch (stream->eType) {
   case LOG_TYPE_STREAM:
   case LOG_TYPE_FILE:
-    fflush(pLogStream->pStream);
+    fflush(stream->pStream);
     break;
   case LOG_TYPE_CALLBACK:
     // TO BE IMPLEMENTED...
@@ -205,14 +214,14 @@ void log_flush(SLogStream * pLogStream)
 /**
  *
  */
-void log_perror(SLogStream * pLogStream, const char * pcFormat, ...)
+void log_perror(SLogStream * stream, const char * pcFormat, ...)
 {
   va_list ap;
 
   va_start(ap, pcFormat);
-  if (log_enabled(pLogStream, LOG_LEVEL_SEVERE)) {
-    log_printf(pLogStream, pcFormat, ap);
-    log_printf(pLogStream, "%s\n", strerror(errno));
+  if (log_enabled(stream, LOG_LEVEL_SEVERE)) {
+    log_printf(stream, pcFormat, ap);
+    log_printf(stream, "%s\n", strerror(errno));
   }
   va_end(ap);
 }
