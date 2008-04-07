@@ -9,6 +9,7 @@
 #ifndef __GDS_LOG_H__
 #define __GDS_LOG_H__
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <libgds/types.h>
 
