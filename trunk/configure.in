@@ -2,7 +2,7 @@ dnl =================================================================
 dnl configure.in for libgds
 dnl
 dnl @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
-dnl @version 2008-02-20
+dnl $Id$
 dnl =================================================================
 
 AC_INIT([libgds], [1.4.5])
@@ -128,6 +128,16 @@ if test "x$gds_config_doxygen" = "xyes"; then
 else
   config_doxygen_msg="no"
 fi
+
+case $host in
+  *-*-cygwin*)
+    test_cygwin="yes"
+    AC_DEFINE([CYGWIN], 1, [Define to 1 if the system is cygwin])
+    ;;
+  *)
+    test_cygwin="no"
+    ;;
+esac
 
 echo ""
 echo "Libgds package has been configured with the following optional capabilities :"
