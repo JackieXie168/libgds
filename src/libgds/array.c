@@ -17,6 +17,7 @@
 #include <libgds/array.h>
 #include <libgds/enumerator.h>
 #include <libgds/memory.h>
+#include <libgds/types.h>
 
 #define _array_elt_pos(A,i) (((char *) A->data)+ \
 			    (i)*((SRealArray *) A)->uEltSize)
@@ -44,6 +45,7 @@ typedef struct {
  * @param pItem2 the second element.
  * @param uEltSize the elements'size.
  */
+GDS_EXP_DECL
 int _array_compare(void * pItem1, void * pItem2,
 		   unsigned int uEltSize)
 {
@@ -54,6 +56,7 @@ int _array_compare(void * pItem1, void * pItem2,
 /**
  *
  */
+GDS_EXP_DECL
 SArray * _array_create(unsigned int uEltSize, uint8_t uOptions,
 		       FArrayCompare fCompare,
 		       FArrayDestroy fDestroy)
@@ -73,6 +76,7 @@ SArray * _array_create(unsigned int uEltSize, uint8_t uOptions,
  *
  *
  */
+GDS_EXP_DECL
 void _array_set_fdestroy(SArray * pArray, FArrayDestroy fDestroy)
 {
   SRealArray * pRealArray = (SRealArray *)pArray;
@@ -84,6 +88,7 @@ void _array_set_fdestroy(SArray * pArray, FArrayDestroy fDestroy)
 /**
  *
  */
+GDS_EXP_DECL
 void _array_destroy(SArray ** ppArray)
 {
   SRealArray ** ppRealArray=
@@ -131,6 +136,7 @@ static void _array_resize_if_required(SArray * pArray,
 /**
  * Return the length of the array.
  */
+GDS_EXP_DECL
 unsigned int _array_length(SArray * pArray)
 {
   return ((SRealArray *) pArray)->uLength;
@@ -141,6 +147,7 @@ unsigned int _array_length(SArray * pArray)
  * Set the length of an array. If the new size is smaller than the
  * original size, data will be lost.
  */
+GDS_EXP_DECL
 void _array_set_length(SArray * pArray, unsigned int uNewLength)
 {
   _array_resize_if_required(pArray, uNewLength);
@@ -154,6 +161,7 @@ void _array_set_length(SArray * pArray, unsigned int uNewLength)
  *   >=0 (index) in case of success
  *    -1 in case of failure (index >= length)
  */
+GDS_EXP_DECL
 int _array_set_at(SArray * pArray, unsigned int uIndex, void * pData)
 {
   if (uIndex >= ((SRealArray *) pArray)->uLength)
@@ -171,6 +179,7 @@ int _array_set_at(SArray * pArray, unsigned int uIndex, void * pData)
  *    0 in case of success
  *   -1 in case of failure (index >= length)
  */
+GDS_EXP_DECL
 int _array_get_at(SArray * pArray, unsigned int uIndex, void * pData)
 {
   if (uIndex >= ((SRealArray *) pArray)->uLength)
@@ -191,6 +200,7 @@ int _array_get_at(SArray * pArray, unsigned int uIndex, void * pData)
  *   -1 in case of failure (the index where this element would be
  *                          placed is returned)
  */
+GDS_EXP_DECL
 int _array_sorted_find_index(SArray * pArray, void * pData,
 			     unsigned int * puIndex)
 {
@@ -235,6 +245,7 @@ int _array_sorted_find_index(SArray * pArray, void * pData,
  *     -1 in case of failure
  *          (index >= length)
  */
+GDS_EXP_DECL
 int _array_insert_at(SArray * pArray, unsigned int uIndex, void * pData)
 {
   unsigned int uOffset;
@@ -264,6 +275,7 @@ int _array_insert_at(SArray * pArray, unsigned int uIndex, void * pData)
  *     -1 in case of failure
  *          if (sorted && ARRAY_OPTION_UNIQUE && value exists)
  */
+GDS_EXP_DECL
 int _array_add(SArray * pArray, void * pData)
 {
   unsigned int uIndex;
@@ -289,6 +301,7 @@ int _array_add(SArray * pArray, void * pData)
  * RETURNS:
  *   >=0 insertion index
  */
+GDS_EXP_DECL
 int _array_append(SArray * pArray, void * pData)
 {
   assert((((SRealArray *) pArray)->uOptions & ARRAY_OPTION_SORTED) == 0);
@@ -310,6 +323,7 @@ int _array_append(SArray * pArray, void * pData)
  *     0 in case of success
  *   !=0 in case of failure
  */
+GDS_EXP_DECL
 int _array_for_each(SArray * pArray, FArrayForEach fForEach,
 		    void * pContext)
 {
@@ -331,6 +345,7 @@ int _array_for_each(SArray * pArray, FArrayForEach fForEach,
  * RETURNS:
  *   a pointer to the copy
  */
+GDS_EXP_DECL
 SArray * _array_copy(SArray * pArray)
 {
   SArray * pNewArray= _array_create(((SRealArray *) pArray)->uEltSize,
@@ -350,6 +365,7 @@ SArray * _array_copy(SArray * pArray)
  *    0 un case of success
  *   -1 in case index is not valid
  */
+GDS_EXP_DECL
 int _array_remove_at(SArray * pArray, unsigned int uIndex)
 {
   SRealArray * pRealArray= (SRealArray *) pArray;
@@ -381,6 +397,7 @@ int _array_remove_at(SArray * pArray, unsigned int uIndex)
  *
  * PRECONDITION: (iFirst <= iLast) AND (iLast < length(ARRAY))
  */
+GDS_EXP_DECL
 SArray * _array_sub(SArray * pArray, unsigned int iFirst, unsigned int iLast)
 {
   SRealArray * pSubArray;
@@ -402,6 +419,7 @@ SArray * _array_sub(SArray * pArray, unsigned int iFirst, unsigned int iLast)
 /**
  * Add a whole array to another array.
  */
+GDS_EXP_DECL
 void _array_add_array(SArray * pArray, SArray * pSrcArray)
 {
   unsigned int uLength= ((SRealArray *) pArray)->uLength;
@@ -419,6 +437,7 @@ void _array_add_array(SArray * pArray, SArray * pSrcArray)
 /**
  *
  */
+GDS_EXP_DECL
 void _array_trim(SArray * pArray, unsigned uMaxLength)
 {
   assert(uMaxLength <= ((SRealArray *) pArray)->uLength);
@@ -437,6 +456,7 @@ void _array_trim(SArray * pArray, unsigned uMaxLength)
 /**
  * Simple selection-sort.
  */
+GDS_EXP_DECL
 int _array_sort(SArray * pArray, FArrayCompare fCompare)
 {
   unsigned int index, index2;
@@ -468,6 +488,7 @@ int _array_sort(SArray * pArray, FArrayCompare fCompare)
  *   - the stack depth should remain under log(N) thanks to pushing
  *     the largest subfiles first on the stack
  */
+GDS_EXP_DECL
 int _array_quicksort(SArray * pArray, FArrayCompare fCompare)
 {
   // NOT YET IMPLEMENTED
@@ -508,6 +529,7 @@ static void _enum_destroy(void * ctx)
 }
 
 // -----[ _array_get_enum ]------------------------------------------
+GDS_EXP_DECL
 enum_t * _array_get_enum(SArray * array)
 {
   _enum_ctx_t * ctx= (_enum_ctx_t *) MALLOC(sizeof(_enum_ctx_t));
@@ -518,5 +540,3 @@ enum_t * _array_get_enum(SArray * array)
 		     _enum_get_next,
 		     _enum_destroy);
 }
-
-

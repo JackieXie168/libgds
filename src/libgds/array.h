@@ -99,55 +99,57 @@ extern "C" {
 #endif
 
   // ----- _array_create --------------------------------------------
-  SArray * _array_create(unsigned int uEltSize,
-				uint8_t uOptions,
-				FArrayCompare fCompare,
-				FArrayDestroy fDestroy);
+  GDS_EXP_DECL SArray * _array_create(unsigned int uEltSize,
+				      uint8_t uOptions,
+				      FArrayCompare fCompare,
+				      FArrayDestroy fDestroy);
   // ----- _array_set_fdestroy --------------------------------------
-  void _array_set_fdestroy(SArray * pArray, FArrayDestroy fDestroy);
+  GDS_EXP_DECL void _array_set_fdestroy(SArray * pArray,
+					FArrayDestroy fDestroy);
   // ----- _array_destroy -------------------------------------------
-  void _array_destroy(SArray ** ppArray);
+  GDS_EXP_DECL void _array_destroy(SArray ** ppArray);
   // ----- _array_length --------------------------------------------
-  unsigned int _array_length(SArray * pArray);
+  GDS_EXP_DECL unsigned int _array_length(SArray * pArray);
   // ----- _array_set_length ----------------------------------------
-  void _array_set_length(SArray * pArray,
-			 unsigned int uNewLength);
+  GDS_EXP_DECL void _array_set_length(SArray * pArray,
+				      unsigned int uNewLength);
   // ----- _array_set_at --------------------------------------------
-  int _array_set_at(SArray * pArray, unsigned int uIndex,
-		    void * pData);
+  GDS_EXP_DECL int _array_set_at(SArray * pArray, unsigned int uIndex,
+				 void * pData);
   // ----- _array_get_at --------------------------------------------
-  int _array_get_at(SArray * pArray, unsigned int uIndex,
-		    void * pData);
+  GDS_EXP_DECL int _array_get_at(SArray * pArray, unsigned int uIndex,
+				 void * pData);
   // ----- _array_sorted_find_index ---------------------------------
-  int _array_sorted_find_index(SArray * pArray, void * pData,
-			       unsigned int * puIndex);
+  GDS_EXP_DECL int _array_sorted_find_index(SArray * pArray, void * pData,
+					    unsigned int * puIndex);
   // ----- _array_add -----------------------------------------------
-  int _array_add(SArray * pArray, void * pData);
+  GDS_EXP_DECL int _array_add(SArray * pArray, void * pData);
   // ----- _array_append --------------------------------------------
-  int _array_append(SArray * pArray, void * pData);
+  GDS_EXP_DECL int _array_append(SArray * pArray, void * pData);
   // ----- _array_insert_at -----------------------------------------
-  int _array_insert_at(SArray * pArray, unsigned int uIndex, void * pData);
+  GDS_EXP_DECL int _array_insert_at(SArray * pArray, unsigned int uIndex,
+				    void * pData);
   // ----- _array_for_each ------------------------------------------
-  int _array_for_each(SArray * pArray, FArrayForEach fForEach,
-		      void * pContext);
+  GDS_EXP_DECL int _array_for_each(SArray * pArray, FArrayForEach fForEach,
+				   void * pContext);
   // ----- _array_copy ----------------------------------------------
-  SArray * _array_copy(SArray * pArray);
+  GDS_EXP_DECL SArray * _array_copy(SArray * pArray);
   // ----- _array_remove_at -----------------------------------------
-  int _array_remove_at(SArray * pArray, unsigned int uIndex);
+  GDS_EXP_DECL int _array_remove_at(SArray * pArray, unsigned int uIndex);
   // ----- _array_compare -------------------------------------------
-  int _array_compare(void * pItem1, void * pItem2,
-		     unsigned int uEltSize);
+  GDS_EXP_DECL int _array_compare(void * pItem1, void * pItem2,
+				  unsigned int uEltSize);
   // ----- _array_sub -----------------------------------------------
-  SArray * _array_sub(SArray * pArray, unsigned int iFirst,
-		      unsigned int iLast);
+  GDS_EXP_DECL SArray * _array_sub(SArray * pArray, unsigned int iFirst,
+				   unsigned int iLast);
   // ----- _array_add_array -----------------------------------------
-  void _array_add_array(SArray * pArray, SArray * pSrcArray);
+  GDS_EXP_DECL void _array_add_array(SArray * pArray, SArray * pSrcArray);
   // ----- _array_trim ----------------------------------------------
-  void _array_trim(SArray * pArray, unsigned uMaxLength);
+  GDS_EXP_DECL void _array_trim(SArray * pArray, unsigned uMaxLength);
   // ----- _array_sort ----------------------------------------------
-  int _array_sort(SArray * pArray, FArrayCompare fCompare);
+  GDS_EXP_DECL int _array_sort(SArray * pArray, FArrayCompare fCompare);
   // ----- _array_get_enum ------------------------------------------
-  enum_t * _array_get_enum(SArray * pArray);
+  GDS_EXP_DECL enum_t * _array_get_enum(SArray * pArray);
   
 #ifdef __cplusplus
 }
