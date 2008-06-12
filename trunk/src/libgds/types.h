@@ -1,13 +1,19 @@
 // ==================================================================
 // @(#)types.h
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 24/11/2002
-// @lastdate 27/01/2005
+// $Id$
 // ==================================================================
 
 #ifndef __TYPES_H__
 #define __TYPES_H__
+
+#ifdef CYGWIN
+# define GDS_EXP_DECL __declspec(dllexport)
+#else
+# define GDS_EXP_DECL
+#endif
 
 /* `inttypes.h' vs. `stdint.h' (quoting from the GNU autoconf manual)
  *
