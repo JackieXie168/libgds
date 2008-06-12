@@ -15,8 +15,10 @@
 #include <stdio.h>
 #include <libgds/memory.h>
 #include <libgds/enumerator.h>
+#include <libgds/types.h>
 
 // ----- enum_create ------------------------------------------------
+GDS_EXP_DECL 
 enum_t * enum_create(void * ctx,
 		     FEnumeratorHasNext has_next,
 		     FEnumeratorGetNext get_next,
@@ -31,6 +33,7 @@ enum_t * enum_create(void * ctx,
 }
 
 // ----- enum_destroy -----------------------------------------------
+GDS_EXP_DECL 
 void enum_destroy(enum_t ** enum_ref)
 {
   if (*enum_ref != NULL) {

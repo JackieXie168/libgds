@@ -11,6 +11,8 @@
 #ifndef __GDS_ENUMERATOR_H__
 #define __GDS_ENUMERATOR_H__
 
+#include <libgds/types.h>
+
 typedef int    (*FEnumeratorHasNext)(void * ctx);
 typedef void * (*FEnumeratorGetNext)(void * ctx);
 typedef void   (*FEnumeratorDestroy)(void * ctx);
@@ -31,12 +33,12 @@ extern "C" {
 #endif
 
   // ----- enum_create ------------------------------------------------
-  enum_t * enum_create(void * ctx,
-		       FEnumeratorHasNext has_next,
-		       FEnumeratorGetNext get_next,
-		       FEnumeratorDestroy destroy);
+  GDS_EXP_DECL enum_t * enum_create(void * ctx,
+				    FEnumeratorHasNext has_next,
+				    FEnumeratorGetNext get_next,
+				    FEnumeratorDestroy destroy);
   // ----- enum_destroy -----------------------------------------------
-  void enum_destroy(enum_t ** enum_ref);
+  GDS_EXP_DECL void enum_destroy(enum_t ** enum_ref);
   
 #ifdef __cplusplus
 }
