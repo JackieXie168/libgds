@@ -1,9 +1,10 @@
 // ==================================================================
 // @(#)log.c
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be), Sebastien Tandel
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
+// @author Sebastien Tandel
 // @date 17/05/2005
-// @lastdate 03/03/2006
+// $Id$
 // ==================================================================
 
 #include <assert.h>
@@ -147,9 +148,10 @@ int log_enabled(SLogStream * stream, ELogLevel level)
 /**
  *
  */
-void log_vprintf(SLogStream * stream, const char * format, va_list ap)
+int log_vprintf(SLogStream * stream, const char * format, va_list ap)
 {
   char * str;
+  int result= -1;
 
   if (stream == NULL)
     return;
@@ -158,33 +160,37 @@ void log_vprintf(SLogStream * stream, const char * format, va_list ap)
   case LOG_TYPE_STREAM:
   case LOG_TYPE_FILE:
     assert(stream->pStream != NULL);
-    vfprintf(stream->pStream, format, ap);
+    result= vfprintf(stream->pStream, format, ap);
     break;
 
   case LOG_TYPE_CALLBACK:
     assert(stream->sCallback.fCallback != NULL);
     assert(vasprintf(&str, format, ap) >= 0);
     assert(str != NULL);
-    stream->sCallback.fCallback(stream->sCallback.pContext, str);
+    result= stream->sCallback.fCallback(stream->sCallback.pContext, str);
     free(str);
     break;
 
   default:
     abort();
   }
+
+  return result;
 }
 
 // ----- log_printf -------------------------------------------------
 /**
  *
  */
-void log_printf(SLogStream * stream, const char * format, ...)
+int log_printf(SLogStream * stream, const char * format, ...)
 {
   va_list ap;
+  int result;
 
   va_start(ap, format);
-  log_vprintf(stream, format, ap);
+  result= log_vprintf(stream, format, ap);
   va_end(ap);
+  return result;
 }
 
 // -----[ log_flush ]------------------------------------------------
