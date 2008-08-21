@@ -3,7 +3,7 @@
 //
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @date 25/06/2003
-// @lastdate 20/11/2007
+// @lastdate 03/07/2008
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -915,18 +915,23 @@ int cli_execute_line(SCli * pCli, const char * pcLine)
 {
   int iResult= CLI_SUCCESS;
 
+  // Skip leading blank spaces
+  while ((*pcLine == ' ') || (*pcLine == '\t'))
+    pcLine++;
+
   // Skip commented lines
-  if (pcLine[0] != '#') {
-    // Parse and execute command
-    iResult= cli_execute(pCli, (char *) pcLine);
-    if (iResult < 0) {
-      if (pCli->sErrorDetails.pcUserError != NULL)
-	log_printf(pLogErr, "Error: %s\n", pCli->sErrorDetails.pcUserError);
-      log_printf(pLogErr, "\033[0;31;1mError: ");
-      cli_perror(pLogErr, iResult);
-      log_printf(pLogErr, "\033[0m\n");
-      cli_perror_details(pLogErr, iResult, pCli, pcLine);
-    }
+  if (*pcLine == '#')
+    return iResult;
+
+  // Parse and execute command
+  iResult= cli_execute(pCli, (char *) pcLine);
+  if (iResult < 0) {
+    if (pCli->sErrorDetails.pcUserError != NULL)
+      log_printf(pLogErr, "Error: %s\n", pCli->sErrorDetails.pcUserError);
+    log_printf(pLogErr, "\033[0;31;1mError: ");
+    cli_perror(pLogErr, iResult);
+    log_printf(pLogErr, "\033[0m\n");
+    cli_perror_details(pLogErr, iResult, pCli, pcLine);
   }
   return iResult;
 }

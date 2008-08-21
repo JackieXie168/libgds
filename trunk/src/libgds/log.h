@@ -1,9 +1,10 @@
 // ==================================================================
 // @(#)log.h
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be), Sebastien Tandel
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
+// @author Sebastien Tandel
 // @date 17/05/2005
-// @lastdate 16/01/2007
+// $Id$
 // ==================================================================
 
 #ifndef __GDS_LOG_H__
@@ -34,7 +35,7 @@ typedef enum { LOG_TYPE_STREAM,
  * callback is to send the log output to a Java application through
  * the Java Native Interface (JNI).
  */
-typedef void (*FLogStreamCallback)(void * pContext, char * pcOutput);
+typedef int (*FLogStreamCallback)(void * pContext, char * pcOutput);
 
 // -----[ SLogCallback ]---------------------------------------------
 typedef struct {
@@ -89,9 +90,9 @@ extern "C" {
   // ----- log_enabled ----------------------------------------------
   int log_enabled(SLogStream * pLogStream, ELogLevel eLevel);
   // ----- log_printf -----------------------------------------------
-  void log_printf(SLogStream * log, const char * format, ...);
+  int log_printf(SLogStream * log, const char * format, ...);
   // -----[ log_vprintf ]--------------------------------------------
-  void log_vprintf(SLogStream * log, const char * format, va_list ap);
+  int log_vprintf(SLogStream * log, const char * format, va_list ap);
   // -----[ log_flush ]----------------------------------------------
   void log_flush(SLogStream * pLogStream);
   // ----- log_perror -----------------------------------------------
