@@ -20,9 +20,9 @@
 #include <libgds/types.h>
 
 #define _array_elt_pos(A,i) (((char *) A->data)+ \
-			    (i)*((SRealArray *) A)->uEltSize)
-#define _array_size(A) ((SRealArray *) A)->uEltSize* \
-                       ((SRealArray *) A)->uLength
+			    (i)*((_array_t *) A)->elt_size)
+#define _array_size(A) ((_array_t *) A)->elt_size* \
+                       ((_array_t *) A)->size
 
 typedef struct {
   FArrayCompare compare;
@@ -31,11 +31,12 @@ typedef struct {
 
 typedef struct {
   uint8_t      ** data;
-  unsigned int    uLength;
-  unsigned int    uEltSize;
-  uint8_t         uOptions;
+  unsigned int    size;
+  unsigned int    elt_size;
+  uint8_t         options;
   _array_ops_t    ops;
-} SRealArray;
+  const void    * destroy_ctx;
+} _array_t;
 
 // ----- _array_compare ---------------------------------------------
 /**
@@ -43,13 +44,13 @@ typedef struct {
  *
  * @param pItem1 the first element.
  * @param pItem2 the second element.
- * @param uEltSize the elements'size.
+ * @param elt_size the elements'size.
  */
 GDS_EXP_DECL
-int _array_compare(void * pItem1, void * pItem2,
-		   unsigned int uEltSize)
+int _array_compare(const void * item1, const void * item2,
+		   unsigned int elt_size)
 {
-  return memcmp(pItem1, pItem2, uEltSize);
+  return memcmp(item1, item2, elt_size);
 }
 
 // ----- _array_create ----------------------------------------------
@@ -57,18 +58,25 @@ int _array_compare(void * pItem1, void * pItem2,
  *
  */
 GDS_EXP_DECL
-SArray * _array_create(unsigned int uEltSize, uint8_t uOptions,
-		       FArrayCompare fCompare,
-		       FArrayDestroy fDestroy)
+array_t * _array_create(unsigned int elt_size,
+			unsigned int size,
+			uint8_t options,
+			FArrayCompare compare,
+			FArrayDestroy destroy,
+			const void * destroy_ctx)
 {
-  SRealArray * pRealArray= (SRealArray *) MALLOC(sizeof(SRealArray));
-  pRealArray->uLength= 0;
-  pRealArray->uEltSize= uEltSize;
-  pRealArray->data= NULL;
-  pRealArray->uOptions= uOptions;
-  pRealArray->ops.compare= fCompare;
-  pRealArray->ops.destroy= fDestroy;
-  return (SArray *) pRealArray;
+  _array_t * real_array= (_array_t *) MALLOC(sizeof(_array_t));
+  real_array->size= size;
+  real_array->elt_size= elt_size;
+  if (size > 0)
+    real_array->data= (uint8_t **) MALLOC(elt_size*size);
+  else
+    real_array->data= NULL;
+  real_array->options= options;
+  real_array->ops.compare= compare;
+  real_array->ops.destroy= destroy;
+  real_array->destroy_ctx= destroy_ctx;
+  return (array_t *) real_array;
 }
 
 // ----- _array_set_fdestroy -----------------------------------------
@@ -77,11 +85,13 @@ SArray * _array_create(unsigned int uEltSize, uint8_t uOptions,
  *
  */
 GDS_EXP_DECL
-void _array_set_fdestroy(SArray * pArray, FArrayDestroy fDestroy)
+void _array_set_fdestroy(array_t * array, FArrayDestroy destroy,
+			 const void * destroy_ctx)
 {
-  SRealArray * pRealArray = (SRealArray *)pArray;
+  _array_t * real_array = (_array_t *)array;
 
-  pRealArray->ops.destroy = fDestroy;
+  real_array->ops.destroy = destroy;
+  real_array->destroy_ctx= destroy_ctx;
 }
 
 // ----- _array_destroy ----------------------------------------------
@@ -89,21 +99,22 @@ void _array_set_fdestroy(SArray * pArray, FArrayDestroy fDestroy)
  *
  */
 GDS_EXP_DECL
-void _array_destroy(SArray ** ppArray)
+void _array_destroy(array_t ** array)
 {
-  SRealArray ** ppRealArray=
-    (SRealArray **) ppArray;
-  unsigned int uIndex;
+  _array_t ** real_array=
+    (_array_t **) array;
+  unsigned int index;
 
-  if (*ppRealArray != NULL) {
-    if ((*ppRealArray)->uLength > 0) {
-      if ((*ppRealArray)->ops.destroy != NULL)
-	for (uIndex= 0; uIndex < (*ppRealArray)->uLength; uIndex++)
-	  (*ppRealArray)->ops.destroy(_array_elt_pos((*ppRealArray), uIndex));
-      FREE((*ppRealArray)->data);
+  if (*real_array != NULL) {
+    if ((*real_array)->size > 0) {
+      if ((*real_array)->ops.destroy != NULL)
+	for (index= 0; index < (*real_array)->size; index++)
+	  (*real_array)->ops.destroy(_array_elt_pos((*real_array), index),
+				     (*real_array)->destroy_ctx);
+      FREE((*real_array)->data);
     }
-    FREE(*ppRealArray);
-    *ppRealArray= NULL;
+    FREE(*real_array);
+    *real_array= NULL;
   }
 }
 
@@ -111,24 +122,25 @@ void _array_destroy(SArray ** ppArray)
 /**
  * Change the size of an array. Re-allocate memory accordingly.
  */
-static void _array_resize_if_required(SArray * pArray,
-				      unsigned int uNewLength)
+static inline
+void _array_resize_if_required(array_t * array,
+			       unsigned int new_length)
 {
-  SRealArray * pRealArray= (SRealArray *) pArray;
+  _array_t * real_array= (_array_t *) array;
 
-  if (uNewLength != pRealArray->uLength) {
-    if (pRealArray->uLength == 0) {
-      pRealArray->data=
-	(uint8_t **) MALLOC(uNewLength*pRealArray->uEltSize);
-    } else if (uNewLength == 0) {
-      FREE(pRealArray->data);
-      pRealArray->data= NULL;
+  if (new_length != real_array->size) {
+    if (real_array->size == 0) {
+      real_array->data=
+	(uint8_t **) MALLOC(new_length*real_array->elt_size);
+    } else if (new_length == 0) {
+      FREE(real_array->data);
+      real_array->data= NULL;
     } else {
-      pRealArray->data=
-	(uint8_t **) REALLOC(pRealArray->data,
-			     uNewLength*pRealArray->uEltSize);
+      real_array->data=
+	(uint8_t **) REALLOC(real_array->data,
+			     new_length*real_array->elt_size);
     }
-    pRealArray->uLength= uNewLength;
+    real_array->size= new_length;
   }
 }
 
@@ -137,9 +149,9 @@ static void _array_resize_if_required(SArray * pArray,
  * Return the length of the array.
  */
 GDS_EXP_DECL
-unsigned int _array_length(SArray * pArray)
+unsigned int _array_length(array_t * array)
 {
-  return ((SRealArray *) pArray)->uLength;
+  return ((_array_t *) array)->size;
 }
 
 // ----- _array_set_length ------------------------------------------
@@ -148,9 +160,9 @@ unsigned int _array_length(SArray * pArray)
  * original size, data will be lost.
  */
 GDS_EXP_DECL
-void _array_set_length(SArray * pArray, unsigned int uNewLength)
+void _array_set_length(array_t * array, unsigned int new_length)
 {
-  _array_resize_if_required(pArray, uNewLength);
+  _array_resize_if_required(array, new_length);
 }
 
 // ----- array_set_at -----------------------------------------------
@@ -162,13 +174,13 @@ void _array_set_length(SArray * pArray, unsigned int uNewLength)
  *    -1 in case of failure (index >= length)
  */
 GDS_EXP_DECL
-int _array_set_at(SArray * pArray, unsigned int uIndex, void * pData)
+int _array_set_at(array_t * array, unsigned int index, void * data)
 {
-  if (uIndex >= ((SRealArray *) pArray)->uLength)
+  if (index >= ((_array_t *) array)->size)
     return -1;
-  memcpy(_array_elt_pos(pArray, uIndex), pData,
-  	 ((SRealArray *) pArray)->uEltSize);
-  return uIndex;
+  memcpy(_array_elt_pos(array, index), data,
+  	 ((_array_t *) array)->elt_size);
+  return index;
 }
 
 // ----- array_get_at -----------------------------------------------
@@ -180,13 +192,13 @@ int _array_set_at(SArray * pArray, unsigned int uIndex, void * pData)
  *   -1 in case of failure (index >= length)
  */
 GDS_EXP_DECL
-int _array_get_at(SArray * pArray, unsigned int uIndex, void * pData)
+int _array_get_at(array_t * array, unsigned int index, void * data)
 {
-  if (uIndex >= ((SRealArray *) pArray)->uLength)
+  if (index >= ((_array_t *) array)->size)
     return -1;
 
-  memcpy(pData, _array_elt_pos(pArray, uIndex),
-	 ((SRealArray *) pArray)->uEltSize);
+  memcpy(data, _array_elt_pos(array, index),
+	 ((_array_t *) array)->elt_size);
   return 0;
 }
 
@@ -201,38 +213,38 @@ int _array_get_at(SArray * pArray, unsigned int uIndex, void * pData)
  *                          placed is returned)
  */
 GDS_EXP_DECL
-int _array_sorted_find_index(SArray * pArray, void * pData,
-			     unsigned int * puIndex)
+int _array_sorted_find_index(array_t * array, void * data,
+			     unsigned int * index)
 {
-  unsigned int uOffset= 0;
-  unsigned int uSize= ((SRealArray *) pArray)->uLength;
-  unsigned int uPos= uSize/2;
+  unsigned int offset= 0;
+  unsigned int size= ((_array_t *) array)->size;
+  unsigned int pos= size/2;
   int iCompareResult;
 
-  while (uSize > 0) {
+  while (size > 0) {
     iCompareResult=
-      (((SRealArray *) pArray)->ops.compare(_array_elt_pos(pArray, uPos),
-					    pData,
-					    ((SRealArray *) pArray)->uEltSize));
+      (((_array_t *) array)->ops.compare(_array_elt_pos(array, pos),
+					 data,
+					 ((_array_t *) array)->elt_size));
     if (!iCompareResult) {
-      *puIndex= uPos;
+      *index= pos;
       return 0;
     } else if (iCompareResult > 0) {
-      if (uPos > uOffset) {
-	uSize= uPos-uOffset;
-	uPos= uOffset+uSize/2;
+      if (pos > offset) {
+	size= pos-offset;
+	pos= offset+size/2;
       } else
 	break;
     } else {
-      if (uOffset+uSize-uPos > 0) {
-	uSize= uOffset+uSize-uPos-1;
-	uOffset= uPos+1;
-	uPos= uOffset+uSize/2;
+      if (offset+size-pos > 0) {
+	size= offset+size-pos-1;
+	offset= pos+1;
+	pos= offset+size/2;
       } else
 	break;
     }
   }
-  *puIndex= uPos;
+  *index= pos;
   return -1;
 }
 
@@ -246,20 +258,20 @@ int _array_sorted_find_index(SArray * pArray, void * pData,
  *          (index >= length)
  */
 GDS_EXP_DECL
-int _array_insert_at(SArray * pArray, unsigned int uIndex, void * pData)
+int _array_insert_at(array_t * array, unsigned int index, void * data)
 {
-  unsigned int uOffset;
-  SRealArray * pRealArray= (SRealArray *) pArray;
+  unsigned int offset;
+  _array_t * real_array= (_array_t *) array;
 
-  if (uIndex > ((SRealArray *) pArray)->uLength)
+  if (index > ((_array_t *) array)->size)
     return -1;
-  _array_resize_if_required(pArray, ((SRealArray *) pArray)->uLength+1);
-  for (uOffset= pRealArray->uLength-1; uOffset > uIndex; uOffset--) {
-    memcpy(_array_elt_pos(pArray, uOffset),
-	   _array_elt_pos(pArray, uOffset-1),
-	   pRealArray->uEltSize);
+  _array_resize_if_required(array, ((_array_t *) array)->size+1);
+  for (offset= real_array->size-1; offset > index; offset--) {
+    memcpy(_array_elt_pos(array, offset),
+	   _array_elt_pos(array, offset-1),
+	   real_array->elt_size);
   }
-  return _array_set_at(pArray, uIndex, pData);
+  return _array_set_at(array, index, data);
 }
 
 // ----- _array_add -------------------------------------------------
@@ -276,21 +288,21 @@ int _array_insert_at(SArray * pArray, unsigned int uIndex, void * pData)
  *          if (sorted && ARRAY_OPTION_UNIQUE && value exists)
  */
 GDS_EXP_DECL
-int _array_add(SArray * pArray, void * pData)
+int _array_add(array_t * array, void * data)
 {
-  unsigned int uIndex;
+  unsigned int index;
 
-  if (((SRealArray *) pArray)->uOptions & ARRAY_OPTION_SORTED) {
-    if (_array_sorted_find_index(pArray, pData, &uIndex) < 0) {
-      return _array_insert_at(pArray, uIndex, pData);
+  if (((_array_t *) array)->options & ARRAY_OPTION_SORTED) {
+    if (_array_sorted_find_index(array, data, &index) < 0) {
+      return _array_insert_at(array, index, data);
     } else {
-      if (((SRealArray *) pArray)->uOptions & ARRAY_OPTION_UNIQUE)
+      if (((_array_t *) array)->options & ARRAY_OPTION_UNIQUE)
 	return -1;
       else
-	return _array_set_at(pArray, uIndex, pData);
+	return _array_set_at(array, index, data);
     }
   } else
-    return _array_append(pArray, pData);
+    return _array_append(array, data);
 }
 
 // ----- array_append -----------------------------------------------
@@ -302,14 +314,14 @@ int _array_add(SArray * pArray, void * pData)
  *   >=0 insertion index
  */
 GDS_EXP_DECL
-int _array_append(SArray * pArray, void * pData)
+int _array_append(array_t * array, void * data)
 {
-  assert((((SRealArray *) pArray)->uOptions & ARRAY_OPTION_SORTED) == 0);
+  assert((((_array_t *) array)->options & ARRAY_OPTION_SORTED) == 0);
 
-  _array_resize_if_required(pArray, ((SRealArray *) pArray)->uLength+1);
+  _array_resize_if_required(array, ((_array_t *) array)->size+1);
 
-  _array_set_at(pArray, ((SRealArray *) pArray)->uLength-1, pData);
-  return ((SRealArray *) pArray)->uLength-1;
+  _array_set_at(array, ((_array_t *) array)->size-1, data);
+  return ((_array_t *) array)->size-1;
 }
 
 // ----- _array_for_each --------------------------------------------
@@ -324,16 +336,16 @@ int _array_append(SArray * pArray, void * pData)
  *   !=0 in case of failure
  */
 GDS_EXP_DECL
-int _array_for_each(SArray * pArray, FArrayForEach fForEach,
-		    void * pContext)
+int _array_for_each(array_t * array, FArrayForEach foreach,
+		    const void * ctx)
 {
-  unsigned int uIndex;
-  int iResult;
+  unsigned int index;
+  int result;
   
-  for (uIndex= 0; uIndex < _array_length(pArray); uIndex++) {
-    iResult= fForEach(_array_elt_pos(pArray, uIndex), pContext);
-    if (iResult != 0)
-      return iResult;
+  for (index= 0; index < _array_length(array); index++) {
+    result= foreach(_array_elt_pos(array, index), ctx);
+    if (result != 0)
+      return result;
   }
   return 0;
 }
@@ -346,15 +358,17 @@ int _array_for_each(SArray * pArray, FArrayForEach fForEach,
  *   a pointer to the copy
  */
 GDS_EXP_DECL
-SArray * _array_copy(SArray * pArray)
+array_t * _array_copy(array_t * array)
 {
-  SArray * pNewArray= _array_create(((SRealArray *) pArray)->uEltSize,
-				    ((SRealArray *) pArray)->uOptions,
-				    ((SRealArray *) pArray)->ops.compare,
-				    ((SRealArray *) pArray)->ops.destroy);
-  _array_set_length(pNewArray, ((SRealArray *)pArray)->uLength);
-  memcpy(pNewArray->data, pArray->data, _array_size(pArray));
-  return pNewArray;
+  array_t * new_array= _array_create(((_array_t *) array)->elt_size,
+				     ((_array_t *) array)->size,
+				     ((_array_t *) array)->options,
+				     ((_array_t *) array)->ops.compare,
+				     ((_array_t *) array)->ops.destroy,
+				     ((_array_t *) array)->destroy_ctx);
+  // TBR _array_set_length(new_array, ((_array_t *)array)->size);
+  memcpy(new_array->data, array->data, _array_size(array));
+  return new_array;
 }
 
 // ----- _array_remove_at -------------------------------------------
@@ -366,25 +380,26 @@ SArray * _array_copy(SArray * pArray)
  *   -1 in case index is not valid
  */
 GDS_EXP_DECL
-int _array_remove_at(SArray * pArray, unsigned int uIndex)
+int _array_remove_at(array_t * array, unsigned int index)
 {
-  SRealArray * pRealArray= (SRealArray *) pArray;
-  unsigned int uOffset;
+  _array_t * real_array= (_array_t *) array;
+  unsigned int offset;
 
-  if (uIndex < pRealArray->uLength) {
+  if (index < real_array->size) {
 
     // Free item at given position if required
-    if (pRealArray->ops.destroy != NULL)
-      pRealArray->ops.destroy(_array_elt_pos(pRealArray, uIndex));
+    if (real_array->ops.destroy != NULL)
+      real_array->ops.destroy(_array_elt_pos(real_array, index),
+			      real_array->destroy_ctx);
 
-    // Since (uIndex >= 0), then (pRealArray->uLength >= 1) and then
+    // Since (index >= 0), then (real_array->size >= 1) and then
     // there is no problem with the unsigned variable uOffset.
-    for (uOffset= uIndex; uOffset < pRealArray->uLength-1; uOffset++) {
-      memcpy(_array_elt_pos(pArray, uOffset),
-	     _array_elt_pos(pArray, uOffset+1),
-	     pRealArray->uEltSize);
+    for (offset= index; offset < real_array->size-1; offset++) {
+      memcpy(_array_elt_pos(array, offset),
+	     _array_elt_pos(array, offset+1),
+	     real_array->elt_size);
     }
-    _array_resize_if_required(pArray, pRealArray->uLength-1);
+    _array_resize_if_required(array, real_array->size-1);
   } else {
     return -1;
   }
@@ -398,21 +413,23 @@ int _array_remove_at(SArray * pArray, unsigned int uIndex)
  * PRECONDITION: (iFirst <= iLast) AND (iLast < length(ARRAY))
  */
 GDS_EXP_DECL
-SArray * _array_sub(SArray * pArray, unsigned int iFirst, unsigned int iLast)
+array_t * _array_sub(array_t * array, unsigned int first, unsigned int last)
 {
-  SRealArray * pSubArray;
-  assert((iFirst <= iLast) && (iLast < _array_length(pArray)));
+  _array_t * sub_array;
+  assert((first <= last) && (last < _array_length(array)));
 
-  pSubArray= (SRealArray *)
-    _array_create(((SRealArray *) pArray)->uEltSize,
-		  ((SRealArray *) pArray)->uOptions,
-		  ((SRealArray *) pArray)->ops.compare,
-		  ((SRealArray *) pArray)->ops.destroy);
-  pSubArray->uLength= iLast-iFirst+1;
-  pSubArray->data= (uint8_t **) MALLOC(pSubArray->uEltSize*pSubArray->uLength);
-  memcpy(pSubArray->data, _array_elt_pos(pArray, iFirst),
-	 pSubArray->uEltSize*pSubArray->uLength);
-  return (SArray *) pSubArray;
+  sub_array= (_array_t *)
+    _array_create(((_array_t *) array)->elt_size,
+		  last-first+1,
+		  ((_array_t *) array)->options,
+		  ((_array_t *) array)->ops.compare,
+		  ((_array_t *) array)->ops.destroy,
+		  ((_array_t *) array)->destroy_ctx);
+  // TBR sub_array->size= last-first+1;
+  // TBR sub_array->data= (uint8_t **) MALLOC(sub_array->elt_size*sub_array->size);
+  memcpy(sub_array->data, _array_elt_pos(array, first),
+	 sub_array->elt_size*sub_array->size);
+  return (array_t *) sub_array;
 }
 
 // ----- _array_add_array -------------------------------------------
@@ -420,17 +437,17 @@ SArray * _array_sub(SArray * pArray, unsigned int iFirst, unsigned int iLast)
  * Add a whole array to another array.
  */
 GDS_EXP_DECL
-void _array_add_array(SArray * pArray, SArray * pSrcArray)
+void _array_add_array(array_t * array, array_t * src_array)
 {
-  unsigned int uLength= ((SRealArray *) pArray)->uLength;
+  unsigned int size= ((_array_t *) array)->size;
 
-  assert(((SRealArray *) pArray)->uEltSize ==
-	 ((SRealArray *) pSrcArray)->uEltSize);
-  _array_resize_if_required(pArray,
-			    uLength+((SRealArray *) pSrcArray)->uLength);
-  memcpy(_array_elt_pos(pArray, uLength),
-	 _array_elt_pos(pSrcArray, 0),
-	 _array_size(pSrcArray));
+  assert(((_array_t *) array)->elt_size ==
+	 ((_array_t *) src_array)->elt_size);
+  _array_resize_if_required(array,
+			    size+((_array_t *) src_array)->size);
+  memcpy(_array_elt_pos(array, size),
+	 _array_elt_pos(src_array, 0),
+	 _array_size(src_array));
 }
 
 // ----- _array_trim ------------------------------------------------
@@ -438,43 +455,43 @@ void _array_add_array(SArray * pArray, SArray * pSrcArray)
  *
  */
 GDS_EXP_DECL
-void _array_trim(SArray * pArray, unsigned uMaxLength)
+void _array_trim(array_t * array, unsigned max_length)
 {
-  assert(uMaxLength <= ((SRealArray *) pArray)->uLength);
-  _array_resize_if_required(pArray, uMaxLength);
+  assert(max_length <= ((_array_t *) array)->size);
+  _array_resize_if_required(array, max_length);
 }
 
 #define _array_elt_copy_to(A, i, d) memcpy(_array_elt_pos(A, i), d, \
-                                           ((SRealArray *) A)->uEltSize)
+                                           ((_array_t *) A)->elt_size)
 #define _array_elt_copy_from(A, d, i) memcpy(d, _array_elt_pos(A, i), \
-                                             ((SRealArray *) A)->uEltSize)
+                                             ((_array_t *) A)->elt_size)
 #define _array_elt_copy(A, i, j) memcpy(_array_elt_pos(A, i), \
                                         _array_elt_pos(A, j), \
-                                        ((SRealArray *) A)->uEltSize)
+                                        ((_array_t *) A)->elt_size)
 
 // ----- _array_sort ------------------------------------------------
 /**
  * Simple selection-sort.
  */
 GDS_EXP_DECL
-int _array_sort(SArray * pArray, FArrayCompare fCompare)
+int _array_sort(array_t * array, FArrayCompare fCompare)
 {
   unsigned int index, index2;
-  void * pTemp= MALLOC(((SRealArray *) pArray)->uEltSize);
+  void * pTemp= MALLOC(((_array_t *) array)->elt_size);
 
-  for (index= 0; index < _array_length(pArray); index++)
+  for (index= 0; index < _array_length(array); index++)
     for (index2= index; index2 > 0; index2--)
-      if (fCompare(_array_elt_pos(pArray, index2-1),
-		   _array_elt_pos(pArray, index2),
-		   ((SRealArray *) pArray)->uEltSize) > 0) {
-	_array_elt_copy_from(pArray, pTemp, index2);
-	_array_elt_copy(pArray, index2, index2-1);
-	_array_elt_copy_to(pArray, index2-1, pTemp);
+      if (fCompare(_array_elt_pos(array, index2-1),
+		   _array_elt_pos(array, index2),
+		   ((_array_t *) array)->elt_size) > 0) {
+	_array_elt_copy_from(array, pTemp, index2);
+	_array_elt_copy(array, index2, index2-1);
+	_array_elt_copy_to(array, index2-1, pTemp);
       }
 
   FREE(pTemp);
-  ((SRealArray*) pArray)->uOptions|= ARRAY_OPTION_SORTED;
-  ((SRealArray*) pArray)->ops.compare= fCompare;
+  ((_array_t*) array)->options|= ARRAY_OPTION_SORTED;
+  ((_array_t*) array)->ops.compare= fCompare;
   return 0;
 }
 
@@ -489,7 +506,7 @@ int _array_sort(SArray * pArray, FArrayCompare fCompare)
  *     the largest subfiles first on the stack
  */
 GDS_EXP_DECL
-int _array_quicksort(SArray * pArray, FArrayCompare fCompare)
+int _array_quicksort(array_t * array, FArrayCompare fCompare)
 {
   // NOT YET IMPLEMENTED
   return -1;
@@ -504,7 +521,7 @@ int _array_quicksort(SArray * pArray, FArrayCompare fCompare)
 
 typedef struct {
   unsigned int   index;
-  SArray       * array;
+  array_t      * array;
 } _enum_ctx_t;
 
 // -----[ _enum_has_next ]-------------------------------------------
@@ -518,7 +535,7 @@ static int _enum_has_next(void * ctx)
 static void * _enum_get_next(void * ctx)
 {
   _enum_ctx_t * enum_ctx= (_enum_ctx_t *) ctx;
-  return _array_elt_pos(enum_ctx->array, enum_ctx->index++);
+  return *((void **) _array_elt_pos(enum_ctx->array, enum_ctx->index++));
 }
 
 // -----[ _enum_destroy ]--------------------------------------------
@@ -530,7 +547,7 @@ static void _enum_destroy(void * ctx)
 
 // -----[ _array_get_enum ]------------------------------------------
 GDS_EXP_DECL
-enum_t * _array_get_enum(SArray * array)
+gds_enum_t * _array_get_enum(array_t * array)
 {
   _enum_ctx_t * ctx= (_enum_ctx_t *) MALLOC(sizeof(_enum_ctx_t));
   ctx->array= array;

@@ -1,9 +1,9 @@
 // ==================================================================
-// @(#)bloom_vector.c
+// @(#)bit_vector.c
 //
 // @author Sebastien Tandel <sebastien [AT] tandel (dot) be>
 // @date 15/03/2007
-// @lastdate 15/03/2007
+// $Id$
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -18,10 +18,10 @@
 #include <libgds/array.h>
 #include <libgds/memory.h>
 
-struct _BitVector {
-  SUInt32Array * puArray;
-  uint32_t uSize;
-};
+typedef struct gds_bit_vector_t {
+  unsigned int     size;
+  uint32_array_t * array;
+} gds_bit_vector_t;
 #define BIT_VECTOR_SEGMENT_LEN 32
 
 /** 
@@ -29,49 +29,47 @@ struct _BitVector {
  * vector. 
  */
 
-// ----- bit_vector_create -------------------------------------------
+// -----[ bit_vector_create ]----------------------------------------
 /**
- * \brief Creates a bit vector of size uSize.  
+ * \brief Creates a bit vector of size size.  
  *
- * @param uSize the size of the bit vector
+ * @param size the size of the bit vector
  *
- * @return a bit vector of size uSize
+ * @return a bit vector of size size
  */
-SBitVector * bit_vector_create(const uint32_t uSize)
+gds_bit_vector_t * bit_vector_create(const uint32_t size)
 {
-  SBitVector * pBitVector = MALLOC(sizeof(SBitVector));
-  uint32_t uZero = 0;
-  uint32_t uCpt;
-  uint32_t uNbrSegments;
+  gds_bit_vector_t * vector= MALLOC(sizeof(gds_bit_vector_t));
+  unsigned int index;
+  unsigned int num_segments;
 
-  pBitVector->uSize = uSize;
-  pBitVector->puArray = uint32_array_create(0);
-  uNbrSegments = uSize / BIT_VECTOR_SEGMENT_LEN;
-  if (uSize % BIT_VECTOR_SEGMENT_LEN) {
-    uNbrSegments++;
-  }
-  _array_set_length((SArray*)pBitVector->puArray, uNbrSegments);
-  for (uCpt = 0; uCpt < _array_length((SArray*)pBitVector->puArray); uCpt++) {
-    _array_set_at((SArray*)pBitVector->puArray, uCpt, &uZero);
-  }
-  return pBitVector;
+  num_segments= size / BIT_VECTOR_SEGMENT_LEN;
+  if (size % BIT_VECTOR_SEGMENT_LEN)
+    num_segments++;
+
+  vector->size= size;
+  vector->array= uint32_array_create(0);
+  uint32_array_set_size(vector->array, num_segments);
+  for (index = 0; index < uint32_array_size(vector->array); index++)
+    vector->array->data[index]= 0;
+  return vector;
 }
 
 // ----- bit_vector_destroy ------------------------------------------
 /**
- * \brief destroys the bit vector pBitVector
+ * \brief destroys the bit vector vector
  *
- * @param pBitVector a bit vector
+ * @param vector a bit vector
  *
  */
-void bit_vector_destroy(SBitVector ** pBitVector)
+void bit_vector_destroy(gds_bit_vector_t ** vector)
 {
-  if (*pBitVector) {
-    if ( (*pBitVector)->puArray ) {
-      uint32_array_destroy( &(*pBitVector)->puArray );
+  if (*vector) {
+    if ( (*vector)->array ) {
+      uint32_array_destroy( &(*vector)->array );
     }
-    FREE( (*pBitVector) );
-    *pBitVector = NULL;
+    FREE( (*vector) );
+    *vector = NULL;
   }
 }
 
@@ -79,29 +77,30 @@ void bit_vector_destroy(SBitVector ** pBitVector)
 /**
  * \brief set to 1 a specific bit of a bit vector.
  *
- * @param pBitVector a bit vector
+ * @param vector a bit vector
  * @param uNumBit the number of the bit to set to 1 in the bit vector
  *
- * @return 0 if the bit is set. -1 if pBitVector is NULL or if uNumBit is
+ * @return 0 if the bit is set. -1 if vector is NULL or if uNumBit is
  * greater than the size of the bit vector.
  */
-int8_t bit_vector_set(SBitVector * pBitVector, const uint32_t uNumBit)
+int8_t bit_vector_set(gds_bit_vector_t * vector, const uint32_t uNumBit)
 {
   uint32_t uNumVector;
   uint32_t uFilterSegment;
   uint8_t uBit;
 
-  if (!pBitVector || pBitVector->uSize <= uNumBit)
+  if ((vector == NULL) ||
+      (vector->size <= uNumBit))
     return -1;
 
   /* Retrieve the segment which contains the bit to change */
   uNumVector = uNumBit/BIT_VECTOR_SEGMENT_LEN;
-  _array_get_at((SArray*)pBitVector->puArray, uNumVector, &uFilterSegment);
+  uFilterSegment= vector->array->data[uNumVector];
 
   /* Change the value of the concerned bit */
   uBit = uNumBit%BIT_VECTOR_SEGMENT_LEN;
   uFilterSegment |= (1 << (BIT_VECTOR_SEGMENT_LEN - uBit - 1));
-  _array_set_at((SArray*)pBitVector->puArray, uNumVector, &uFilterSegment);
+  vector->array->data[uNumVector]= uFilterSegment;
 
   return 0;
 }
@@ -110,13 +109,13 @@ int8_t bit_vector_set(SBitVector * pBitVector, const uint32_t uNumBit)
 /**
  * \brief set to 0 a specific bit of a bit vector.
  *
- * @param pBitVector a bit vector
+ * @param vector a bit vector
  * @param uNumBit the number of the bit to set to 0 in the bit vector
  *
- * @return 0 if the bit is set to 0. -1 if pBitVector is NULL or uNumVector is
+ * @return 0 if the bit is set to 0. -1 if vector is NULL or uNumVector is
  * greater than the size of the bit vector.
  */
-int8_t bit_vector_unset(SBitVector * pBitVector, const uint32_t uNumBit)
+int8_t bit_vector_unset(gds_bit_vector_t * vector, const uint32_t uNumBit)
 {
   uint32_t uNumVector;
   uint32_t uFilterSegment;
@@ -124,18 +123,19 @@ int8_t bit_vector_unset(SBitVector * pBitVector, const uint32_t uNumBit)
   uint8_t uBit;
 
 
-  if (!pBitVector || pBitVector->uSize <= uNumBit)
+  if ((vector == NULL) ||
+      (vector->size <= uNumBit))
     return -1;
 
   /* Retrieve the segment which contains the bit to change */
   uNumVector = uNumBit/BIT_VECTOR_SEGMENT_LEN;
-  _array_get_at((SArray*)pBitVector->puArray, uNumVector, &uFilterSegment);
+  uFilterSegment= vector->array->data[uNumVector];
 
   /* Change the value of the concerned bit */
   uBit = uNumBit%BIT_VECTOR_SEGMENT_LEN;
   uCurrentBit = ((uFilterSegment << uBit) >> (BIT_VECTOR_SEGMENT_LEN-1));
   uFilterSegment ^= (uCurrentBit << (BIT_VECTOR_SEGMENT_LEN - uBit - 1));
-  _array_set_at((SArray*)pBitVector->puArray, uNumVector, &uFilterSegment);
+  vector->array->data[uNumVector]= uFilterSegment;
 
   return 0;
 }
@@ -144,36 +144,37 @@ int8_t bit_vector_unset(SBitVector * pBitVector, const uint32_t uNumBit)
 /**
  * \brief get the value of a specific bit of a bit vector
  *
- * @param pBitVector a bit vector
+ * @param vector a bit vector
  * @param uNumBit the number of the specific bit to get in the bit vector
  *
- * @return -1 if pBitVector is NULL or uNumVector is greater tha the size of
+ * @return -1 if vector is NULL or uNumVector is greater tha the size of
  * the bit vector else the value of the bit in the bit vector (0/1).
  */
-int8_t bit_vector_get(SBitVector * pBitVector, uint32_t uNumBit)
+int8_t bit_vector_get(gds_bit_vector_t * vector, uint32_t uNumBit)
 {
   uint32_t uNumVector;
   uint32_t uFilterSegment;
   uint8_t uBit;
     
-  if (!pBitVector || pBitVector->uSize <= uNumBit)
+  if ((vector == NULL) ||
+      (vector->size <= uNumBit))
     return -1;
 
   /* Retrieve the segment which contains the bit to change */
   uNumVector = uNumBit/BIT_VECTOR_SEGMENT_LEN;
-  _array_get_at((SArray*)pBitVector->puArray, uNumVector, &uFilterSegment);
+  uFilterSegment= vector->array->data[uNumVector];
 
   /* Change the value of the concerned bit */
   uBit = uNumBit%BIT_VECTOR_SEGMENT_LEN;
   return ((uFilterSegment << uBit) >> (BIT_VECTOR_SEGMENT_LEN-1));
 }
 
-static int _bit_vector_segment_to_string(char ** ppStr, uint32_t uSegment, uint32_t * uCptBits)
+static int _bit_vector_segment_to_string(char ** ppStr, uint32_t segment, uint32_t * uCptBits)
 {
   uint32_t uCpt;
 
   for (uCpt = 0; uCpt < BIT_VECTOR_SEGMENT_LEN; uCpt++) {
-    (*ppStr)[uCpt] = (1 & (uSegment >> (BIT_VECTOR_SEGMENT_LEN - uCpt - 1))) + 48;
+    (*ppStr)[uCpt] = (1 & (segment >> (BIT_VECTOR_SEGMENT_LEN - uCpt - 1))) + 48;
     (*uCptBits)--;
     if (!(*uCptBits))
       break;
@@ -186,32 +187,31 @@ static int _bit_vector_segment_to_string(char ** ppStr, uint32_t uSegment, uint3
 /**
  * \brief Creates a string representation of a bit vector
  *
- * @param pBitVector a bit vector
+ * @param vector a bit vector
  *
  * @return the string representation of the bit vector.
  */
-char * bit_vector_to_string(SBitVector * pBitVector)
+char * bit_vector_to_string(gds_bit_vector_t * vector)
 {
   char * pStr;
   char * pStrToRet;
-  enum_t * pEnum;
   uint32_t uCptBits;
-  uint32_t uSegment;
+  uint32_t segment;
+  unsigned int index;
 
-  if (!pBitVector)
+  if (!vector)
     return NULL;
 
   /* Memory allocation of the string */
-  pStr = MALLOC(pBitVector->uSize + 1);
-  pStr[pBitVector->uSize] = '\0';
-  pStrToRet = pStr;
+  pStr= MALLOC(vector->size + 1);
+  pStr[vector->size] = '\0';
+  pStrToRet= pStr;
 
   /* Browse each segments for stringization */
-  uCptBits = pBitVector->uSize;
-  pEnum = _array_get_enum((SArray*)pBitVector->puArray);
-  while (enum_has_next(pEnum)) {
-    uSegment = *(uint32_t*) enum_get_next(pEnum);
-    _bit_vector_segment_to_string(&pStr, uSegment, &uCptBits);
+  uCptBits= vector->size;
+  for (index= 0; index < uint32_array_size(vector->array); index++) {
+    segment= vector->array->data[index];
+    _bit_vector_segment_to_string(&pStr, segment, &uCptBits);
   }
   return pStrToRet;
 }
@@ -219,33 +219,30 @@ char * bit_vector_to_string(SBitVector * pBitVector)
 /**
  * @brief Tests the equality of two bit vectors
  *
- * @param pBitVector1 the first bit vector of the equality test
- * @param pBitVector2 the second bit vector of the equality test
+ * @param vector1 the first bit vector of the equality test
+ * @param vector2 the second bit vector of the equality test
  *
  */
-int8_t bit_vector_equals(SBitVector * pBitVector1, SBitVector * pBitVector2)
+int8_t bit_vector_equals(gds_bit_vector_t * vector1, gds_bit_vector_t * vector2)
 {
-  enum_t * pEnum1;
-  enum_t * pEnum2;
-  uint32_t uSegment1;
-  uint32_t uSegment2;
+  uint32_t segment1;
+  uint32_t segment2;
+  unsigned int index;
 
-  if (!pBitVector1 && !pBitVector2)
+  if (!vector1 && !vector2)
     return 1;
-  if (!pBitVector1 || !pBitVector2)
+  if (!vector1 || !vector2)
     return 0;
 
   /* Tests the size of the bit vectors */
-  if (pBitVector1->uSize != pBitVector2->uSize)
+  if (vector1->size != vector2->size)
     return 0;
 
-  pEnum1 = _array_get_enum( (SArray*)pBitVector1->puArray );
-  pEnum2 = _array_get_enum( (SArray*)pBitVector2->puArray );
-  while (enum_has_next(pEnum1)) {
-    uSegment1 = *(uint32_t*)enum_get_next(pEnum1);
-    uSegment2 = *(uint32_t*)enum_get_next(pEnum2);
+  for (index= 0; index < uint32_array_size(vector1->array); index++) {
+    segment1= vector1->array->data[index];
+    segment2= vector2->array->data[index];
 
-    if (uSegment1 != uSegment2)
+    if (segment1 != segment2)
       return 0;
   }
   return 1;
@@ -259,40 +256,37 @@ int8_t bit_vector_equals(SBitVector * pBitVector1, SBitVector * pBitVector2)
  *  - one bit vector is greater than another if its size is greater than the second whatever
  *  the value of both bit vectors.
  *
- * @param pBitVector1 the first bit vector of the comparison
- * @param pBitVector2 the second bit vector of the comparison
+ * @param vector1 the first bit vector of the comparison
+ * @param vector2 the second bit vector of the comparison
  *
  * @return 0 if both bit vectors are the same, 1 if the first vector is greater
  * than the second, -1 if the first vector is smaller than the second.
  */
-int8_t bit_vector_comp(SBitVector * pBitVector1, SBitVector * pBitVector2)
+int8_t bit_vector_comp(gds_bit_vector_t * vector1, gds_bit_vector_t * vector2)
 {
-  enum_t * pEnum1;
-  enum_t * pEnum2;
-  uint32_t uSegment1;
-  uint32_t uSegment2;
+  uint32_t segment1;
+  uint32_t segment2;
+  unsigned int index;
 
   /* Tests the NULL value which is the smallest possible */
-  if (!pBitVector1 && !pBitVector2)
+  if (!vector1 && !vector2)
     return 0;
-  if (!pBitVector1 || !pBitVector2)
+  if (!vector1 || !vector2)
     return 0;
 
   /* Tests the size of the bit vectors */
-  if (pBitVector1->uSize < pBitVector2->uSize)
+  if (vector1->size < vector2->size)
     return 1;
-  else if (pBitVector1->uSize > pBitVector2->uSize)
+  else if (vector1->size > vector2->size)
     return -1;
 
-  pEnum1 = _array_get_enum( (SArray*)pBitVector1->puArray );
-  pEnum2 = _array_get_enum( (SArray*)pBitVector2->puArray );
-  while (enum_has_next(pEnum1)) {
-    uSegment1 = *(uint32_t*)enum_get_next(pEnum1);
-    uSegment2 = *(uint32_t*)enum_get_next(pEnum2);
+  for (index= 0; index < uint32_array_size(vector1->array); index++) {
+    segment1= vector1->array->data[index];
+    segment2= vector2->array->data[index];
 
-    if (uSegment1 < uSegment2)
+    if (segment1 < segment2)
       return -1;
-    else if (uSegment1 > uSegment2)
+    else if (segment1 > segment2)
       return 1;
   }
   return 0;
@@ -309,26 +303,27 @@ typedef enum {
 
 typedef struct _BitVectorOperation {
   EBitVectorOperation op;
-  SBitVector * pBitVector;
+  gds_bit_vector_t * vector;
   uint32_t uNumSegment;
-}SBitVectorOperation;
+}gds_bit_vector_tOperation;
 
-static int8_t _bit_vector_binary_operation(const EBitVectorOperation op, 
-					    uint32_t * uSegment1, 
-					    uint32_t uSegment2)
+static inline
+int _bit_vector_segment_binary_op(const EBitVectorOperation op, 
+				  uint32_t * segment1, 
+				  uint32_t segment2)
 {
-  if (!uSegment1)
+  if (!segment1)
     return -1;
 
   switch (op) {
     case BIT_VECTOR_AND:
-      (*uSegment1) &= uSegment2;
+      (*segment1) &= segment2;
       break;
     case BIT_VECTOR_OR:
-      (*uSegment1) |= uSegment2;
+      (*segment1) |= segment2;
       break;
     case BIT_VECTOR_XOR:
-      (*uSegment1) ^= uSegment2;
+      (*segment1) ^= segment2;
       break;
     default:
       return -1;
@@ -336,32 +331,27 @@ static int8_t _bit_vector_binary_operation(const EBitVectorOperation op,
   return 0;
 }
 
-static int _bit_vector_binary_operation_enum(const EBitVectorOperation op,
-					      SBitVector * pBitVector1, 
-					      SBitVector * pBitVector2)
+static inline int _bit_vector_binary_op(const EBitVectorOperation op,
+					gds_bit_vector_t * vector1, 
+					gds_bit_vector_t * vector2)
 {
-  enum_t * pEnum1;
-  enum_t * pEnum2;
-  uint32_t uSegment1;
-  uint32_t uSegment2;
+  uint32_t segment1;
+  uint32_t segment2;
+  unsigned int index;
 
   uint32_t uCptSegment = 0;
 
-
-  if (pBitVector1->uSize != pBitVector2->uSize) 
+  if (vector1->size != vector2->size)
     return -1;
 
-  pEnum1 = _array_get_enum((SArray *) pBitVector1->puArray);
-  pEnum2 = _array_get_enum((SArray *) pBitVector2->puArray);
+  for (index= 0; index < uint32_array_size(vector1->array); index++) {
+    segment1= vector1->array->data[index];
+    segment2= vector2->array->data[index];
 
-  while (enum_has_next(pEnum1)) {
-    uSegment1 = *(uint32_t*) enum_get_next(pEnum1);
-    uSegment2 = *(uint32_t*) enum_get_next(pEnum2);
-
-    if (_bit_vector_binary_operation(op, &uSegment1, uSegment2)) 
+    if (_bit_vector_segment_binary_op(op, &segment1, segment2)) 
       return -1;
 
-    _array_set_at((SArray*)pBitVector1->puArray, uCptSegment, &uSegment1);
+    vector1->array->data[uCptSegment]= segment1;
     uCptSegment++;
   }
   return 0;
@@ -370,64 +360,64 @@ static int _bit_vector_binary_operation_enum(const EBitVectorOperation op,
 /**
  * @brief Performs an @em and operation on a bit vector.
  *
- * @param pBitVector1 the vector affected by the \em and operation
- * @param pBitVector2 the vector to and the first with.
+ * @param vector1 the vector affected by the \em and operation
+ * @param vector2 the vector to and the first with.
  *
- * @return 0 if pBitVector1 has been anded with pBitVector2, else if one of the
+ * @return 0 if vector1 has been anded with vector2, else if one of the
  * two bit vectors is NULL, -1 is returned. -1 is also returned if the length
  * of the bit vectors aren't the same.
  *
  * @warning It is \em not possible to perform the @em and operation on bit
  * vectors of different lengths. (TODO?)
  */
-int8_t bit_vector_and(SBitVector * pBitVector1, SBitVector * pBitVector2)
+int8_t bit_vector_and(gds_bit_vector_t * vector1, gds_bit_vector_t * vector2)
 {
-  if (!pBitVector1 || !pBitVector2)
+  if (!vector1 || !vector2)
     return -1;
 
-  return _bit_vector_binary_operation_enum(BIT_VECTOR_AND, pBitVector1, pBitVector2);
+  return _bit_vector_binary_op(BIT_VECTOR_AND, vector1, vector2);
 }
 
 /**
  * @brief Performs an @em or operation on a bit vector.
  *
- * @param pBitVector1 the vector affected by the \em or operation
- * @param pBitVector2 the vector to and the first with.
+ * @param vector1 the vector affected by the \em or operation
+ * @param vector2 the vector to and the first with.
  *
- * @return 0 if pBitVector1 has been ored with pBitVector2, else if one of the
+ * @return 0 if vector1 has been ored with vector2, else if one of the
  * two bit vectors is NULL, -1 is returned. -1 is also returned if the length
  * of the bit vectors aren't the same.
  *
  * @warning It is \em not possible to perform the @em or operation on bit
  * vectors of different lengths. (TODO?)
  */
-int8_t bit_vector_or(SBitVector * pBitVector1, SBitVector * pBitVector2)
+int8_t bit_vector_or(gds_bit_vector_t * vector1, gds_bit_vector_t * vector2)
 {
-  if (!pBitVector1 || !pBitVector2)
+  if (!vector1 || !vector2)
     return -1;
 
-  return _bit_vector_binary_operation_enum(BIT_VECTOR_OR, pBitVector1, pBitVector2);
+  return _bit_vector_binary_op(BIT_VECTOR_OR, vector1, vector2);
 }
 
 /**
  * @brief Performs an @em or operation on a bit vector.
  *
- * @param pBitVector1 the vector affected by the \em or operation
- * @param pBitVector2 the vector to and the first with.
+ * @param vector1 the vector affected by the \em or operation
+ * @param vector2 the vector to and the first with.
  *
- * @return 0 if pBitVector1 has been ored with pBitVector2, else if one of the
+ * @return 0 if vector1 has been ored with vector2, else if one of the
  * two bit vectors is NULL, -1 is returned. -1 is also returned if the length
  * of the bit vectors aren't the same.
  *
  * @warning It is \em not possible to perform the @em or operation on bit
  * vectors of different lengths. (TODO?)
  */
-int8_t bit_vector_xor(SBitVector * pBitVector1, SBitVector * pBitVector2)
+int8_t bit_vector_xor(gds_bit_vector_t * vector1, gds_bit_vector_t * vector2)
 {
-  if (!pBitVector1 || !pBitVector2)
+  if (!vector1 || !vector2)
     return -1;
 
-  return _bit_vector_binary_operation_enum(BIT_VECTOR_XOR, pBitVector1, pBitVector2);
+  return _bit_vector_binary_op(BIT_VECTOR_XOR, vector1, vector2);
 }
 
 /**
@@ -442,19 +432,19 @@ int8_t bit_vector_xor(SBitVector * pBitVector1, SBitVector * pBitVector2)
  * vector.
  *
  */
-SBitVector * bit_vector_create_from_string(char * cBitVector)
+gds_bit_vector_t * bit_vector_create_from_string(char * cBitVector)
 {
-  SBitVector * pBitVector;
+  gds_bit_vector_t * vector;
   uint32_t uLen;
   uint32_t uCptBits;
  
   uLen = strlen(cBitVector);
-  pBitVector = bit_vector_create(uLen);
+  vector = bit_vector_create(uLen);
 
   for (uCptBits = 0; uCptBits < uLen; uCptBits++) {
     if (cBitVector[uCptBits] != '0')
-      bit_vector_set(pBitVector, uCptBits);
+      bit_vector_set(vector, uCptBits);
   }
-  return pBitVector;
+  return vector;
 }
 

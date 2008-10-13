@@ -1,9 +1,9 @@
 // =================================================================
 // @(#)str_util.c
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 24/07/2003
-// @lastdate 04/12/2007
+// $Id$
 // =================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -45,11 +45,11 @@ char * strsep(char ** ppcStr, const char * pcDelim)
  *
  * Post: (result != NULL) && (result NUL-terminated)
  */
-char * str_lcreate(size_t tLen)
+char * str_lcreate(size_t len)
 {
-  char * pcNewString= (char *) MALLOC(sizeof(char)*(tLen+1));
-  *pcNewString= '\0';
-  return pcNewString;
+  char * new_s= (char *) MALLOC(sizeof(char)*(len+1));
+  *new_s= '\0';
+  return new_s;
 }
 
 // ----- str_create -------------------------------------------------
@@ -61,16 +61,16 @@ char * str_lcreate(size_t tLen)
  * 
  * Post: (result != NULL) && (result NUL-terminated)
  */
-char * str_create(const char * pcString)
+char * str_create(const char * s)
 {
-  char * pcNewString;
+  char * new_s;
 
-  if (pcString != NULL) {
-    pcNewString= str_lcreate(strlen(pcString));
-    strcpy(pcNewString, pcString);
-    return pcNewString;
-  } else
+  if (s == NULL)
     return str_lcreate(0);
+
+  new_s= str_lcreate(strlen(s));
+  strcpy(new_s, s);
+  return new_s;
 }
 
 // ----- str_ncreate ------------------------------------------------
@@ -82,44 +82,44 @@ char * str_create(const char * pcString)
  *
  * Post:(result != NULL) && (result NUL-terminated)
  */
-char * str_ncreate(const char * pcString, size_t tLen)
+char * str_ncreate(const char * s, size_t len)
 {
-  char * pcNewString= NULL;
+  char * new_s= NULL;
 
-  if ((pcString != NULL) && (tLen > 0)) {
-    pcNewString= str_lcreate(tLen+1);
-    strncpy(pcNewString, pcString, tLen);
-
-    // strncpy() does not guarantee to NUL-terminate the string. We
-    // have to this explicitly.
-    pcNewString[tLen]= '\0';
-  } else
-    pcNewString= str_lcreate(0);
-
-  return pcNewString;
+  if ((s == NULL) || (len == 0))
+    return str_lcreate(0);
+  
+  new_s= str_lcreate(len);
+  strncpy(new_s, s, len);
+  
+  // strncpy() does not guarantee to NUL-terminate the string. We
+  // have to this explicitly.
+  new_s[len]= '\0';
+  return new_s;
 }
 
 // ----- str_lextend ------------------------------------------------
 /**
  *
  */
-char * str_lextend(char ** ppcString, size_t tNewLen)
+char * str_lextend(char ** s, size_t new_len)
 {
-  *ppcString= (char *) REALLOC(*ppcString, sizeof(char)*(tNewLen+1));
-  return *ppcString;
+  *s= (char *) REALLOC(*s, sizeof(char)*(new_len+1));
+  return *s;
 }
 
 // ----- str_destroy ------------------------------------------------
 /**
  * Free the given string.
  *
- * Post: *ppcString == NULL
+ * Post:
+ *   *s == NULL
  */
-void str_destroy(char ** ppcString)
+void str_destroy(char ** s)
 {
-  if (*ppcString != NULL) {
-    FREE(*ppcString);
-    *ppcString= NULL;
+  if (*s != NULL) {
+    FREE(*s);
+    *s= NULL;
   }
 }
 
@@ -128,42 +128,55 @@ void str_destroy(char ** ppcString)
  * Append a string to another.
  *
  * Pre:
- *   *ppcString is valid and NUL-terminated
- *   pcToAppend can be NULL
+ *   (*s == NULL) || (*s is NUL-terminated)
+ *   (append == NULL) || (append is NUL-terminated)
  *
- * Post: (result != NULL) && (result NUL-terminated)
+ * Post:
+ *   (result != NULL) && (result is NUL-terminated)
  */
-char * str_append(char ** ppcString, const char * pcToAppend)
+char * str_append(char ** s, const char * append)
 {
-  size_t tLenToAppend= 0;
-  size_t tLen;
+  size_t len_append= 0;
+  size_t len;
 
-  if (pcToAppend != NULL)
-    tLenToAppend= strlen(pcToAppend);
+  if (append != NULL)
+    len_append= strlen(append);
 
-  if (tLenToAppend > 0) {
-    tLen= strlen(*ppcString);
-    *ppcString= str_lextend(ppcString, tLen+tLenToAppend);
-    strcpy((*ppcString)+tLen, pcToAppend);
+  if (len_append > 0) {
+    if (*s != NULL) {
+      len= strlen(*s);
+      *s= str_lextend(s, len+len_append);
+      strcpy((*s)+len, append);
+    } else {
+      *s= str_create(append);
+    }
   }
-  return *ppcString;
+  return *s;
 }
 
 // ----- str_nappend ------------------------------------------------
 /**
+ * Append a string to another, result is limited in size.
  *
+ * Pre:
+ *   (*s == NULL) || (*s is NUL-terminated)
+ *   (append == NULL) || (append is NUL-terminated)
+ *
+ * Post:
+ *   (result != NULL)
  */
-char * str_nappend(char ** ppcString, const char * pcStrToAppend,
-		   size_t tLen)
+char * str_nappend(char ** s, const char * append,
+		   size_t len)
 {
-  if (tLen > 0) {
-    *ppcString= str_lextend(ppcString, strlen(*ppcString)+tLen);
-    // The following line is not the most efficient since I guess it
-    // has to recompute the length of *ppcString before appending !!!
-    strncat(*ppcString, pcStrToAppend, tLen);
-    (*ppcString)[strlen(*ppcString)+tLen]= '\0';
-  }
-  return *ppcString;
+  if ((*s == NULL) || (len == 0))
+    return str_ncreate(append, len);
+
+  *s= str_lextend(s, strlen(*s)+len);
+  // The following line is not the most efficient since it
+  // has to recompute the length of *s before appending !!!
+  strncat(*s, append, len);
+  (*s)[strlen(*s)+len]= '\0';
+  return *s;
 }
 
 // ----- str_prepend ------------------------------------------------
@@ -316,3 +329,74 @@ int str_as_double(const char * pcString, double * pdValue)
   *pdValue= dValue;
   return (*pcEndPtr == 0)?0:-1;
 }
+
+
+/////////////////////////////////////////////////////////////////////
+//
+// STRING BUFFER
+//
+/////////////////////////////////////////////////////////////////////
+
+// -----[ str_buf_create ]-----------------------------------------
+str_buf_t * str_buf_create(size_t min_size)
+{
+  str_buf_t * buf= MALLOC(sizeof(str_buf_t));
+  buf->data= NULL;
+  buf->size= 0;
+  buf->min_size= min_size;
+  buf->index= 0;
+  return buf;
+}
+
+// -----[ str_buf_destroy ]----------------------------------------
+void str_buf_destroy(str_buf_t ** buf)
+{
+  if (*buf != NULL) {
+    str_destroy(&(*buf)->data);
+    FREE(*buf);
+    *buf= NULL;
+  }
+}
+
+// -----[ str_buf_reset ]--------------------------------------------
+void str_buf_reset(str_buf_t * buf)
+{
+  buf->index= 0;
+}
+
+// -----[ str_buf_write_char ]---------------------------------------
+void str_buf_write_char(str_buf_t * buf, char c)
+{
+  // Check token buffer size
+  if (buf->data == NULL) {
+    buf->size= buf->min_size;
+    buf->data= str_lcreate(buf->size);
+  } else if (buf->index >= buf->size) {
+    buf->size+= buf->min_size;
+    str_lextend(&buf->data, buf->size);
+  }
+
+  // Store character
+  buf->data[buf->index++]= c;
+}
+
+// -----[ str_buf_write_string ]-------------------------------------
+void str_buf_write_string(str_buf_t * buf, const char * str)
+{
+  size_t len= strlen(str);
+
+  // Check token buffer size
+  if (buf->data == NULL) {
+    buf->size= buf->min_size * ((len / buf->min_size)+1);
+    buf->data= str_lcreate(buf->size);
+  } else if (buf->index+len >= buf->size) {
+    buf->size+= buf->min_size * ((len / buf->min_size)+1);
+    str_lextend(&buf->data, buf->size);
+  }
+
+  // Store character
+  strncpy(&buf->data[buf->index], str, len);
+  buf->index+= len;
+}
+
+

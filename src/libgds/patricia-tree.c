@@ -18,6 +18,17 @@
 #include <libgds/array.h>
 #include <libgds/memory.h>
 #include <libgds/patricia-tree.h>
+#include <libgds/stack.h>
+
+// -----[ _trie_item_t ]------------------------------------------------
+typedef struct _trie_item_t {
+  struct _trie_item_t * left;
+  struct _trie_item_t * right;
+  trie_key_t            key;
+  uint8_t               has_data:1,
+    key_len :7;
+  void                * data;
+} _trie_item_t;
 
 // -----[ precomputed masks ]----------------------------------------
 static trie_key_t trie_predef_masks[TRIE_KEY_SIZE+1];
@@ -29,12 +40,12 @@ static trie_key_t trie_predef_masks[TRIE_KEY_SIZE+1];
  */
 static void _trie_init()
 {
-  trie_key_len_t uIndex;
+  trie_key_len_t index;
 
   trie_predef_masks[0]= 0;
-  for (uIndex= 1; uIndex < TRIE_KEY_SIZE+1; uIndex++)
-    trie_predef_masks[uIndex]= (trie_predef_masks[uIndex-1] |
-				(1 << (TRIE_KEY_SIZE-uIndex)));
+  for (index= 1; index < TRIE_KEY_SIZE+1; index++)
+    trie_predef_masks[index]= (trie_predef_masks[index-1] |
+			       (1 << (TRIE_KEY_SIZE-index)));
 }
 
 // -----[ _trie_mask_key ]-------------------------------------------
@@ -43,348 +54,401 @@ static void _trie_init()
  *
  * Precondition: key-len is <= TRIE_KEY_SIZE (32)
  */
-static inline trie_key_t _trie_mask_key(trie_key_t uKey,
-					trie_key_len_t uKeyLen)
+static inline trie_key_t _trie_mask_key(trie_key_t key,
+					trie_key_len_t key_len)
 {
-  assert(uKeyLen <= TRIE_KEY_SIZE);
-  return uKey & trie_predef_masks[uKeyLen];
+  assert(key_len <= TRIE_KEY_SIZE);
+  return key & trie_predef_masks[key_len];
+}
+
+// -----[ _trie_item_create_data ]-----------------------------------
+/**
+ * Create a new node for the Patricia tree. Note: the function will
+ * take care of correctly masking the node's key according to its
+ * length.
+ */
+static inline
+_trie_item_t * _trie_item_create_data(trie_key_t key,
+				      trie_key_len_t key_len,
+				      void * data)
+{
+  _trie_item_t * trie_item= (_trie_item_t *) MALLOC(sizeof(_trie_item_t));
+  trie_item->left= NULL;
+  trie_item->right= NULL;
+  trie_item->key= key;
+  trie_item->key_len= key_len;
+  trie_item->has_data= 1;
+  trie_item->data= data;
+  return trie_item;
+}
+
+// -----[ _trie_item_create_empty ]----------------------------------
+static inline
+_trie_item_t * _trie_item_create_empty(trie_key_t key,
+				       trie_key_len_t key_len)
+{
+  _trie_item_t * trie_item= (_trie_item_t *) MALLOC(sizeof(_trie_item_t));
+  trie_item->left= NULL;
+  trie_item->right= NULL;
+  trie_item->key= key;
+  trie_item->key_len= key_len;
+  trie_item->has_data= 0;
+  trie_item->data= NULL;
+  return trie_item;
+}
+
+// -----[ _longest_common_prefix ]------------------------------------
+/**
+ * Compute the longest common prefix between two given keys.
+ *
+ * Pre: (key lenghts <= TRIE_KEY_SIZE) &
+ *      (key and key_len are valid pointers)
+ */
+static inline
+void _longest_common_prefix(trie_key_t key1,
+			    trie_key_len_t key_len1,
+			    trie_key_t key2,
+			    trie_key_len_t key_len2,
+			    trie_key_t * key,
+			    trie_key_len_t * key_len)
+{
+  trie_key_t mask= 1 << (TRIE_KEY_SIZE-1);
+  trie_key_len_t max_len= ((key_len1 <= key_len2)?
+			   key_len1:key_len2);
+  *key= 0;
+  *key_len= 0;
+  while (*key_len < max_len) {
+    if ((key1 & mask) != (key2 & mask))
+      return;
+    *key|= (key1 & mask);
+    mask= (mask >> 1);
+    (*key_len)++;
+  }
 }
 
 // -----[ trie_create ]----------------------------------------------
 /**
  * Create a new Patricia tree.
  */
-STrie * trie_create(FTrieDestroy fDestroy)
+gds_trie_t * trie_create(FTrieDestroy destroy)
 {
-  STrie * pTrie= (STrie *) MALLOC(sizeof(STrie));
-  pTrie->pRoot= NULL;
-  pTrie->fDestroy= fDestroy;
-  return pTrie;
+  gds_trie_t * trie= (gds_trie_t *) MALLOC(sizeof(gds_trie_t));
+  trie->root= NULL;
+  trie->destroy= destroy;
+  return trie;
 }
 
-// -----[ _trie_item_create ]----------------------------------------
-/**
- * Create a new node for the Patricia tree. Note: the function will
- * take care of correctly masking the node's key according to its
- * length.
- */
-static STrieItem * _trie_item_create(const trie_key_t uKey,
-				     const trie_key_len_t uKeyLen,
-				     void * pData)
-{
-  STrieItem * pTrieItem= (STrieItem *) MALLOC(sizeof(STrieItem));
-  pTrieItem->pLeft= NULL;
-  pTrieItem->pRight= NULL;
-  pTrieItem->uKey= uKey;
-  pTrieItem->uKeyLen= uKeyLen;
-  pTrieItem->pData= pData;
-  return pTrieItem;
-}
-
-// -----[ longest_common_prefix ]------------------------------------
-/**
- * Compute the longest common prefix between two given keys.
- *
- * Pre: (key lenghts <= TRIE_KEY_SIZE) &
- *      (ptKey and ptKeyLen are valid pointers)
- */
-static void longest_common_prefix(const trie_key_t tKey1,
-				  const trie_key_len_t tKeyLen1,
-				  const trie_key_t tKey2,
-				  const trie_key_len_t tKeyLen2,
-				  trie_key_t * ptKey,
-				  trie_key_len_t * ptKeyLen)
-{
-  trie_key_t tMask= 1 << (TRIE_KEY_SIZE-1);
-  trie_key_len_t tMaxLen= ((tKeyLen1 <= tKeyLen2)?
-			   tKeyLen1:tKeyLen2);
-  *ptKey= 0;
-  *ptKeyLen= 0;
-  while (*ptKeyLen < tMaxLen) {
-    if ((tKey1 & tMask) != (tKey2 & tMask))
-      return;
-    *ptKey|= (tKey1 & tMask);
-    tMask= (tMask >> 1);
-    (*ptKeyLen)++;
-  }
-}
-
-// -----[ _trie_item_insert ]----------------------------------------
+// -----[ _trie_insert ]---------------------------------------------
 /**
  * Insert a new (key, value) pair into the Patricia tree. This
  * function is only an helper function. The 'trie_insert' function
  * should be used instead.
  *
- * Pre: (uKey length <= TRIE_KEY_SIZE)
+ * Pre: (key length <= TRIE_KEY_SIZE)
  *
  * Result: 0 on success and -1 on error (duplicate key)
  */
-static int _trie_item_insert(STrieItem ** ppItem, const trie_key_t uKey,
-			     const trie_key_len_t uKeyLen, void * pData,
-			     FTrieDestroy fDestroy)
+static int _trie_insert(_trie_item_t ** item, trie_key_t key,
+			trie_key_len_t key_len, void * data,
+			FTrieDestroy destroy, int replace)
 {
-  trie_key_t tPrefix;
-  trie_key_len_t tPrefixLen;
-  STrieItem * pNewItem;
+  trie_key_t prefix;
+  trie_key_len_t prefix_len;
+  _trie_item_t * new_item;
 
   // Find the longest common prefix
-  longest_common_prefix((*ppItem)->uKey, (*ppItem)->uKeyLen,
-			uKey, uKeyLen, &tPrefix, &tPrefixLen);
+  _longest_common_prefix((*item)->key, (*item)->key_len,
+			 key, key_len, &prefix, &prefix_len);
 
   // Split, append or recurse ?
-  if ((tPrefixLen == uKeyLen) && (tPrefixLen == (*ppItem)->uKeyLen)) {
-    if ((fDestroy != NULL) && ((*ppItem)->pData != NULL))
-      fDestroy(&(*ppItem)->pData);
-    (*ppItem)->pData= pData;
-    return 0;
-  } else if (tPrefixLen < (*ppItem)->uKeyLen) {
+  if ((prefix_len == key_len) && (prefix_len == (*item)->key_len)) {
+
+    // Exact location found: replace
+    if ((*item)->has_data) {
+      if (replace == TRIE_INSERT_OR_REPLACE) {
+	if (destroy != NULL)
+	  destroy(&(*item)->data);
+	(*item)->data= data;
+	return TRIE_SUCCESS;
+      } else {
+	return TRIE_ERROR_DUPLICATE;
+      }
+    } else {
+      (*item)->has_data= 1;
+      (*item)->data= data;
+      return TRIE_SUCCESS;
+    }
+
+  } else if (prefix_len < (*item)->key_len) {
+
     // Split is required
-    pNewItem= _trie_item_create(tPrefix, tPrefixLen, NULL);
-    if ((*ppItem)->uKey & (1 << (TRIE_KEY_SIZE-tPrefixLen-1))) {
-      pNewItem->pRight= *ppItem;
+    new_item= _trie_item_create_empty(prefix, prefix_len);
+    if ((*item)->key & (1 << (TRIE_KEY_SIZE-prefix_len-1))) {
+      new_item->right= *item;
     } else {
-      pNewItem->pLeft= *ppItem;
+      new_item->left= *item;
     }
-    if (tPrefixLen == uKeyLen) {
-      pNewItem->pData= pData;
+    if (prefix_len == key_len) {
+      new_item->has_data= 1;
+      new_item->data= data;
     } else {
-      if (uKey & (1 << (TRIE_KEY_SIZE-tPrefixLen-1))) {
-	pNewItem->pRight= _trie_item_create(uKey, uKeyLen, pData);
+      if (key & (1 << (TRIE_KEY_SIZE-prefix_len-1))) {
+	new_item->right= _trie_item_create_data(key, key_len, data);
       } else {
-	pNewItem->pLeft= _trie_item_create(uKey, uKeyLen, pData);
+	new_item->left= _trie_item_create_data(key, key_len, data);
       }
     }
-    *ppItem= pNewItem;
-    return 0;
+    *item= new_item;
+    return TRIE_SUCCESS;
+
   } else {
-    if (uKey & (1 << (TRIE_KEY_SIZE-(*ppItem)->uKeyLen-1))) {
-      if ((*ppItem)->pRight != NULL) {
+
+    if (key & (1 << (TRIE_KEY_SIZE-(*item)->key_len-1))) {
+      if ((*item)->right != NULL) {
 	// Recurse
-	return _trie_item_insert(&(*ppItem)->pRight, uKey, uKeyLen,
-				pData, fDestroy);
+	return _trie_insert(&(*item)->right, key, key_len,
+			    data, destroy, replace);
       } else {
 	// Append
-	(*ppItem)->pRight= _trie_item_create(uKey, uKeyLen, pData);
-	return 0;
+	(*item)->right= _trie_item_create_data(key, key_len, data);
+	return TRIE_SUCCESS;
       }
     } else {
-      if ((*ppItem)->pLeft != NULL) {
+      if ((*item)->left != NULL) {
 	// Recurse
-	return _trie_item_insert(&(*ppItem)->pLeft, uKey, uKeyLen,
-				pData, fDestroy);
+	return _trie_insert(&(*item)->left, key, key_len,
+			    data, destroy, replace);
       } else {
 	// Append
-	(*ppItem)->pLeft= _trie_item_create(uKey, uKeyLen, pData);
-	return 0;
+	(*item)->left= _trie_item_create_data(key, key_len, data);
+	return TRIE_SUCCESS;
       }
     }
+
   }
-  return -1;
 }
 
 // -----[ trie_insert ]----------------------------------------------
 /**
  * Insert one (key, value) pair into the Patricia tree.
  *
- * PRECODNITION:
+ * PRECONDITION:
  *  key length <= TRIE_KEY_SIZE
- *  pData != NULL (use trie_remove() to remove a key)
  */
-int trie_insert(STrie * pTrie, const trie_key_t uKey, const trie_key_len_t uKeyLen,
-		void * pData)
+int trie_insert(gds_trie_t * trie, trie_key_t key,
+		trie_key_len_t key_len, void * data,
+		int replace)
 {
-  
-  assert(pData != NULL);
-
-  if (pTrie->pRoot == NULL) {
-    pTrie->pRoot= _trie_item_create(_trie_mask_key(uKey, uKeyLen),
-				    uKeyLen, pData);
-    return 0;
-  } else {
-    return _trie_item_insert(&pTrie->pRoot, _trie_mask_key(uKey, uKeyLen),
-			     uKeyLen, pData, pTrie->fDestroy);
+  key= _trie_mask_key(key, key_len);
+  if (trie->root == NULL) {
+    trie->root= _trie_item_create_data(key, key_len, data);
+    return TRIE_SUCCESS;
   }
+
+  return _trie_insert(&trie->root, key, key_len,
+		      data, trie->destroy, replace);
 }
 
 // -----[ trie_find_exact ]------------------------------------------
-void * trie_find_exact(STrie * pTrie, trie_key_t uKey, trie_key_len_t uKeyLen)
+void * trie_find_exact(gds_trie_t * trie, trie_key_t key,
+		       trie_key_len_t key_len)
 {
-  STrieItem * pTemp;
-  trie_key_t tPrefix;
-  trie_key_len_t tPrefixLen;
+  _trie_item_t * tmp;
+  trie_key_t prefix;
+  trie_key_len_t prefix_len;
 
   // Mask the given key according to its length
-  uKey= (uKey & trie_predef_masks[uKeyLen]);
+  key= _trie_mask_key(key, key_len);
 
-  if (pTrie->pRoot == NULL)
+  if (trie->root == NULL)
     return NULL;
-  pTemp= pTrie->pRoot;
-  while (pTemp != NULL) {
+  tmp= trie->root;
+  while (tmp != NULL) {
 
     // requested key is smaller than current => no match found
-    if (uKeyLen < pTemp->uKeyLen)
+    if (key_len < tmp->key_len)
       return NULL;
 
     // requested key has same length
-    if (uKeyLen == pTemp->uKeyLen) {
+    if (key_len == tmp->key_len) {
       // (keys are equal) <=> match found
-      if (uKey == pTemp->uKey)
-	return pTemp->pData;
-      else
+      if (key == tmp->key) {
+	if (tmp->has_data) {
+	  return tmp->data;
+	} else {
+	  return NULL;
+	}
+      } else {
 	return NULL;
+      }
     }
 
     // requested key is longer => check if common parts match
-    if (uKeyLen > pTemp->uKeyLen) {
-      longest_common_prefix(pTemp->uKey, pTemp->uKeyLen,
-			    uKey, uKeyLen, &tPrefix, &tPrefixLen);
+    if (key_len > tmp->key_len) {
+      _longest_common_prefix(tmp->key, tmp->key_len,
+			     key, key_len, &prefix, &prefix_len);
 
       // Current key is too long => no match found
-      if (tPrefixLen < pTemp->uKeyLen)
+      if (prefix_len < tmp->key_len)
 	return NULL;
 
-      if (uKey & (1 << (TRIE_KEY_SIZE-tPrefixLen-1)))
-	pTemp= pTemp->pRight;
+      if (key & (1 << (TRIE_KEY_SIZE-prefix_len-1)))
+	tmp= tmp->right;
       else
-	pTemp= pTemp->pLeft;
+	tmp= tmp->left;
     }
   }
   return NULL;
 }
 
 // -----[ trie_find_best ]-------------------------------------------
-void * trie_find_best(STrie * pTrie, trie_key_t uKey, trie_key_len_t uKeyLen)
+void * trie_find_best(gds_trie_t * trie, trie_key_t key,
+		      trie_key_len_t key_len)
 {
-  STrieItem * pTemp;
-  void * pUpperData;
-  trie_key_t tPrefix;
-  trie_key_len_t tPrefixLen;
-  trie_key_t uSearchKey= _trie_mask_key(uKey, uKeyLen);
+  _trie_item_t * tmp;
+  void * data;
+  int data_found= 0;
+  trie_key_t prefix;
+  trie_key_len_t prefix_len;
+  trie_key_t search_key= _trie_mask_key(key, key_len);
 
-  if (pTrie->pRoot == NULL)
+  if (trie->root == NULL)
     return NULL;
-  pTemp= pTrie->pRoot;
-  pUpperData= NULL;
-  while (pTemp != NULL) {
+  tmp= trie->root;
+  data= NULL;
+  while (tmp != NULL) {
 
     // requested key is smaller than current => no match found
-    if (uKeyLen < pTemp->uKeyLen)
+    if (key_len < tmp->key_len)
       break;
 
     // requested key has same length
-    if (uKeyLen == pTemp->uKeyLen) {
+    if (key_len == tmp->key_len) {
       // (keys are equal) <=> match found
-      if (uSearchKey == pTemp->uKey)
-	return pTemp->pData;
-      else
+      if (search_key == tmp->key) {
+	if (tmp->has_data) {
+	  return tmp->data;
+	} else {
+	  return NULL;
+	}
+      } else
 	break;
     }
 
     // requested key is longer => check if common parts match
-    if (uKeyLen > pTemp->uKeyLen) {
-      longest_common_prefix(pTemp->uKey, pTemp->uKeyLen,
-			    uSearchKey, uKeyLen, &tPrefix, &tPrefixLen);
+    if (key_len > tmp->key_len) {
+      _longest_common_prefix(tmp->key, tmp->key_len,
+			     search_key, key_len, &prefix, &prefix_len);
 
       // Current key is too long => no match found
-      if (tPrefixLen < pTemp->uKeyLen)
+      if (prefix_len < tmp->key_len)
 	break;
 
-      if (pTemp->pData != NULL)
-	pUpperData= pTemp->pData;
+      if (tmp->has_data) {
+	data= tmp->data;
+	data_found= 1;
+      }
 
-      if (uSearchKey & (1 << (TRIE_KEY_SIZE-tPrefixLen-1)))
-	pTemp= pTemp->pRight;
+      if (search_key & (1 << (TRIE_KEY_SIZE-prefix_len-1)))
+	tmp= tmp->right;
       else
-	pTemp= pTemp->pLeft;
+	tmp= tmp->left;
     }
   }
-  return pUpperData;
+  if (data_found)
+    return data;
+  return NULL;
 }
 
-// -----[ _trie_item_remove ]-----------------------------------------
+// -----[ _trie_remove_item ]----------------------------------------
+static inline void _trie_remove_item(_trie_item_t ** item,
+				     FTrieDestroy destroy)
+{
+  _trie_item_t * tmp;
+
+  if (destroy != NULL)
+    destroy(&(*item)->data);
+  (*item)->has_data= 0;
+  
+  // Two cases: 2 childs or less
+  if (((*item)->left != NULL) &&
+      ((*item)->right != NULL)) {
+    // Item can not be destroyed
+  } else {
+    // Item can be destroyed and replaced by the non-null child
+    tmp= *item;
+    if ((*item)->left != NULL)
+      *item= (*item)->left;
+    else
+      *item= (*item)->right;
+    FREE(tmp);
+  }
+}
+
+// -----[ _trie_remove ]---------------------------------------------
 /**
  *
  */
-static int _trie_item_remove(STrieItem ** ppItem, const trie_key_t uKey,
-			     const trie_key_len_t uKeyLen,
-			     FTrieDestroy fDestroy)
+static int _trie_remove(_trie_item_t ** item, const trie_key_t key,
+			trie_key_len_t key_len,
+			FTrieDestroy destroy)
 {
-  STrieItem * pTemp;
-  trie_key_t tPrefix;
-  trie_key_len_t tPrefixLen;
-  int iResult;
+  _trie_item_t * tmp;
+  trie_key_t prefix;
+  trie_key_len_t prefix_len;
+  int result;
 
   // requested key is smaller than current => no match found
-  if (uKeyLen < (*ppItem)->uKeyLen)
-    return -1;
+  if (key_len < (*item)->key_len)
+    return TRIE_ERROR_NO_MATCH;
 
   // requested key has same length
-  if (uKeyLen == (*ppItem)->uKeyLen) {
-    if ((uKey == (*ppItem)->uKey) && ((*ppItem)->pData != NULL)) {
-
-      if (fDestroy != NULL)
-	fDestroy(&(*ppItem)->pData);
-      (*ppItem)->pData= NULL;
-
-      // Two cases: 2 childs or less
-      if (((*ppItem)->pLeft != NULL) &&
-	  ((*ppItem)->pRight != NULL)) {
-	// Item can not be destroyed
-      } else {
-	// Item can be destroyed and replaced by the non-null child
-	pTemp= *ppItem;
-	if ((*ppItem)->pLeft != NULL)
-	  *ppItem= (*ppItem)->pLeft;
-	else
-	  *ppItem= (*ppItem)->pRight;
-	FREE(pTemp);
-      }
-
-      return 0;
+  if (key_len == (*item)->key_len) {
+    if ((key == (*item)->key) && (*item)->has_data) {
+      _trie_remove_item(item, destroy);
+      return TRIE_SUCCESS;
     } else
-      return -1;
+      return TRIE_ERROR_NO_MATCH;
   }
 
   // requested key is longer => check if common parts match
-  if (uKeyLen > (*ppItem)->uKeyLen) {
-    longest_common_prefix((*ppItem)->uKey, (*ppItem)->uKeyLen,
-			  uKey, uKeyLen, &tPrefix, &tPrefixLen);
+  if (key_len > (*item)->key_len) {
+    _longest_common_prefix((*item)->key, (*item)->key_len,
+			   key, key_len, &prefix, &prefix_len);
     
     // Current key is too long => no match found
-    if (tPrefixLen < (*ppItem)->uKeyLen)
-      return -1;
+    if (prefix_len < (*item)->key_len)
+      return TRIE_ERROR_NO_MATCH;
     
-    if (uKey & (1 << (TRIE_KEY_SIZE-tPrefixLen-1))) {
-      if ((*ppItem)->pRight != NULL)
-	iResult= _trie_item_remove(&(*ppItem)->pRight,
-				   uKey, uKeyLen, fDestroy);
+    if (key & (1 << (TRIE_KEY_SIZE-prefix_len-1))) {
+      if ((*item)->right != NULL)
+	result= _trie_remove(&(*item)->right, key, key_len, destroy);
       else
-	return -1;
+	return TRIE_ERROR_NO_MATCH;
     } else {
-      if ((*ppItem)->pLeft != NULL)
-	iResult= _trie_item_remove(&(*ppItem)->pLeft,
-				   uKey, uKeyLen, fDestroy);
+      if ((*item)->left != NULL)
+	result= _trie_remove(&(*item)->left, key, key_len, destroy);
       else
-	return -1;
+	return TRIE_ERROR_NO_MATCH;
     }
 
     // Need to propagate removal ?
-    if ((iResult == 0) && ((*ppItem)->pData == NULL)) {
+    if ((result == 0) && !(*item)->has_data) {
       // If the local value does not exist and if the local node has
       // less than 2 childs, it should be removed and replaced by its
       // child (if any).
-      if (((*ppItem)->pLeft == NULL) || ((*ppItem)->pRight == NULL)) {
-	pTemp= *ppItem;
-	if ((*ppItem)->pLeft != NULL)
-	  *ppItem= (*ppItem)->pLeft;
+      if (((*item)->left == NULL) || ((*item)->right == NULL)) {
+	tmp= *item;
+	if ((*item)->left != NULL)
+	  *item= (*item)->left;
 	else
-	  *ppItem= (*ppItem)->pRight;
-	FREE(pTemp);
+	  *item= (*item)->right;
+	FREE(tmp);
       }
     }
-    return iResult;
+    return result;
   }  
-  return -1;
+  return TRIE_ERROR_NO_MATCH;
 }
 
 // -----[ trie_remove ]----------------------------------------------
@@ -398,143 +462,155 @@ static int _trie_item_remove(STrieItem ** ppItem, const trie_key_t uKey,
  *   -1 if key does not exist
  *    0 if key has been removed.
  */
-int trie_remove(STrie * pTrie, trie_key_t uKey, trie_key_len_t uKeyLen)
+int trie_remove(gds_trie_t * trie, trie_key_t key, trie_key_len_t key_len)
 {
-  if (pTrie->pRoot != NULL)
-    return _trie_item_remove(&pTrie->pRoot, _trie_mask_key(uKey, uKeyLen),
-			     uKeyLen, pTrie->fDestroy);
-  else
-    return -1;
+  if (trie->root == NULL)
+    return TRIE_ERROR_NO_MATCH;
+
+  return _trie_remove(&trie->root, _trie_mask_key(key, key_len),
+		      key_len, trie->destroy);
 }
 
-// -----[ _trie_item_replace ]---------------------------------------
-static int _trie_item_replace(STrieItem * pItem, const trie_key_t uKey,
-			      const trie_key_len_t uKeyLen, void * pData)
+// -----[ _trie_replace ]--------------------------------------------
+static int _trie_replace(_trie_item_t * item, const trie_key_t key,
+			 trie_key_len_t key_len, void * data,
+			 FTrieDestroy destroy)
 {
-  trie_key_t tPrefix;
-  trie_key_len_t tPrefixLen;
+  trie_key_t prefix;
+  trie_key_len_t prefix_len;
 
   // requested key is smaller than current => no match found
-  if (uKeyLen < pItem->uKeyLen)
-    return -1;
+  if (key_len < item->key_len)
+    return TRIE_ERROR_NO_MATCH;
 
   // requested key has same length
-  if (uKeyLen == pItem->uKeyLen) {
-    if ((uKey == pItem->uKey) && (pItem->pData != NULL)) {
-      pItem->pData= pData;
-      return 0;
+  if (key_len == item->key_len) {
+    if ((key == item->key) && item->has_data) {
+      if (destroy != NULL)
+	destroy(&item->data);
+      item->data= data;
+      return TRIE_SUCCESS;
     } else
-      return -1;
+      return TRIE_ERROR_NO_MATCH;
   }
 
   // requested key is longer => check if common parts match
-  if (uKeyLen > pItem->uKeyLen) {
-    longest_common_prefix(pItem->uKey, pItem->uKeyLen,
-			  uKey, uKeyLen, &tPrefix, &tPrefixLen);
+  if (key_len > item->key_len) {
+    _longest_common_prefix(item->key, item->key_len,
+			   key, key_len, &prefix, &prefix_len);
     
     // Current key is too long => no match found
-    if (tPrefixLen < pItem->uKeyLen)
-      return -1;
+    if (prefix_len < item->key_len)
+      return TRIE_ERROR_NO_MATCH;
     
-    if (uKey & (1 << (TRIE_KEY_SIZE-tPrefixLen-1))) {
-      if (pItem->pRight != NULL)
-	return _trie_item_replace(pItem->pRight, uKey, uKeyLen, pData);
+    if (key & (1 << (TRIE_KEY_SIZE-prefix_len-1))) {
+      if (item->right != NULL)
+	return _trie_replace(item->right, key, key_len, data, destroy);
       else
-	return -1;
+	return TRIE_ERROR_NO_MATCH;
     } else {
-      if (pItem->pLeft != NULL)
-	return _trie_item_replace(pItem->pLeft, uKey, uKeyLen, pData);
+      if (item->left != NULL)
+	return _trie_replace(item->left, key, key_len, data, destroy);
       else
-	return -1;
+	return TRIE_ERROR_NO_MATCH;
     }
   }
-  return -1;
+  return TRIE_ERROR_NO_MATCH;
 }
 
 // -----[ trie_replace ]---------------------------------------------
 /**
- * PRECONDITION:
- *   pData != NULL
- *   (use trie_remove() to remove a key)
+ * Replace an existing key. An existing key is a node which has its
+ * 'has_data' field equal to '1'.
+ *
+ * Returns:
+ *   TRIE_SUCCESS
+ *     if the key was found. In this case, the data 'field' is
+ *     replaced with the new data value (can be NULL).
+ *   TRIE_ERROR_NO_MATCH
+ *     if no matching key was found.
  */
-int trie_replace(STrie * pTrie, trie_key_t uKey,
-		 trie_key_len_t uKeyLen, void * pData)
+int trie_replace(gds_trie_t * trie, trie_key_t key,
+		 trie_key_len_t key_len, void * data)
 {
-  assert(pData != NULL);
+  if (trie->root == NULL)
+    return TRIE_ERROR_NO_MATCH;
 
-  if (pTrie->pRoot != NULL)
-    return _trie_item_replace(pTrie->pRoot, _trie_mask_key(uKey, uKeyLen),
-			      uKeyLen, pData);
-  else
-    return -1;  
+  return _trie_replace(trie->root, _trie_mask_key(key, key_len),
+		       key_len, data, trie->destroy);
 }
 
-// -----[ _trie_item_destroy ]---------------------------------------
-static void _trie_item_destroy(STrieItem ** ppItem, FTrieDestroy fDestroy)
+// -----[ _trie_destroy ]--------------------------------------------
+static void _trie_destroy(_trie_item_t ** item, FTrieDestroy destroy)
 {
-  if (*ppItem != NULL) {
-    if ((fDestroy != NULL) && ((*ppItem)->pData != NULL))
-      fDestroy(&(*ppItem)->pData);
-    if ((*ppItem)->pLeft != NULL)
-      _trie_item_destroy(&(*ppItem)->pLeft, fDestroy);
-    if ((*ppItem)->pRight != NULL)
-      _trie_item_destroy(&(*ppItem)->pRight, fDestroy);
-    FREE(*ppItem);
+  if (*item != NULL) {
+    // Destroy content of data item
+    if ((*item)->has_data)
+      if (destroy != NULL)
+	destroy(&(*item)->data);
+
+    // Recursive descent (left, then right)
+    if ((*item)->left != NULL)
+      _trie_destroy(&(*item)->left, destroy);
+    if ((*item)->right != NULL)
+      _trie_destroy(&(*item)->right, destroy);
+
+    FREE(*item);
   }
 }
 
 // -----[ trie_destroy ]---------------------------------------------
-void trie_destroy(STrie ** ppTrie)
+void trie_destroy(gds_trie_t ** trie_ref)
 {
-  if (*ppTrie != NULL) {
-    _trie_item_destroy(&(*ppTrie)->pRoot, (*ppTrie)->fDestroy);
-    FREE(*ppTrie);
-    *ppTrie= NULL;
+  if (*trie_ref != NULL) {
+    _trie_destroy(&(*trie_ref)->root, (*trie_ref)->destroy);
+    FREE(*trie_ref);
+    *trie_ref= NULL;
   }
 }
 
 // -----[ _trie_item_for_each ]--------------------------------------
-static int _trie_item_for_each(STrieItem * pItem,
-			       FTrieForEach fForEach, void * pContext)
+static int _trie_item_for_each(_trie_item_t * item,
+			       FTrieForEach fForEach, void * ctx)
 {
-  int iResult;
+  int result;
 
-  if (pItem->pLeft != NULL) {
-    iResult= _trie_item_for_each(pItem->pLeft, fForEach, pContext);
-    if (iResult != 0)
-      return iResult;
+  if (item->left != NULL) {
+    result= _trie_item_for_each(item->left, fForEach, ctx);
+    if (result != 0)
+      return result;
   }
-  if (pItem->pRight != NULL) {
-    iResult= _trie_item_for_each(pItem->pRight, fForEach, pContext);
-    if (iResult != 0)
-      return iResult;
+  if (item->right != NULL) {
+    result= _trie_item_for_each(item->right, fForEach, ctx);
+    if (result != 0)
+      return result;
   }
 
-  if (pItem->pData != NULL)
-    return fForEach(pItem->uKey, pItem->uKeyLen, pItem->pData, pContext);
+  if (item->has_data)
+    return fForEach(item->key, item->key_len, item->data, ctx);
   else
     return 0;
 }
 
 // -----[ trie_for_each ]--------------------------------------------
-int trie_for_each(STrie * pTrie, FTrieForEach fForEach, void * pContext)
+int trie_for_each(gds_trie_t * trie, FTrieForEach fForEach, void * ctx)
 {
-  if (pTrie->pRoot != NULL)
-    return _trie_item_for_each(pTrie->pRoot, fForEach, pContext);
+  if (trie->root != NULL)
+    return _trie_item_for_each(trie->root, fForEach, ctx);
   return 0;
 }
 
-// -----[ _trie_item_num_nodes ]-------------------------------------
-static int _trie_item_num_nodes(STrieItem * pTrieItem)
+// -----[ _trie_num_nodes ]------------------------------------------
+static int _trie_num_nodes(_trie_item_t * item, int with_data)
 {
-  if (pTrieItem != NULL) {
-    if (pTrieItem->pData != NULL) {
-      return 1 + _trie_item_num_nodes(pTrieItem->pLeft) +
-	_trie_item_num_nodes(pTrieItem->pRight);
-    } else {
-      return _trie_item_num_nodes(pTrieItem->pLeft) +
-	_trie_item_num_nodes(pTrieItem->pRight);
-    }
+  if (item != NULL) {
+    if (!with_data || item->has_data)
+      return (1 +
+	      _trie_num_nodes(item->left, with_data) +
+	      _trie_num_nodes(item->right, with_data));
+    else
+      return (_trie_num_nodes(item->left, with_data) +
+	      _trie_num_nodes(item->right, with_data));
   }
   return 0;
 }
@@ -544,9 +620,49 @@ static int _trie_item_num_nodes(STrieItem * pTrieItem)
  * Count the number of nodes in the trie. The algorithm uses a
  * divide-and-conquer recursive approach.
  */
-int trie_num_nodes(STrie * pTrie)
+int trie_num_nodes(gds_trie_t * trie, int with_data)
 {
-  return _trie_item_num_nodes(pTrie->pRoot);
+  return _trie_num_nodes(trie->root, with_data);
+}
+
+// -----[ trie_to_graphviz ]-----------------------------------------
+void trie_to_graphviz(gds_stream_t * stream, gds_trie_t * trie)
+{
+  gds_stack_t * stack= stack_create(32);
+  _trie_item_t * item;
+  
+  stream_printf(stream, "digraph trie {\n");
+
+  if (trie->root != NULL)
+    stack_push(stack, trie->root);
+  
+  while (!stack_is_empty(stack)) {
+    item= (_trie_item_t *) stack_pop(stack);
+
+    stream_printf(stream, "  \"%u/%u\" ", item->key, item->key_len);
+    stream_printf(stream, "[label=\"%u/%u\\n", item->key, item->key_len);
+    if (item->has_data)
+      stream_printf(stream, "data=%p", item->data);
+    stream_printf(stream, "\"]");
+    stream_printf(stream, " ;\n");
+    
+    if (item->left != NULL) {
+      stack_push(stack, item->left);
+      stream_printf(stream, "  \"%u/%u\" -> \"%u/%u\" ;\n",
+		    item->key, item->key_len,
+		    item->left->key, item->left->key_len);
+    }
+    if (item->right != NULL) {
+      stack_push(stack, item->right);
+      stream_printf(stream, "  \"%u/%u\" -> \"%u/%u\" ;\n",
+		    item->key, item->key_len,
+		    item->right->key, item->right->key_len);
+    }
+  }
+  
+  stream_printf(stream, "}\n");
+
+  stack_destroy(&stack);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -556,66 +672,66 @@ int trie_num_nodes(STrie * pTrie)
 /////////////////////////////////////////////////////////////////////
 
 // -----[ _trie_get_array_for_each ]---------------------------------
-static int _trie_get_array_for_each(uint32_t uKey, uint8_t uKeyLen,
-				    void * pItem, void * pContext)
+static int _trie_get_array_for_each(uint32_t key, uint8_t key_len,
+				    void * data, void * ctx)
 {
-  SPtrArray * pArray= (SPtrArray *) pContext;
-  if (ptr_array_append(pArray, pItem) < 0)
+  ptr_array_t * array= (ptr_array_t *) ctx;
+  if (ptr_array_append(array, data) < 0)
     return -1;
   return 0;
 }
 
 // -----[ _trie_get_array ]-------------------------------------------
-static SPtrArray * _trie_get_array(STrie * pTrie)
+static ptr_array_t * _trie_get_array(gds_trie_t * trie)
 {
-  SPtrArray * pArray= ptr_array_create_ref(0);
-  if (trie_for_each(pTrie,
+  ptr_array_t * array= ptr_array_create_ref(0);
+  if (trie_for_each(trie,
 		    _trie_get_array_for_each,
-		    pArray)) {
-    ptr_array_destroy(&pArray);
-    pArray= NULL;
+		    array)) {
+    ptr_array_destroy(&array);
+    array= NULL;
   }
-  return pArray;
+  return array;
 }
 
-// ----- STrieEnumContext -------------------------------------------
+// ----- _enum_ctx_t -------------------------------------------
 typedef struct {
-  SPtrArray * pArray;
-  enum_t * pEnum;
-} STrieEnumContext;
+  ptr_array_t * array;
+  gds_enum_t  * enu;
+} _enum_ctx_t;
 
 // -----[ _trie_get_enum_has_next ]----------------------------------
-static int _trie_get_enum_has_next(void * pContext)
+static int _trie_get_enum_has_next(void * ctx)
 {
-  STrieEnumContext * pTrieContext= (STrieEnumContext *) pContext;
-  return enum_has_next(pTrieContext->pEnum);
+  _enum_ctx_t * ectx= (_enum_ctx_t *) ctx;
+  return enum_has_next(ectx->enu);
 }
 
 // -----[ _trie_get_enum_get_next ]----------------------------------
-static void * _trie_get_enum_get_next(void * pContext)
+static void * _trie_get_enum_get_next(void * ctx)
 {
-  STrieEnumContext * pTrieContext= (STrieEnumContext *) pContext;
-  return enum_get_next(pTrieContext->pEnum);
+  _enum_ctx_t * ectx= (_enum_ctx_t *) ctx;
+  return enum_get_next(ectx->enu);
 }
 
 // -----[ _trie_get_enum_destroy ]-----------------------------------
-static void _trie_get_enum_destroy(void * pContext)
+static void _trie_get_enum_destroy(void * ctx)
 {
-  STrieEnumContext * pTrieContext= (STrieEnumContext *) pContext;
-  enum_destroy(&pTrieContext->pEnum);
-  ptr_array_destroy(&pTrieContext->pArray);
-  FREE(pTrieContext);
+  _enum_ctx_t * ectx= (_enum_ctx_t *) ctx;
+  enum_destroy(&ectx->enu);
+  ptr_array_destroy(&ectx->array);
+  FREE(ectx);
 }
 
 // -----[ trie_get_enum ]--------------------------------------------
-enum_t * trie_get_enum(STrie * pTrie)
+gds_enum_t * trie_get_enum(gds_trie_t * trie)
 {
-  STrieEnumContext * pContext=
-    (STrieEnumContext *) MALLOC(sizeof(STrieEnumContext));
-  pContext->pArray= _trie_get_array(pTrie);
-  pContext->pEnum= _array_get_enum((SArray *) pContext->pArray);
+  _enum_ctx_t * ectx=
+    (_enum_ctx_t *) MALLOC(sizeof(_enum_ctx_t));
+  ectx->array= _trie_get_array(trie);
+  ectx->enu= _array_get_enum((array_t *) ectx->array);
 
-  return enum_create(pContext,
+  return enum_create(ectx,
 		     _trie_get_enum_has_next,
 		     _trie_get_enum_get_next,
 		     _trie_get_enum_destroy);

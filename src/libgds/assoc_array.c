@@ -16,29 +16,30 @@
 #include <libgds/str_util.h>
 
 typedef struct {
-  char * pcKey;
-  void * pValue;
-} SAssocItem;
+  char * key;
+  void * value;
+} _assoc_item_t;
 
 // -----[ _assoc_item_create ]---------------------------------------
-static inline SAssocItem * _assoc_item_create(const char * pcKey,
-					      void * pValue)
+static inline _assoc_item_t * _assoc_item_create(const char * key,
+						 const void * value)
 {
-  SAssocItem * pItem= (SAssocItem *) MALLOC(sizeof(SAssocItem));
-  pItem->pcKey= str_create(pcKey);
-  pItem->pValue= pValue;
-  return pItem;
+  _assoc_item_t * item= (_assoc_item_t *) MALLOC(sizeof(_assoc_item_t));
+  item->key= str_create(key);
+  item->value= (void *) value;
+  return item;
 }
 
 // -----[ _assoc_item_destroy ]--------------------------------------
-static inline void _assoc_item_destroy(SAssocItem ** ppItem)
+static inline void _assoc_item_destroy(_assoc_item_t ** item_ref,
+				       const assoc_array_destroy_f destroy)
 {
-  if (*ppItem != NULL) {
-    str_destroy(&(*ppItem)->pcKey);
-    // SHALL WE DESTROY ASSOCIATED ITEM ? LATER...
-    // WILL CAUSE TEMPORARY MEMORY LEAKS...
-    FREE(*ppItem);
-    *ppItem= NULL;
+  if (*item_ref != NULL) {
+    str_destroy(&(*item_ref)->key);
+    if (destroy != NULL)
+      destroy((*item_ref)->value);
+    FREE(*item_ref);
+    *item_ref= NULL;
   }
 }
 
@@ -46,67 +47,71 @@ static inline void _assoc_item_destroy(SAssocItem ** ppItem)
 /**
  * Private helper function used to compare 2 keys.
  */
-static int _assoc_array_item_compare(void * pItem1, void * pItem2,
-				     unsigned int uEltSize)
+static int _assoc_array_item_compare(const void * item1,
+				     const void * item2,
+				     unsigned int elt_size)
 {
-  SAssocItem * pAssocItem1= *((SAssocItem **) pItem1);
-  SAssocItem * pAssocItem2= *((SAssocItem **) pItem2);
+  _assoc_item_t * assoc_item1= *((_assoc_item_t **) item1);
+  _assoc_item_t * assoc_item2= *((_assoc_item_t **) item2);
 
-  return strcmp(pAssocItem1->pcKey, pAssocItem2->pcKey);
+  return strcmp(assoc_item1->key, assoc_item2->key);
 }
 
 // -----[ _assoc_array_item_destroy ]--------------------------------
 /**
  * Private helper function used to destroy each item.
  */
-static void _assoc_array_item_destroy(void * pItem)
+static void _assoc_array_item_destroy(void * item,
+				      const void * ctx)
 {
-  _assoc_item_destroy((SAssocItem **) pItem);
+  _assoc_item_destroy((_assoc_item_t **) item,
+		      (assoc_array_destroy_f) ctx);
 }
 
 // -----[ assoc_array_create ]---------------------------------------
-SAssocArray * assoc_array_create()
+gds_assoc_array_t * assoc_array_create(assoc_array_destroy_f destroy)
 {
-  return (SAssocArray *) ptr_array_create(ARRAY_OPTION_SORTED,
-					  _assoc_array_item_compare,
-					  _assoc_array_item_destroy);
+  return (gds_assoc_array_t *) ptr_array_create(ARRAY_OPTION_SORTED,
+						_assoc_array_item_compare,
+						_assoc_array_item_destroy,
+						destroy);
 }
 
 // -----[ assoc_array_destroy ]--------------------------------------
-void assoc_array_destroy(SAssocArray ** ppArray)
+void assoc_array_destroy(gds_assoc_array_t ** array_ref)
 {
-  ptr_array_destroy(ppArray);
+  ptr_array_destroy(array_ref);
 }
 
 // -----[ assoc_array_length ]-------------------------------------
-unsigned int assoc_array_length(SAssocArray * pArray)
+unsigned int assoc_array_length(gds_assoc_array_t * array)
 {
-  return ptr_array_length(pArray);
+  return ptr_array_length(array);
 }
 
 // -----[ assoc_array_exists ]---------------------------------------
-int assoc_array_exists(SAssocArray * pArray, const char * pcKey)
+int assoc_array_exists(gds_assoc_array_t * array, const char * key)
 {
-  SAssocItem sTmp;
-  SAssocItem * pTmp= &sTmp;
-  unsigned int uIndex;
+  _assoc_item_t tmp;
+  _assoc_item_t * tmp_ref= &tmp;
+  unsigned int index;
 
-  sTmp.pcKey= (char *) pcKey;
-  if (!ptr_array_sorted_find_index(pArray, &pTmp, &uIndex))
+  tmp.key= (char *) key;
+  if (!ptr_array_sorted_find_index(array, &tmp_ref, &index))
     return 1;
   return 0;
 }
 
 // -----[ assoc_array_get ]------------------------------------------
-void * assoc_array_get(SAssocArray * pArray, const char * pcKey)
+void * assoc_array_get(gds_assoc_array_t * array, const char * key)
 {
-  SAssocItem sTmp;
-  SAssocItem * pTmp= &sTmp;
-  unsigned int uIndex;
+  _assoc_item_t tmp;
+  _assoc_item_t * tmp_ref= &tmp;
+  unsigned int index;
 
-  sTmp.pcKey= (char *) pcKey;
-  if (!ptr_array_sorted_find_index(pArray, &pTmp, &uIndex))
-    return ((SAssocItem *) pArray->data[uIndex])->pValue;
+  tmp.key= (char *) key;
+  if (!ptr_array_sorted_find_index(array, &tmp_ref, &index))
+    return ((_assoc_item_t *) array->data[index])->value;
   return NULL;
 }
 
@@ -116,29 +121,30 @@ void * assoc_array_get(SAssocArray * pArray, const char * pcKey)
  *    0 in case of success
  *   -1 in case of failure
  */
-int assoc_array_set(SAssocArray * pArray, const char * pcKey,
-		     void * pValue)
+int assoc_array_set(gds_assoc_array_t * array, const char * key,
+		    const void * value)
 {
-  SAssocItem * pItem= _assoc_item_create(pcKey, pValue);
-  if (ptr_array_add(pArray, &pItem) < 0) {
+  _assoc_item_t * item= _assoc_item_create(key, value);
+  if (ptr_array_add(array, &item) < 0) {
     return -1;
   }
   return 0;
 }
 
 // -----[ assoc_array_for_each ]-------------------------------------
-int assoc_array_for_each(SAssocArray * pArray, FAssocArrayForEach fForEach,
-			 void * pContext)
+int assoc_array_for_each(gds_assoc_array_t * array,
+			 assoc_array_foreach_f foreach,
+			 void * ctx)
 {
-  unsigned int uIndex;
-  SAssocItem * pItem;
-  int iResult;
+  unsigned int index;
+  _assoc_item_t * item;
+  int result;
 
-  for (uIndex= 0; uIndex < ptr_array_length(pArray); uIndex++) {
-    pItem= (SAssocItem *) pArray->data[uIndex];
-    iResult= fForEach(pItem->pcKey, pItem->pValue, pContext);
-    if (iResult)
-      return iResult;
+  for (index= 0; index < ptr_array_length(array); index++) {
+    item= (_assoc_item_t *) array->data[index];
+    result= foreach(item->key, item->value, ctx);
+    if (result)
+      return result;
   }
   return 0;
 }
@@ -151,25 +157,34 @@ int assoc_array_for_each(SAssocArray * pArray, FAssocArrayForEach fForEach,
 /////////////////////////////////////////////////////////////////////
 
 typedef struct {
-  unsigned int   index;
-  SAssocArray  * array;
+  unsigned int         index;
+  gds_assoc_array_t  * array;
+  int                  key_or_value; // key=0 / value=1
 } _enum_ctx_t;
 
 // -----[ _enum_has_next ]-------------------------------------------
 static int _enum_has_next(void * ctx)
 {
   _enum_ctx_t * enum_ctx= (_enum_ctx_t *) ctx;
-  return (enum_ctx->index  < _array_length((SArray *) enum_ctx->array));
+  return (enum_ctx->index  < _array_length((array_t *) enum_ctx->array));
 }
 
 // -----[ _enum_get_next ]-------------------------------------------
 static void * _enum_get_next(void * ctx)
 {
   _enum_ctx_t * enum_ctx= (_enum_ctx_t *) ctx;
-  SAssocItem * item;
+  _assoc_item_t * item;
   
-  _array_get_at((SArray *) enum_ctx->array, enum_ctx->index, &item);
-  return item->pcKey;
+  _array_get_at((array_t *) enum_ctx->array, enum_ctx->index, &item);
+  enum_ctx->index++;
+  switch (enum_ctx->key_or_value) {
+  case ASSOC_ARRAY_ENUM_KEYS:
+    return item->key;
+  case ASSOC_ARRAY_ENUM_VALUES:
+    return item->value;
+  default:
+    abort();
+  }
 }
 
 // -----[ _enum_destroy ]--------------------------------------------
@@ -180,12 +195,14 @@ static void _enum_destroy(void * ctx)
 }
 
 // -----[ assoc_array_get_enum ]-------------------------------------
-enum_t * assoc_array_get_enum(SAssocArray * array)
+gds_enum_t * assoc_array_get_enum(gds_assoc_array_t * array,
+				  int key_or_value)
 {
   _enum_ctx_t * ctx=
     (_enum_ctx_t *) MALLOC(sizeof(_enum_ctx_t));
   ctx->array= array;
   ctx->index= 0;
+  ctx->key_or_value= key_or_value;
   return enum_create(ctx,
 		     _enum_has_next,
 		     _enum_get_next,

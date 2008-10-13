@@ -3,9 +3,9 @@
 //
 // Generic Data Structures (libgds): validation application.
 //
-// @author Bruno Quoitin (bruno.quoitin@uclouvain.b)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
-// @lastdate 04/12/2007
+// $Id$
 // ==================================================================
 // Notes on unit testing:
 //  - keep tests short and focused on a single aspect
@@ -21,6 +21,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <libgds/array.h>
 #include <libgds/assoc_array.h>
@@ -31,10 +32,14 @@
 #include <libgds/fifo.h>
 #include <libgds/gds.h>
 #include <libgds/hash.h>
+#include <libgds/hash_utils.h>
 #include <libgds/list.h>
 #include <libgds/memory.h>
+#include <libgds/params.h>
 #include <libgds/patricia-tree.h>
 #include <libgds/radix-tree.h>
+#include <libgds/stream.h>
+#include <libgds/stream_cmd.h>
 #include <libgds/str_util.h>
 #include <libgds/tokenizer.h>
 #include <libgds/tokens.h>
@@ -76,59 +81,70 @@ void int_array_shuffle(int aiArray[], unsigned int uSize)
 // -----[ test_strutils_create ]-------------------------------------
 static int test_strutils_create()
 {
-  char * pcStr= str_create("Hello");
-  ASSERT_RETURN(pcStr != NULL, "str_create() should not return NULL");
-  ASSERT_RETURN(strcmp(pcStr, "Hello") == 0,
+  char * s= str_create("Hello");
+  ASSERT_RETURN(s != NULL, "str_create() should not return NULL");
+  ASSERT_RETURN(strcmp(s, "Hello") == 0,
 		"incorrect string content");
-  str_destroy(&pcStr);
-  ASSERT_RETURN(pcStr == NULL, "destroyed string should be NULL");
+  str_destroy(&s);
+  ASSERT_RETURN(s == NULL, "destroyed string should be NULL");
   return UTEST_SUCCESS;
 }
 
 // -----[ test_strutils_create_null ]--------------------------------
 static int test_strutils_create_null()
 {
-  char * pcStr= str_create(NULL);
-  ASSERT_RETURN(pcStr != NULL, "str_create() should not return NULL");
-  ASSERT_RETURN(strcmp(pcStr, "") == 0,
+  char * s= str_create(NULL);
+  ASSERT_RETURN(s != NULL, "str_create() should not return NULL");
+  ASSERT_RETURN(strcmp(s, "") == 0,
 		"incorrect string content");
-  str_destroy(&pcStr);
-  ASSERT_RETURN(pcStr == NULL, "destroyed string should be NULL");
+  str_destroy(&s);
+  ASSERT_RETURN(s == NULL, "destroyed string should be NULL");
   return UTEST_SUCCESS;
 }
 
 // -----[ test_strutils_lcreate ]------------------------------------
 static int test_strutils_lcreate()
 {
-  char * pcStr= str_lcreate(10);
-  ASSERT_RETURN(pcStr != NULL, "str_lcreate() should not return NULL");
-  ASSERT_RETURN(*pcStr == '\0', "not NUL-terminated");
-  str_destroy(&pcStr);
-  ASSERT_RETURN(pcStr == NULL, "destroyed string should be NULL");
+  char * s= str_lcreate(10);
+  ASSERT_RETURN(s != NULL, "str_lcreate() should not return NULL");
+  ASSERT_RETURN(*s == '\0', "not NUL-terminated");
+  str_destroy(&s);
+  ASSERT_RETURN(s == NULL, "destroyed string should be NULL");
   return UTEST_SUCCESS;
 }
 
 // -----[ test_strutils_append ]-------------------------------------
 static int test_strutils_append()
 {
-  char * pcStr= str_create("Hello");
-  pcStr= str_append(&pcStr, " World");
-  ASSERT_RETURN(pcStr != NULL, "str_append() should not return NULL");
-  ASSERT_RETURN(strcmp(pcStr, "Hello World") == 0,
+  char * s= str_create("Hello");
+  s= str_append(&s, " World");
+  ASSERT_RETURN(s != NULL, "str_append() should not return NULL");
+  ASSERT_RETURN(strcmp(s, "Hello World") == 0,
 		"incorrect string content");
-  str_destroy(&pcStr);
+  str_destroy(&s);
   return UTEST_SUCCESS;
 }
 
 // -----[ test_strutils_append_null ]--------------------------------
 static int test_strutils_append_null()
 {
-  char * pcStr= str_create("Hello");
-  pcStr= str_append(&pcStr, NULL);
-  ASSERT_RETURN(pcStr != NULL, "str_append() should not return NULL");
-  ASSERT_RETURN(strcmp(pcStr, "Hello") == 0,
+  char * s= str_create("Hello");
+  s= str_append(&s, NULL);
+  ASSERT_RETURN(s != NULL, "str_append() should not return NULL");
+  ASSERT_RETURN(strcmp(s, "Hello") == 0,
 		"incorrect string content");
-  str_destroy(&pcStr);
+  str_destroy(&s);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_strutils_append_src_null ]----------------------------
+static int test_strutils_append_src_null()
+{
+  char * s= NULL;
+  s= str_append(&s, "World");
+  ASSERT_RETURN(s != NULL, "str_append() should not return NULL");
+  ASSERT_RETURN(strcmp(s, "World") == 0, "incorrect string content");
+  str_destroy(&s);
   return UTEST_SUCCESS;
 }
 
@@ -319,39 +335,39 @@ int test_fifo_init()
  */
 int test_fifo_basic()
 {
-  SFIFO * pFIFO;
-  unsigned int uIndex;
+  gds_fifo_t * fifo;
+  unsigned int index;
 
   test_fifo_init();
 
-  pFIFO= fifo_create(FIFO_NITEMS, NULL);
-  ASSERT_RETURN(pFIFO != NULL, "fifo_create() returned a NULL pointer");
+  fifo= fifo_create(FIFO_NITEMS, NULL);
+  ASSERT_RETURN(fifo != NULL, "fifo_create() returned a NULL pointer");
   
   // Check initial depth (== 0)
-  ASSERT_RETURN(fifo_depth(pFIFO) == 0, "incorrect depth returned");
+  ASSERT_RETURN(fifo_depth(fifo) == 0, "incorrect depth returned");
 
   // Push data
-  for (uIndex= 0; uIndex < FIFO_NITEMS; uIndex++) {
-    ASSERT_RETURN(fifo_push(pFIFO, (void *) FIFO_ITEMS[uIndex]) == 0,
+  for (index= 0; index < FIFO_NITEMS; index++) {
+    ASSERT_RETURN(fifo_push(fifo, (void *) FIFO_ITEMS[index]) == 0,
 		  "could not push data onto FIFO");
   }
 
   // Check depth == FIFO_NITEMS
-  ASSERT_RETURN(fifo_depth(pFIFO) == FIFO_NITEMS,
+  ASSERT_RETURN(fifo_depth(fifo) == FIFO_NITEMS,
 		"incorrect depth returned");
 
   // Pushing more should fail (growth option not set)
-  ASSERT_RETURN(fifo_push(pFIFO, (void *) 255) != 0,
+  ASSERT_RETURN(fifo_push(fifo, (void *) 255) != 0,
 		"should not allow pushing more than FIFO size");
 
   // Pop data
-  for (uIndex= 0; uIndex < FIFO_NITEMS; uIndex++) {
-    ASSERT_RETURN((size_t) fifo_pop(pFIFO)
-		  == FIFO_ITEMS[uIndex],
+  for (index= 0; index < FIFO_NITEMS; index++) {
+    ASSERT_RETURN((size_t) fifo_pop(fifo)
+		  == FIFO_ITEMS[index],
 		  "incorrect value pop'ed");
   }
 
-  fifo_destroy(&pFIFO);
+  fifo_destroy(&fifo);
 
   return UTEST_SUCCESS;
 }
@@ -359,33 +375,33 @@ int test_fifo_basic()
 // -----[ test_fifo_grow ]-------------------------------------------
 int test_fifo_grow()
 {
-  SFIFO * pFIFO;
-  unsigned int uIndex;
+  gds_fifo_t * fifo;
+  unsigned int index;
 
-  pFIFO= fifo_create(FIFO_NITEMS, NULL);
-  ASSERT_RETURN(pFIFO != NULL, "fifo_create() returned a NULL pointer");
+  fifo= fifo_create(FIFO_NITEMS, NULL);
+  ASSERT_RETURN(fifo != NULL, "fifo_create() returned a NULL pointer");
 
-  fifo_set_option(pFIFO, FIFO_OPTION_GROW_EXPONENTIAL, 1);
+  fifo_set_option(fifo, FIFO_OPTION_GROW_EXPONENTIAL, 1);
 
   // Push data
-  for (uIndex= 0; uIndex < FIFO_NITEMS; uIndex++) {
-    ASSERT_RETURN(fifo_push(pFIFO, (void *) FIFO_ITEMS[uIndex]) == 0,
+  for (index= 0; index < FIFO_NITEMS; index++) {
+    ASSERT_RETURN(fifo_push(fifo, (void *) FIFO_ITEMS[index]) == 0,
 		  "could not push data onto FIFO");
   }
 
   // Check depth == FIFO_NITEMS
-  ASSERT_RETURN(fifo_depth(pFIFO) == FIFO_NITEMS,
+  ASSERT_RETURN(fifo_depth(fifo) == FIFO_NITEMS,
 		"incorrect depth returned");
 
   // Pushing more should be allowed (growth option set)
-  ASSERT_RETURN(fifo_push(pFIFO, (void *) 255) == 0,
+  ASSERT_RETURN(fifo_push(fifo, (void *) 255) == 0,
 		"should allow pushing more than FIFO size (grow)");
 
   // Check depth == FIFO_NITEMS+1
-  ASSERT_RETURN(fifo_depth(pFIFO) == FIFO_NITEMS+1,
+  ASSERT_RETURN(fifo_depth(fifo) == FIFO_NITEMS+1,
 		"incorrect depth returned");
 
-  fifo_destroy(&pFIFO);
+  fifo_destroy(&fifo);
 
   return UTEST_SUCCESS;
 }
@@ -400,11 +416,11 @@ size_t STACK_ITEMS[STACK_NITEMS];
 // -----[ _test_stack_init ]-----------------------------------------
 static int _test_stack_init()
 {
-  unsigned int uIndex;
+  unsigned int index;
 
   // Initialize
-  for (uIndex= 0; uIndex < STACK_NITEMS; uIndex++) {
-    STACK_ITEMS[uIndex]= random() % 4096;
+  for (index= 0; index < STACK_NITEMS; index++) {
+    STACK_ITEMS[index]= random() % 4096;
   }
   
   return UTEST_SUCCESS;
@@ -413,49 +429,49 @@ static int _test_stack_init()
 // -----[ test_stack_create ]----------------------------------------
 static int test_stack_create()
 {
-  SStack * pStack= stack_create(STACK_NITEMS);
-  ASSERT_RETURN(pStack != NULL, "stack_create() should not return NULL");
-  ASSERT_RETURN(stack_depth(pStack) == 0, "incorret stack depth");
-  ASSERT_RETURN(stack_is_empty(pStack), "stack should be empty");
-  stack_destroy(&pStack);
-  ASSERT_RETURN(pStack == NULL, "destroyed stack should be NULL");
+  gds_stack_t * stack= stack_create(STACK_NITEMS);
+  ASSERT_RETURN(stack != NULL, "stack_create() should not return NULL");
+  ASSERT_RETURN(stack_depth(stack) == 0, "incorret stack depth");
+  ASSERT_RETURN(stack_is_empty(stack), "stack should be empty");
+  stack_destroy(&stack);
+  ASSERT_RETURN(stack == NULL, "destroyed stack should be NULL");
   return UTEST_SUCCESS;
 }
 
 // -----[ test_stack_basic ]-----------------------------------------
 static int test_stack_basic()
 {
-  SStack * pStack;
-  unsigned int uIndex;
+  gds_stack_t * stack;
+  unsigned int index;
 
   _test_stack_init();
 
-  pStack= stack_create(STACK_NITEMS);
-  ASSERT_RETURN(pStack != NULL, "stack_create() returned NULL");
+  stack= stack_create(STACK_NITEMS);
+  ASSERT_RETURN(stack != NULL, "stack_create() returned NULL");
 
   // Push data onto stack
-  for (uIndex= 0; uIndex < STACK_NITEMS; uIndex++) {
-    ASSERT_RETURN(stack_push(pStack, (void *) STACK_ITEMS[uIndex]) == 0,
-		  "could not push onto stack (%d)", uIndex);
+  for (index= 0; index < STACK_NITEMS; index++) {
+    ASSERT_RETURN(stack_push(stack, (void *) STACK_ITEMS[index]) == 0,
+		  "could not push onto stack (%d)", index);
   }
 
   // Check length (STACK_NITEMS)
-  ASSERT_RETURN(stack_depth(pStack) == STACK_NITEMS,
+  ASSERT_RETURN(stack_depth(stack) == STACK_NITEMS,
 		"incorrect stack length");
-  ASSERT_RETURN(stack_is_empty(pStack) == 0, "stack should not be empty");
+  ASSERT_RETURN(stack_is_empty(stack) == 0, "stack should not be empty");
 
   // Pushing more shouldn't be allowed
-  ASSERT_RETURN(stack_push(pStack, (void *) 255) != 0,
+  ASSERT_RETURN(stack_push(stack, (void *) 255) != 0,
 		"shouldn't allow pushing more than stack size");
 
   // Pop data from stack
-  for (uIndex= 0; uIndex < STACK_NITEMS; uIndex++) {
-    ASSERT_RETURN((size_t) stack_pop(pStack)
-		  == STACK_ITEMS[STACK_NITEMS-uIndex-1],
+  for (index= 0; index < STACK_NITEMS; index++) {
+    ASSERT_RETURN((size_t) stack_pop(stack)
+		  == STACK_ITEMS[STACK_NITEMS-index-1],
 		  "incorrect value pop'ed");
   }  
 
-  stack_destroy(&pStack);
+  stack_destroy(&stack);
 
   return UTEST_SUCCESS;
 }
@@ -463,42 +479,86 @@ static int test_stack_basic()
 // -----[ test_stack_copy ]------------------------------------------
 int test_stack_copy()
 {
-  unsigned int uIndex;
-  SStack * pStack1= stack_create(STACK_NITEMS);
-  SStack * pStack2;
+  unsigned int index;
+  gds_stack_t * stack1= stack_create(STACK_NITEMS);
+  gds_stack_t * stack2;
   _test_stack_init();
-  for (uIndex= 0; uIndex < STACK_NITEMS; uIndex++)
-    stack_push(pStack1, (void *) STACK_ITEMS[uIndex]);
-  pStack2= stack_copy(pStack1);
-  ASSERT_RETURN(pStack2 != NULL, "stack_copy() should not return NULL");
-  ASSERT_RETURN(stack_depth(pStack2) == STACK_NITEMS,
+  for (index= 0; index < STACK_NITEMS; index++)
+    stack_push(stack1, (void *) STACK_ITEMS[index]);
+  stack2= stack_copy(stack1);
+  ASSERT_RETURN(stack2 != NULL, "stack_copy() should not return NULL");
+  ASSERT_RETURN(stack_depth(stack2) == STACK_NITEMS,
 		"incorrect stack depth");
-  for (uIndex= 0; uIndex < STACK_NITEMS; uIndex++)
-    ASSERT_RETURN(pStack1->apItems[uIndex] == pStack2->apItems[uIndex],
+  for (index= 0; index < STACK_NITEMS; index++)
+    ASSERT_RETURN(stack1->items[index] == stack2->items[index],
 		  "stack content is not equal");
-  stack_destroy(&pStack1);
-  stack_destroy(&pStack2);
+  stack_destroy(&stack1);
+  stack_destroy(&stack2);
   return UTEST_SUCCESS;
 }
 
 // -----[ test_stack_equal ]-----------------------------------------
 int test_stack_equal()
 {
-  unsigned int uIndex;
-  SStack * pStack1= stack_create(STACK_NITEMS);
-  SStack * pStack2= stack_create(STACK_NITEMS);
-  for (uIndex= 0; uIndex < STACK_NITEMS; uIndex++)
-    stack_push(pStack1, (void *) STACK_ITEMS[uIndex]);
-  for (uIndex= 0; uIndex < STACK_NITEMS; uIndex++)
-    stack_push(pStack2, (void *) STACK_ITEMS[uIndex]);
-  ASSERT_RETURN(stack_equal(pStack1, pStack2), "stacks should be equal");
-  if (pStack2->apItems[0] == 0)
-    pStack2->apItems[0]= (void *) 1;
+  unsigned int index;
+  gds_stack_t * stack1= stack_create(STACK_NITEMS);
+  gds_stack_t * stack2= stack_create(STACK_NITEMS);
+  for (index= 0; index < STACK_NITEMS; index++)
+    stack_push(stack1, (void *) STACK_ITEMS[index]);
+  for (index= 0; index < STACK_NITEMS; index++)
+    stack_push(stack2, (void *) STACK_ITEMS[index]);
+  ASSERT_RETURN(stack_equal(stack1, stack2), "stacks should be equal");
+  if (stack2->items[0] == 0)
+    stack2->items[0]= (void *) 1;
   else
-    pStack2->apItems[0]= (void *) ((size_t) pStack2->apItems[0]) - 1;
-  ASSERT_RETURN(stack_equal(pStack1, pStack2) == 0, "stacks should not be equal");
+    stack2->items[0]= (void *) ((size_t) stack2->items[0]) - 1;
+  ASSERT_RETURN(stack_equal(stack1, stack2) == 0,
+		"stacks should not be equal");
   return UTEST_SUCCESS;
 }
+
+
+/////////////////////////////////////////////////////////////////////
+// GDS_CHECK_ENUM
+/////////////////////////////////////////////////////////////////////
+
+GDS_ENUM_TEMPLATE_TYPE(int_enum, int);
+GDS_ENUM_TEMPLATE_OPS(int_enum, int);
+
+static int _int_enum_has_next(void * ctx) {
+  return (*((int *) ctx) > 0);
+}
+
+static int _int_enum_get_next(void * ctx) {
+  (*((int *) ctx))--;
+  return 55;
+}
+
+static void _int_enum_destroy(void * ctx) {
+}
+
+// -----[ test_enum_template ]---------------------------------------
+int test_enum_template()
+{
+  int value= 2;
+  int_enum_t * enu= int_enum_create(&value,
+				    _int_enum_has_next,
+				    _int_enum_get_next,
+				    _int_enum_destroy);
+  ASSERT_RETURN(int_enum_has_next(enu),
+		"enum_has_next() should succeed");
+  ASSERT_RETURN(int_enum_get_next(enu) == 55,
+		"enum_get_next() returned wrong value");
+  ASSERT_RETURN(int_enum_has_next(enu),
+		"enum_has_next() should succeed");
+  ASSERT_RETURN(int_enum_get_next(enu) == 55,
+		"enum_get_next() returned wrong value");
+  ASSERT_RETURN(!int_enum_has_next(enu),
+		"enum_has_next() should fail");
+  int_enum_destroy(&enu);
+  return UTEST_SUCCESS;
+}
+
 
 /////////////////////////////////////////////////////////////////////
 // GDS_CHECK_ARRAY
@@ -510,160 +570,153 @@ int test_stack_equal()
  * (integers). Note: the function is being passed pointers to the
  * items to be compared.
  */
-static int _test_array_compare(void * pItem1, void * pItem2,
-			       unsigned int uEltSize)
+static int _test_array_compare(const void * item1, const void * item2,
+			       unsigned int elt_size)
 {
-  if (*((int *) pItem1) > *((int *) pItem2))
+  if (*((int *) item1) > *((int *) item2))
     return 1;
-  else if (*((int *) pItem1) < *((int *) pItem2))
+  else if (*((int *) item1) < *((int *) item2))
     return -1;
   return 0;
   }
 
 #define ARRAY_NITEMS 1024
 int ARRAY_ITEMS[ARRAY_NITEMS];
-SIntArray * pArray= NULL;
-SIntArray * pArrayCopy= NULL;
-SIntArray * pArraySub= NULL;
+#define ARRAY_NITEMS2 512
+  int ARRAY_ITEMS2[ARRAY_NITEMS2];
 
-// ----- test_array_init --------------------------------------------
-int test_array_init()
+// -----[ _init_random_int_array ]-----------------------------------
+static inline void _init_random_int_array(int array[],
+					  unsigned int size)
 {
-  unsigned int uIndex;
-  int iValue;
+  unsigned int index;
+  int value, acc;
 
   // Generate random sequence of unique integers
-  for (uIndex= 0; uIndex < ARRAY_NITEMS; uIndex++) {
-    iValue= (random() % 4096)+1;
-    if (uIndex > 0) {
-      ARRAY_ITEMS[uIndex]= ARRAY_ITEMS[uIndex-1]+iValue;
-    } else {
-      ARRAY_ITEMS[uIndex]= iValue;
-    }
+  acc= 0;
+  for (index= 0; index < size; index++) {
+    value= (random() % 4096)+1;
+    acc+= value;
+    array[index]= acc;
   }
 
   // Shuffle in order to avoid ascending order
-  int_array_shuffle(ARRAY_ITEMS, ARRAY_NITEMS);
-
-  return UTEST_SUCCESS;
+  int_array_shuffle(array, size);
 }
 
-// -----[ test_array_done ]------------------------------------------
-/**
- *
- */
-int test_array_done()
+// -----[ _random_int_array_create ]---------------------------------
+static inline int_array_t * _random_int_array_create(int array[],
+						     unsigned int size)
 {
-  int_array_destroy(&pArrayCopy);
-  int_array_destroy(&pArray);
-  int_array_destroy(&pArraySub);
+  int_array_t * new_array= int_array_create(0);
+  unsigned int index;
 
+  assert(new_array != NULL);
+  for (index= 0; index < size; index++)
+    assert(int_array_add(new_array, array[index]) == index);
+  return new_array;
+}
+
+// -----[ test_before_array ]----------------------------------------
+int test_before_array()
+{
+  _init_random_int_array(ARRAY_ITEMS, ARRAY_NITEMS);
+  _init_random_int_array(ARRAY_ITEMS2, ARRAY_NITEMS2);
   return UTEST_SUCCESS;
 }
 
-// ----- test_array_basic -------------------------------------------
+// -----[ test_array_create ]----------------------------------------
+int test_array_create()
+{
+  int_array_t * array= int_array_create(0);
+  ASSERT_RETURN(array != NULL, "int_array_create() returned NULL pointer");
+  ASSERT_RETURN(int_array_size(array) == 0, "array size should be 0");
+  int_array_destroy(&array);
+  ASSERT_RETURN(array == NULL, "destroyed array should be NULL");
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_array_basic ]-----------------------------------------
 /**
  * Perform basic tests with arrays of integers: add, length, get.
  */
 int test_array_basic()
 {
-  unsigned int uIndex;
-
-  test_array_init();
-
-  pArray= int_array_create(0);
-  ASSERT_RETURN(pArray != NULL, "int_array_create() returned NULL pointer");
-  
-  /* Add all items to the array */
-  for (uIndex= 0; uIndex < ARRAY_NITEMS; uIndex++) {
-    /* int_array_add() must return the index of insertion */
-    ASSERT_RETURN(int_array_add(pArray, &ARRAY_ITEMS[uIndex]) == uIndex,
+  unsigned int index;
+  int_array_t * array= int_array_create(0);
+  // Add all items to the array
+  for (index= 0; index < ARRAY_NITEMS; index++) {
+    // int_array_add() must return the index of insertion
+    ASSERT_RETURN(int_array_add(array, ARRAY_ITEMS[index]) == index,
 		  "int_array_add() returned an incorrect insertion index")
   }
-
-  /* Length */
-  ASSERT_RETURN(ARRAY_NITEMS == int_array_length(pArray),
-		"int_array_length() returned an incorrect length");
-
-  /* Direct get (as a C array) */
-  for (uIndex= 0; uIndex < ARRAY_NITEMS; uIndex++) {
-    ASSERT_RETURN(pArray->data[uIndex] == ARRAY_ITEMS[uIndex],
+  ASSERT_RETURN(ARRAY_NITEMS == int_array_size(array),
+		"int_array_size() returned an incorrect size");
+  // Direct access (as a C array)
+  for (index= 0; index < ARRAY_NITEMS; index++) {
+    ASSERT_RETURN(array->data[index] == ARRAY_ITEMS[index],
 		  "direct read did not return expected value");
   }
-
-  return UTEST_SUCCESS;
-}
-
-// -----[ test_array_access ]----------------------------------------
-int test_array_access()
-{
-  unsigned int uIndex;
-  int iData;
-
-  /* Get */
-  for (uIndex= 0; uIndex < ARRAY_NITEMS; uIndex++) {
-    _array_get_at((SArray *) pArray, uIndex, &iData);
-    ASSERT_RETURN(iData == ARRAY_ITEMS[uIndex],
-		  "_array_get_at() did not return expected value");
-  }
+  int_array_destroy(&array);
   return UTEST_SUCCESS;
 }
 
 // -----[ test_array_enum ]------------------------------------------
 int test_array_enum()
 {
-  enum_t * pEnum= _array_get_enum((SArray *) pArray);
-  int * piData;
-  unsigned int uIndex;
-
-  ASSERT_RETURN(pEnum != NULL, "_array_get_enum() returned NULL pointer");
-  uIndex= 0;
-  while (enum_has_next(pEnum)) {
-    piData= enum_get_next(pEnum);
-    ASSERT_RETURN(piData != NULL, "enum_get_next() returned NULL pointer");
-    ASSERT_RETURN(*piData == ARRAY_ITEMS[uIndex],
-      "enumerator returned incorrect element");
-    uIndex++;
+  int value;
+  unsigned int index;
+  int_array_t * array= _random_int_array_create(ARRAY_ITEMS, ARRAY_NITEMS);
+  gds_enum_t * enu;
+  enu= int_array_get_enum(array);
+  ASSERT_RETURN(enu != NULL, "int_array_get_enum() returned NULL pointer");
+  index= 0;
+  while (enum_has_next(enu)) {
+    value= (int) enum_get_next(enu);
+    ASSERT_RETURN(value == ARRAY_ITEMS[index],
+		  "enumerator returned incorrect element");
+    index++;
   }
-  ASSERT_RETURN(uIndex == ARRAY_NITEMS,
+  ASSERT_RETURN(index == ARRAY_NITEMS,
 		"enumerator did not traverse whole array");
-
-  enum_destroy(&pEnum);
-
+  enum_destroy(&enu);
+  int_array_destroy(&array);
   return UTEST_SUCCESS;
 }
 
 // -----[ test_array_copy ]------------------------------------------
 int test_array_copy()
 {
-  unsigned int uIndex;
-
-  pArrayCopy= (SIntArray *) _array_copy((SArray *) pArray);
-  ASSERT_RETURN(pArrayCopy != NULL,
-		"_array_copy() returned NUL pointer");
-  ASSERT_RETURN(int_array_length(pArrayCopy) == int_array_length(pArray),
+  unsigned int index;
+  int_array_t * array= _random_int_array_create(ARRAY_ITEMS, ARRAY_NITEMS);
+  int_array_t * array_copy;
+  array_copy= int_array_copy(array);
+  ASSERT_RETURN(array_copy != NULL,
+		"int_array_copy() returned NUL pointer");
+  ASSERT_RETURN(int_array_size(array_copy) == int_array_size(array),
 		"length of copied and original arrays did not match");
-  for (uIndex= 0; uIndex < int_array_length(pArrayCopy); uIndex++) {
-    ASSERT_RETURN(pArray->data[uIndex] == pArrayCopy->data[uIndex],
+  for (index= 0; index < int_array_size(array_copy); index++) {
+    ASSERT_RETURN(array->data[index] == array_copy->data[index],
 		  "data in copied and original arrays did not match");
   }
-
+  int_array_destroy(&array);
+  int_array_destroy(&array_copy);
   return UTEST_SUCCESS;
 }
 
 // -----[ test_array_remove ]----------------------------------------
 int test_array_remove()
 {
-  unsigned int uIndex;
-  
+  int_array_t * array= _random_int_array_create(ARRAY_ITEMS, ARRAY_NITEMS);
+  unsigned int index;
   // Remove (remove elements with odd indices)
-  for (uIndex= 0; uIndex < ARRAY_NITEMS/2; uIndex++) {
-    ASSERT_RETURN(int_array_remove_at(pArrayCopy, uIndex+1) == 0,
-		  "could not remove item at %d", uIndex);
+  for (index= 0; index < ARRAY_NITEMS/2; index++) {
+    ASSERT_RETURN(int_array_remove_at(array, index+1) == 0,
+		  "could not remove item at %d", index);
   }
-  ASSERT_RETURN(int_array_length(pArrayCopy) == ARRAY_NITEMS-(ARRAY_NITEMS/2),
-		"int_array_length() returned an invalid value");
-
+  ASSERT_RETURN(int_array_size(array) == ARRAY_NITEMS-(ARRAY_NITEMS/2),
+		"int_array_size() returned an invalid value");
+  int_array_destroy(&array);
   return UTEST_SUCCESS;
 }
 
@@ -673,213 +726,256 @@ int test_array_remove()
  */
 int test_array_insert()
 {
-  unsigned int uIndex;
-  
+  int_array_t * array= _random_int_array_create(ARRAY_ITEMS, ARRAY_NITEMS);
+  unsigned int index;
+  // Remove (remove elements with odd indices)
+  for (index= 0; index < ARRAY_NITEMS/2; index++) {
+    ASSERT_RETURN(int_array_remove_at(array, index+1) == 0,
+		  "could not remove item at %d", index);
+  }  
   // Re-insert removed elements (at their previous position)
-  for (uIndex= 0; uIndex < ARRAY_NITEMS/2; uIndex++) {
-    ASSERT_RETURN(_array_insert_at((SArray*) pArrayCopy,
-				   uIndex*2+1, &ARRAY_ITEMS[uIndex*2+1])
-		  == uIndex*2+1,
-		  "_array_insert_at() returned an incorrect value");
+  for (index= 0; index < ARRAY_NITEMS/2; index++) {
+    ASSERT_RETURN(int_array_insert_at(array,
+				      index*2+1, &ARRAY_ITEMS[index*2+1])
+		  == index*2+1,
+		  "int_array_insert_at() returned an incorrect value");
   }
-  ASSERT_RETURN(int_array_length(pArrayCopy) == ARRAY_NITEMS,
-		"int_array_length() returned an incorrect value");
-
+  ASSERT_RETURN(int_array_size(array) == ARRAY_NITEMS,
+		"int_array_size() returned an incorrect value");
   /* Check that the array now contains all items */
-  for (uIndex= 0; uIndex < ARRAY_NITEMS; uIndex++) {
-    ASSERT_RETURN(pArrayCopy->data[uIndex] == ARRAY_ITEMS[uIndex],
+  for (index= 0; index < ARRAY_NITEMS; index++) {
+    ASSERT_RETURN(array->data[index] == ARRAY_ITEMS[index],
 		  "direct read did not return expected value");
   }
-
+  int_array_destroy(&array);
   return UTEST_SUCCESS;
 }
 
 // -----[ test_array_sort ]------------------------------------------
 int test_array_sort()
 {
-  unsigned int uIndex;
+  int_array_t * array= _random_int_array_create(ARRAY_ITEMS, ARRAY_NITEMS);
+  unsigned int index;
   int ARRAY_ITEMS2[ARRAY_NITEMS];
-  unsigned int uIndex2;
-  int iValue;
-
+  unsigned int index2;
+  int value;
   // Sort (ascending sequence)
-  ASSERT_RETURN(_array_sort((SArray *) pArray, _test_array_compare) == 0,
-		"incorrect return code for _array_sort()");
-
-  ASSERT_RETURN(int_array_length(pArray) == ARRAY_NITEMS,
-		"incorrect length returned after _array_sort()");
-
+  ASSERT_RETURN(int_array_sort(array, _test_array_compare) == 0,
+		"incorrect return code for int_array_sort()");
+  ASSERT_RETURN(int_array_size(array) == ARRAY_NITEMS,
+		"incorrect length returned after int_array_sort()");
   // Check ascending order
-  for (uIndex= 0; uIndex < int_array_length(pArray); uIndex++) {
-    if (uIndex > 0) {
-      ASSERT_RETURN(pArray->data[uIndex-1] <= pArray->data[uIndex],
+  for (index= 0; index < int_array_size(array); index++) {
+    if (index > 0) {
+      ASSERT_RETURN(array->data[index-1] <= array->data[index],
 		    "ascending ordering not respected after _array_sort()");
     }
   }
-
-  // Check _array_sorted_find_index()
-  for (uIndex= 0; uIndex < int_array_length(pArray); uIndex++) {
-    ASSERT_RETURN(_array_sorted_find_index((SArray *) pArray,
-					   (void *) &pArray->data[uIndex],
-					   &uIndex2) == 0,
-		  "incorrect return code for _array_sorted_find_index()");
-    ASSERT_RETURN(uIndex2 == uIndex,
-		  "incorrect index returned by _array_sorted_find_index()");
+  // Check int_array_index_of()
+  for (index= 0; index < int_array_size(array); index++) {
+    ASSERT_RETURN(int_array_index_of(array,
+				     array->data[index],
+				     &index2) == 0,
+		  "incorrect return code for int_array_index_of()");
+    ASSERT_RETURN(index2 == index,
+		  "incorrect index returned by int_array_index_of()");
   }
-
   // Insertion in sorted array
-  uIndex2= 0;
-  for (uIndex= 1; uIndex < int_array_length(pArray); uIndex++) {
-    if (pArray->data[uIndex]-pArray->data[uIndex-1] > 1) {
-      iValue= pArray->data[uIndex-1]+1;
-      ARRAY_ITEMS2[uIndex2++]= iValue;
+  index2= 0;
+  for (index= 1; index < int_array_size(array); index++) {
+    if (array->data[index]-array->data[index-1] > 1) {
+      value= array->data[index-1]+1;
+      ARRAY_ITEMS2[index2++]= value;
     }
   }
-  for (uIndex= 0; uIndex < uIndex2; uIndex++) {
-    ASSERT_RETURN(int_array_add(pArray, &ARRAY_ITEMS2[uIndex]),
+  for (index= 0; index < index2; index++) {
+    ASSERT_RETURN(int_array_add(array, ARRAY_ITEMS2[index]),
 		  "could not insert in sorted array");
   }
-
-  ASSERT_RETURN(int_array_length(pArray) == ARRAY_NITEMS+uIndex2,
+  ASSERT_RETURN(int_array_size(array) == ARRAY_NITEMS+index2,
 		"incorrect length returned (%d vs %d)",
-		int_array_length(pArray), uIndex2);
-
+		int_array_size(array), index2);
   // Check ascending order
-  for (uIndex= 0; uIndex < int_array_length(pArray); uIndex++) {
-    if (uIndex > 0) {
-      ASSERT_RETURN(pArray->data[uIndex-1] <= pArray->data[uIndex],
-		    "ascending ordering not respected after _array_sort()");
+  for (index= 0; index < int_array_size(array); index++) {
+    if (index > 0) {
+      ASSERT_RETURN(array->data[index-1] <= array->data[index],
+		    "ascending ordering not respected after int_array_sort()");
     }
   }
-
+  int_array_destroy(&array);
   return UTEST_SUCCESS;
 }
 
 // -----[ test_array_sub ]-------------------------------------------
 int test_array_sub()
 {
-  unsigned int uIndex;
-
-  pArraySub= (SIntArray *) _array_sub((SArray *) pArray,
-				      ARRAY_NITEMS/3,
-				      2*(ARRAY_NITEMS/3));
-  ASSERT_RETURN(pArraySub != NULL,
-		"_array_sub() returned NULL pointer");
-  ASSERT_RETURN(int_array_length(pArraySub) != ARRAY_NITEMS/3,
+  int_array_t * array= _random_int_array_create(ARRAY_ITEMS, ARRAY_NITEMS);
+  int_array_t * array_sub;
+  unsigned int index;
+  array_sub= int_array_sub(array,
+			   ARRAY_NITEMS/3,
+			   2*(ARRAY_NITEMS/3));
+  ASSERT_RETURN(array_sub != NULL,
+		"int_array_sub() should not return NULL pointer");
+  ASSERT_RETURN(int_array_size(array_sub) != ARRAY_NITEMS/3,
 		"Incorrect length for sub-array");
-  for (uIndex= 0; uIndex < ARRAY_NITEMS/3; uIndex++) {
-    ASSERT_RETURN(pArraySub->data[uIndex]
-		  == pArray->data[ARRAY_NITEMS/3+uIndex],
+  for (index= 0; index < ARRAY_NITEMS/3; index++) {
+    ASSERT_RETURN(array_sub->data[index]
+		  == array->data[ARRAY_NITEMS/3+index],
 		  "incorrect content in sub-array");
   }
-
+  int_array_destroy(&array);
+  int_array_destroy(&array_sub);
   return UTEST_SUCCESS;
 }
 
 // -----[ test_array_trim ]------------------------------------------
 int test_array_trim()
 {
-  _array_trim((SArray *) pArray, ARRAY_NITEMS);
-  ASSERT_RETURN(int_array_length(pArray) == ARRAY_NITEMS,
+  int_array_t * array= _random_int_array_create(ARRAY_ITEMS, ARRAY_NITEMS);
+  int_array_trim(array, ARRAY_NITEMS/2);
+  ASSERT_RETURN(int_array_size(array) == ARRAY_NITEMS/2,
 		"incorrect length for trimmed array");
+  int_array_destroy(&array);
   return UTEST_SUCCESS;
 }
 
 // -----[ test_array_add_array ]-------------------------------------
 int test_array_add_array()
 {
-#define ARRAY_NITEMS2 512
-  int ARRAY_ITEMS2[ARRAY_NITEMS2];
-  SIntArray * pArrayNew;
-  unsigned int uIndex;
+  int_array_t * array1= _random_int_array_create(ARRAY_ITEMS, ARRAY_NITEMS);
+  int_array_t * array2= _random_int_array_create(ARRAY_ITEMS2, ARRAY_NITEMS2);
 
-  pArrayNew= int_array_create(0);
-  ASSERT_RETURN(pArrayNew != NULL, "int_array_create() returned NULL pointer");
+  int_array_add_array(array1, array2);
 
-  for (uIndex= 0; uIndex < ARRAY_NITEMS2; uIndex++) {
-    ASSERT_RETURN(int_array_add(pArrayNew, &ARRAY_ITEMS2[uIndex]) == uIndex,
-		  "incorrect error code returned by int_array_add()");
-  }
-
-  _array_add_array((SArray *) pArray, (SArray *) pArrayNew);
-
-  ASSERT_RETURN(int_array_length(pArray) == ARRAY_NITEMS+ARRAY_NITEMS2,
+  ASSERT_RETURN(int_array_size(array1) == ARRAY_NITEMS+ARRAY_NITEMS2,
 		"incorrect length for new array (%d vs %d)",
-		int_array_length(pArray), ARRAY_NITEMS+ARRAY_NITEMS2);
-  int_array_destroy(&pArrayNew);
-
-  test_array_done();
-
+		int_array_size(array1), ARRAY_NITEMS+ARRAY_NITEMS2);
+  int_array_destroy(&array1);
+  int_array_destroy(&array2);
   return UTEST_SUCCESS;
 }
 
 /////////////////////////////////////////////////////////////////////
 // GDS_CHECK_ASSOC
 /////////////////////////////////////////////////////////////////////
+
 // -----[ _test_assoc_for_each ]-------------------------------------
-static int _test_assoc_for_each(const char * pcKey, void * pcValue,
-				void * pContext)
+static int _test_assoc_for_each(const char * key, void * value,
+				void * ctx)
 {
+  unsigned int * count= (unsigned int *) ctx;
+  if (count !=NULL)
+    (*count)++;
   return 0;
 }
+
+#define ASSOC_NITEMS 3
+char * ASSOC_ITEMS[ASSOC_NITEMS][2]= {
+  {"key1", "toto1"},
+  {"key2", "toto2"},
+  {"plop", "grominet"},
+};
+
+// -----[ test_assoc_create_destroy ]--------------------------------
+int test_assoc_create_destroy()
+{
+  gds_assoc_array_t * array= assoc_array_create(NULL);
+  ASSERT_RETURN(array != NULL, "assoc-array creation should succeed");
+  assoc_array_destroy(&array);
+  ASSERT_RETURN(array == NULL, "destroyed assoc-array should be NULL");
+  return UTEST_SUCCESS;
+}
+
 
 // -----[ test_assoc_basic ]-----------------------------------------
 int test_assoc_basic()
 {
-#define ASSOC_NITEMS 3
-  char * ASSOC_ITEMS[ASSOC_NITEMS][2]= {
-    {"key1", "toto1"},
-    {"key2", "toto2"},
-    {"plop", "grominet"},
-  };
-  SAssocArray * pArray;
-  unsigned int uIndex;
-
+  gds_assoc_array_t * array= assoc_array_create(NULL);
+  unsigned int index;
   // Test for 'set'
-  pArray= assoc_array_create();
-  ASSERT_RETURN(pArray != NULL, "assoc_array_create() returned NULL pointer");
-
-  for (uIndex= 0; uIndex < ASSOC_NITEMS; uIndex++) {
-    ASSERT_RETURN(assoc_array_set(pArray, ASSOC_ITEMS[uIndex][0],
-				  ASSOC_ITEMS[uIndex][1]) == 0,
+  for (index= 0; index < ASSOC_NITEMS; index++) {
+    ASSERT_RETURN(assoc_array_set(array, ASSOC_ITEMS[index][0],
+				  ASSOC_ITEMS[index][1]) == 0,
 		  "could not set \"%s\" => \"%s\"",
-		  ASSOC_ITEMS[uIndex][0],
-		  ASSOC_ITEMS[uIndex][1]);
+		  ASSOC_ITEMS[index][0],
+		  ASSOC_ITEMS[index][1]);
   }
-
   // Test content
-  for (uIndex= 0; uIndex < ASSOC_NITEMS; uIndex++) {
-    ASSERT_RETURN(assoc_array_get(pArray, ASSOC_ITEMS[uIndex][0])
-		  == ASSOC_ITEMS[uIndex][1],
+  for (index= 0; index < ASSOC_NITEMS; index++) {
+    ASSERT_RETURN(assoc_array_get(array, ASSOC_ITEMS[index][0])
+		  == ASSOC_ITEMS[index][1],
 		  "incorrect value returned for \"%s\"");
   }
 
   // Test for 'exists'
-  for (uIndex= 0; uIndex < ASSOC_NITEMS; uIndex++) {
-    ASSERT_RETURN(assoc_array_exists(pArray, ASSOC_ITEMS[uIndex][0]) == 1,
+  for (index= 0; index < ASSOC_NITEMS; index++) {
+    ASSERT_RETURN(assoc_array_exists(array, ASSOC_ITEMS[index][0]) == 1,
 		  "existence test failed for \"%s\"",
-		  ASSOC_ITEMS[uIndex][0]);
+		  ASSOC_ITEMS[index][0]);
   }
-  
-  ASSERT_RETURN(!assoc_array_exists(pArray, "plopsaland"),
+  ASSERT_RETURN(!assoc_array_exists(array, "plopsaland"),
 		"should not report existence for missing key");
-
-  assoc_array_set(pArray, "key2", "titi"); 
-  ASSERT_RETURN(!strcmp(assoc_array_get(pArray, "key2"), "titi"),
+  assoc_array_set(array, "key2", "titi"); 
+  ASSERT_RETURN(!strcmp(assoc_array_get(array, "key2"), "titi"),
 		"incorrect value associated to \"key2\"");
-
-  assoc_array_for_each(pArray, _test_assoc_for_each, NULL);
-
-  assoc_array_destroy(&pArray);
-
+  assoc_array_destroy(&array);
   return UTEST_SUCCESS;
 }
 
 // -----[ test_assoc_for_each ]--------------------------------------
-int test_assoc_for_each()
+static int test_assoc_for_each()
 {
-  return UTEST_SKIPPED;
+  gds_assoc_array_t * array= assoc_array_create(NULL);
+  unsigned int index;
+  unsigned int count= 0;
+  for (index= 0; index < ASSOC_NITEMS; index++)
+    assoc_array_set(array, ASSOC_ITEMS[index][0], ASSOC_ITEMS[index][1]);
+  ASSERT_RETURN(assoc_array_for_each(array, _test_assoc_for_each, &count) == 0,
+		"assoc-array for-each should succeed");
+  ASSERT_RETURN(count == ASSOC_NITEMS,
+		"assoc-array for-each missed items (%d vs %d)",
+		count, ASSOC_NITEMS);
+  assoc_array_destroy(&array);
+  return UTEST_SUCCESS;
 }
+
+// -----[ test_assoc_enum_keys ]-------------------------------------
+static int test_assoc_enum_keys()
+{
+  gds_assoc_array_t * array= assoc_array_create(NULL);
+  unsigned int index, count= 0;
+  gds_enum_t * enu;
+  for (index= 0; index < ASSOC_NITEMS; index++)
+    assoc_array_set(array, ASSOC_ITEMS[index][0], ASSOC_ITEMS[index][1]);
+  enu= assoc_array_get_keys_enum(array);
+  while (enum_has_next(enu)) {
+    enum_get_next(enu);
+    count++;
+  }
+  ASSERT_RETURN(count == ASSOC_NITEMS, "incorrect number of items enumerated");
+  assoc_array_destroy(&array);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_assoc_enum_values ]-----------------------------------
+static int test_assoc_enum_values()
+{
+  gds_assoc_array_t * array= assoc_array_create(NULL);
+  unsigned int index, count= 0;
+  gds_enum_t * enu;
+  for (index= 0; index < ASSOC_NITEMS; index++)
+    assoc_array_set(array, ASSOC_ITEMS[index][0], ASSOC_ITEMS[index][1]);
+  enu= assoc_array_get_values_enum(array);
+  while (enum_has_next(enu)) {
+    enum_get_next(enu);
+    count++;
+  }
+  ASSERT_RETURN(count == ASSOC_NITEMS, "incorrect number of items enumerated");
+  assoc_array_destroy(&array);
+  return UTEST_SUCCESS;
+}
+
 
 /////////////////////////////////////////////////////////////////////
 // GDS_CHECK_PTR_ARRAY
@@ -905,7 +1001,7 @@ SPtrArrayItem * array_ptr_item_create(uint16_t uHighID,
 }
 
 // ----- array_ptr_compare_function ---------------------------------
-int array_ptr_compare_function(void * pItem1, void * pItem2,
+int array_ptr_compare_function(const void * pItem1, const void * pItem2,
 			       unsigned int uEltSize)
 {
   SPtrArrayItem * pRealItem1= *((SPtrArrayItem **) pItem1);
@@ -924,9 +1020,9 @@ int array_ptr_compare_function(void * pItem1, void * pItem2,
 }
 
 // ----- array_ptr_destroy_function ---------------------------------
-void array_ptr_destroy_function(void * pItem)
+void array_ptr_destroy_function(void * item, const void * ctx)
 {
-  SPtrArrayItem * pRealItem= *((SPtrArrayItem **) pItem);
+  SPtrArrayItem * pRealItem= *((SPtrArrayItem **) item);
 
   FREE(pRealItem);
 }
@@ -943,7 +1039,8 @@ int test_ptr_array()
 
   pPtrArray= ptr_array_create(ARRAY_OPTION_SORTED,
 			      array_ptr_compare_function,
-			      array_ptr_destroy_function);
+			      array_ptr_destroy_function,
+			      NULL);
   ASSERT_RETURN(pPtrArray != NULL, "ptr_array_create() returned NULL pointer");
 
   pItem= array_ptr_item_create(5, 2, 1);
@@ -961,6 +1058,80 @@ int test_ptr_array()
 
   ptr_array_destroy(&pPtrArray);
 
+  return UTEST_SUCCESS;
+}
+
+typedef struct my_type_t {
+  unsigned int i;
+} my_type_t;
+
+static int _my_types_type_cmp(const void * item1, const void * item2,
+			      unsigned int size)
+{
+  my_type_t * var1= *(my_type_t **) item1;
+  my_type_t * var2= *(my_type_t **) item2;
+
+  if (var1->i > var2->i)
+    return 1;
+  else if (var1->i < var2->i)
+    return -1;
+  return 0;
+}
+
+GDS_ARRAY_TEMPLATE(my_types, my_type_t *, 0, NULL, NULL, NULL)
+GDS_ARRAY_TEMPLATE(my_types_sorted, my_type_t *,
+		   ARRAY_OPTION_SORTED | ARRAY_OPTION_UNIQUE,
+		   _my_types_type_cmp, NULL, NULL)
+  
+static int test_ptr_array_template()
+{
+  my_types_t * array= my_types_create(0);
+  my_type_t var1= { 0 };
+  my_type_t var2= { 1 };
+  my_type_t var3= { 2 };
+  ASSERT_RETURN(array != NULL, "array creation should succeed");
+  ASSERT_RETURN(my_types_size(array) == 0, "array length should be 0");
+  ASSERT_RETURN(my_types_add(array, &var1) >= 0,
+		"array addition should succeed");
+  ASSERT_RETURN(my_types_add(array, &var2) >= 0,
+		"array addition should succeed");
+  ASSERT_RETURN(my_types_add(array, &var3) >= 0,
+		"array addition should succeed");
+  ASSERT_RETURN(my_types_size(array) == 3, "array length should be 3");
+  ASSERT_RETURN(array->data[0]->i == 0, "item 0 should contain 0");
+  ASSERT_RETURN(array->data[1]->i == 1, "item 0 should contain 1");
+  ASSERT_RETURN(array->data[2]->i == 2, "item 0 should contain 2");
+  ASSERT_RETURN(my_types_remove_at(array, 1) >= 0,
+		"array removal should succeed");
+  ASSERT_RETURN(my_types_size(array) == 2, "array length should be 2");  
+  my_types_destroy(&array);
+  ASSERT_RETURN(array == NULL, "destroyed array should be NULL");
+  return UTEST_SUCCESS;
+}
+
+static int test_ptr_array_template_sorted()
+{
+  my_types_sorted_t * array= my_types_sorted_create(0);
+  my_type_t var1= { 2 };
+  my_type_t var2= { 1 };
+  my_type_t var3= { 0 };
+  ASSERT_RETURN(array != NULL, "array creation should succeed");
+  ASSERT_RETURN(my_types_sorted_size(array) == 0, "array length should be 0");
+  ASSERT_RETURN(my_types_sorted_add(array, &var1) >= 0,
+		"array addition should succeed");
+  ASSERT_RETURN(my_types_sorted_add(array, &var2) >= 0,
+		"array addition should succeed");
+  ASSERT_RETURN(my_types_sorted_add(array, &var3) >= 0,
+		"array addition should succeed");
+  ASSERT_RETURN(my_types_sorted_size(array) == 3, "array length should be 3");
+  ASSERT_RETURN(array->data[0]->i == 0, "item 0 should contain 0");
+  ASSERT_RETURN(array->data[1]->i == 1, "item 0 should contain 1");
+  ASSERT_RETURN(array->data[2]->i == 2, "item 0 should contain 2");
+  ASSERT_RETURN(my_types_sorted_remove_at(array, 1) >= 0,
+		"array removal should succeed");
+  ASSERT_RETURN(my_types_sorted_size(array) == 2, "array length should be 2");  
+  my_types_sorted_destroy(&array);
+  ASSERT_RETURN(array == NULL, "destroyed array should be NULL");
   return UTEST_SUCCESS;
 }
 
@@ -1137,146 +1308,224 @@ int test_dllist()
 // GDS_CHECK_RADIX_TREE
 /////////////////////////////////////////////////////////////////////
 
-// -----[ _test_radix_for_each ]-------------------------------------
-static int _test_radix_for_each(uint32_t uKey, uint8_t uKeyLen,
-				void * pItem, void * pContext)
-{
-  /*
-  fprintf(stdout, "key %d.%d.%d.%d/%d --> value %d\n",
-	  (uKey >> 24) & 255, (uKey >> 16) & 255,
-	  (uKey >> 8) & 255, uKey & 255,
-	  uKeyLen, (int) pItem);*/
-  return 0;
-}
+static unsigned int _radix_destroy_count;
 
 // -----[ _test_radix_destroy ]--------------------------------------
-static void _test_radix_destroy(void ** ppItem)
+static void _test_radix_destroy(void ** item)
 {
+  _radix_destroy_count++;
 }
 
-SRadixTree * pRadix;
+#define RADIX_NITEMS 1000
+int RADIX_ITEMS[RADIX_NITEMS];
+int RADIX_FLAGS[RADIX_NITEMS];
 
-// -----[ test_radix_init ]------------------------------------------
-int test_radix_init()
+// -----[ test_radix_before ]----------------------------------------
+static int test_radix_before()
 {
-  pRadix= radix_tree_create(32, NULL);
-  ASSERT_RETURN(pRadix != NULL, "radix_tree_create() returned NULL pointer");
-
-  return UTEST_SUCCESS;
-}
-
-// -----[ test_radix_done ]------------------------------------------
-int test_radix_done()
-{
-  radix_tree_destroy(&pRadix);
-
+  _init_random_int_array(RADIX_ITEMS, RADIX_NITEMS);
   return UTEST_SUCCESS;
 }
 
 // -----[ test_radix_basic ]-----------------------------------------
-int test_radix_basic()
+static int test_radix_basic()
 {
-  return UTEST_SKIPPED;
+  gds_radix_tree_t * tree= radix_tree_create(32, NULL);
+  ASSERT_RETURN(tree != NULL, "new radix-tree should not be NULL");
+  radix_tree_destroy(&tree);
+  ASSERT_RETURN(tree == NULL, "destroyed radix-tree should be NULL");
+  return UTEST_SUCCESS;
 }
 
-// -----[ test_radix_old ]-------------------------------------------
-int test_radix_old()
+// -----[ test_radix_add_remove ]------------------------------------
+static int test_radix_add_remove()
 {
-  SRadixTree * pTree;
-
-  pTree= radix_tree_create(32, NULL);
-  ASSERT_RETURN(pTree != NULL, "radix_tree_create() returned NULL pointer");
-
-  radix_tree_add(pTree, IPV4_TO_INT(1,0,0,0), 16, (void *) 100);
-  radix_tree_add(pTree, IPV4_TO_INT(0,0,0,0), 16, (void *) 200);
-  radix_tree_for_each(pTree, _test_radix_for_each, NULL);
-  //printf("best(0.3.0.0/32)>-->%d\n", (int) radix_tree_get_best(pTree, 3*256*256, 32));
-  //printf("add(0.0.0.0/8, 300)\n");
-  radix_tree_add(pTree, IPV4_TO_INT(0,0,0,0), 8, (void *) 300);
-  radix_tree_for_each(pTree, _test_radix_for_each, NULL);
-  //printf("best(0.3.0.0/32)>-->%d\n", (int) radix_tree_get_best(pTree, 3*256*256, 32));
-
-  /*
-  pTree= radix_tree_create(4, NULL);
-  printf("add(0/0, 100)\n");
-  radix_tree_add(pTree, 0, 0, (void *) 100);
-  printf("add(8/1, 200)\n");
-  radix_tree_add(pTree, 8, 1, (void *) 200);
-  printf("add(0/1, 300)\n");
-  radix_tree_add(pTree, 0, 1, (void *) 300);
-  printf("add(7/4, 777)\n");
-  radix_tree_add(pTree, 7, 4, (void *) 777);
-  printf("exact(7/4)>-->%d\n", (int) radix_tree_get_exact(pTree, 7, 4));
-  printf("exact(6/4)>-->%d\n", (int) radix_tree_get_exact(pTree, 6, 4));
-  printf("exact(4/2)>-->%d\n", (int) radix_tree_get_exact(pTree, 4, 2));
-  printf("best(7/4)>-->%d\n", (int) radix_tree_get_best(pTree, 7, 4));
-  printf("best(6/4)>-->%d\n", (int) radix_tree_get_best(pTree, 6, 4));
-  printf("best(4/2)>-->%d\n", (int) radix_tree_get_best(pTree, 4, 2));
-  radix_tree_for_each(pTree, radix_tree_for_each_function, NULL);
-  printf("remove(0/1)\n");
-  radix_tree_remove(pTree, 0, 1);
-  printf("add(8/1, 899)\n");
-  radix_tree_add(pTree, 8, 1, (void *) 899);
-  radix_tree_for_each(pTree, radix_tree_for_each_function, NULL);
-  */
-  radix_tree_destroy(&pTree);
-
-  return UTEST_SKIPPED;
+  gds_radix_tree_t * tree= radix_tree_create(32, NULL);
+  void * data;
+  ASSERT_RETURN(tree != NULL, "new radix-tree should not be NULL");
+  ASSERT_RETURN(radix_tree_add(tree, IPV4_TO_INT(1,0,0,0), 32, (void *) 1) >= 0,
+		"adding an item should succeed");
+  data= radix_tree_get_exact(tree, IPV4_TO_INT(1,0,0,0), 32);
+  ASSERT_RETURN((data != NULL) && ((int) data == 1),
+		"retrieving an item should succeed");
+  ASSERT_RETURN(radix_tree_remove(tree, IPV4_TO_INT(1,0,0,0), 32, 1) >= 0,
+		"removing an item should succeed");
+  ASSERT_RETURN(radix_tree_get_exact(tree, IPV4_TO_INT(1,0,0,0), 32) == NULL,
+		"retrieving a removed item should fail");
+  radix_tree_destroy(&tree);
+  ASSERT_RETURN(tree == NULL, "destroyed radix-tree should be NULL");
+  return UTEST_SUCCESS;
 }
 
-// -----[ test_radix_old_ipv4 ]--------------------------------------
-int test_radix_old_ipv4()
+// -----[ test_radix_num_nodes ]-------------------------------------
+static int test_radix_num_nodes()
 {
-  SRadixTree * pTree;
+  gds_radix_tree_t * tree= radix_tree_create(32, NULL);
+  unsigned int index;
+  unsigned int count;
+  for (index= 0; index < RADIX_NITEMS; index++)
+    radix_tree_add(tree, RADIX_ITEMS[index], 32, (void *) 1);
+  count= radix_tree_num_nodes(tree, 1);
+  ASSERT_RETURN(count == RADIX_NITEMS,
+		"incorrect number of nodes returned (%d vs %d)",
+		RADIX_NITEMS, count);
+  radix_tree_destroy(&tree);
+  return UTEST_SUCCESS;
+}
 
-  pTree= radix_tree_create(32, _test_radix_destroy);
-  ASSERT_RETURN(pTree != NULL, "radix_tree_create() returned NULL pointer");
+// -----[ _test_radix_for_each_cb ]----------------------------------
+static int _test_radix_for_each_cb(uint32_t key, uint8_t key_len,
+				void * data, void * ctx)
+{
+  int * count= (int *) ctx;
+  int value= (int) data;
+  unsigned int index;
 
-  radix_tree_add(pTree, IPV4_TO_INT(12,0,0,0), 8, (void *) 1);
-  radix_tree_add(pTree, IPV4_TO_INT(12,148,170,0), 24, (void *) 2);
-  radix_tree_add(pTree, IPV4_TO_INT(199,165,16,0), 20, (void *) 3);
-  radix_tree_add(pTree, IPV4_TO_INT(199,165,16,0), 24, (void *) 4);
-
-  radix_tree_for_each(pTree, _test_radix_for_each, NULL);
-
-  radix_tree_remove(pTree, IPV4_TO_INT(12,0,0,0), 8, 1);
-
-  radix_tree_for_each(pTree, _test_radix_for_each, NULL);
-
-  /*fprintf(stderr, "exact(199.165.16.0/20): %d\n",
-	  (int) radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 20));
-  fprintf(stderr, "exact(199.165.16.0/24): %d\n",
-	  (int) radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 24));
-  fprintf(stderr, "best(199.165.16.0/32): %d\n",
-  (int) radix_tree_get_best(pTree, IPV4_TO_INT(199,165,16,0), 32));*/
-
-  radix_tree_remove(pTree, IPV4_TO_INT(199,165,16,0), 24, 1);
-
-  radix_tree_for_each(pTree, _test_radix_for_each, NULL);
-
-  /*fprintf(stderr, "exact(199.165.16.0/20): %d\n",
-	  (int) radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 20));
-  fprintf(stderr, "exact(199.165.16.0/24): %d\n",
-	  (int) radix_tree_get_exact(pTree, IPV4_TO_INT(199,165,16,0), 24));
-  fprintf(stderr, "best(199.165.16.0/32): %d\n",
-  (int) radix_tree_get_best(pTree, IPV4_TO_INT(199,165,16,0), 32));*/
-
-  radix_tree_destroy(&pTree);
-
+  for (index= 0; index < RADIX_NITEMS; index++)
+    if (RADIX_ITEMS[index] == value) {
+      RADIX_FLAGS[index]= 1;
+      break;
+    }
+  if (count != NULL)
+    (*count)++;
   return 0;
 }
 
 // -----[ test_radix_for_each ]--------------------------------------
-int test_radix_for_each()
+static int test_radix_for_each()
 {
-  return UTEST_SKIPPED;
+  gds_radix_tree_t * tree= radix_tree_create(32, NULL);
+  unsigned int count= 0;
+  unsigned int index;
+
+  // Init radix tree with random data
+  for (index= 0; index < RADIX_NITEMS; index++)
+    radix_tree_add(tree, (uint32_t) RADIX_ITEMS[index], 32,
+		   (void *) RADIX_ITEMS[index]);
+
+  // Traverse the tree using a for-each callback
+  memset(RADIX_FLAGS, 0, sizeof(RADIX_FLAGS));
+  ASSERT_RETURN(radix_tree_for_each(tree, _test_radix_for_each_cb, &count) == 0,
+		"for-each should succeed");
+  ASSERT_RETURN(count == RADIX_NITEMS,
+		"incorrect number of items returned by for-each (%d vs %d",
+		count, RADIX_NITEMS);
+
+  // Check that all items were enumerated
+  for (index= 0; index < RADIX_NITEMS; index++)
+    ASSERT_RETURN(RADIX_FLAGS[index] == 1,
+		  "item @%d, value=%d was not in enumeration",
+		  index, RADIX_ITEMS[index]);
+
+  radix_tree_destroy(&tree);
+  return UTEST_SUCCESS;
 }
 
 // -----[ test_radix_enum ]------------------------------------------
-int test_radix_enum()
+static int test_radix_enum()
 {
-  return UTEST_SKIPPED;
+  gds_radix_tree_t * tree= radix_tree_create(32, NULL);
+  unsigned int count= 0;
+  unsigned int index;
+  int data;
+  gds_enum_t * enu;
+
+  // Init radix tree with random data
+  for (index= 0; index < RADIX_NITEMS; index++)
+    radix_tree_add(tree, (uint32_t) RADIX_ITEMS[index], 32,
+		   (void *) RADIX_ITEMS[index]);
+
+  // Traverse the tree using an enumeration
+  enu= radix_tree_get_enum(tree);
+  memset(RADIX_FLAGS, 0, sizeof(RADIX_FLAGS));
+  while (enum_has_next(enu)) {
+    data= (int) enum_get_next(enu);
+    for (index= 0; index < RADIX_NITEMS; index++)
+      if (RADIX_ITEMS[index] == data) {
+	RADIX_FLAGS[index]= 1;
+	break;
+      }
+    count++;
+  }
+  ASSERT_RETURN(count == RADIX_NITEMS,
+		"incorrect number of items returned by enumeration (%d vs %d",
+		count, RADIX_NITEMS);
+  
+  // Check that all items were enumerated
+  for (index= 0; index < RADIX_NITEMS; index++)
+    ASSERT_RETURN(RADIX_FLAGS[index] == 1,
+		  "item @%d, value=%d was not in enumeration",
+		  index, RADIX_ITEMS[index]);
+      
+  radix_tree_destroy(&tree);
+  return UTEST_SUCCESS;
 }
+
+// -----[ test_radix_ipv4 ]------------------------------------------
+static int test_radix_ipv4()
+{
+  gds_radix_tree_t * tree= radix_tree_create(32, _test_radix_destroy);
+
+  ASSERT_RETURN(radix_tree_add(tree, IPV4_TO_INT(0, 128, 0, 0), 16,
+			       (void *) 100) == 0,
+		"radix_tree_add() failed");
+  ASSERT_RETURN(radix_tree_add(tree, IPV4_TO_INT(0, 192, 0, 0), 15,
+			       (void *) 200) == 0,
+		"radix_tree_add() failed");
+  ASSERT_RETURN(radix_tree_add(tree, IPV4_TO_INT(0, 0, 0, 0), 16,
+			       (void *) 1) == 0,
+		"radix_tree_add() failed");
+  ASSERT_RETURN(radix_tree_add(tree, IPV4_TO_INT(0, 0, 0, 0), 15,
+			       (void *) 2) == 0,
+		"radix_tree_add() failed");
+  ASSERT_RETURN(radix_tree_add(tree, IPV4_TO_INT(0, 1, 0, 0), 16,
+			       (void *) 3) == 0,
+		"radix_tree_add() failed");
+  ASSERT_RETURN(radix_tree_add(tree, IPV4_TO_INT(0, 2, 0, 0), 16,
+			       (void *) 4) == 0,
+		"radix_tree_add() failed");
+  ASSERT_RETURN(radix_tree_add(tree, IPV4_TO_INT(0, 1, 1, 1), 24,
+			       (void *) 5) == 0,
+		"radix_tree_add() failed");
+  ASSERT_RETURN(radix_tree_add(tree, IPV4_TO_INT(0, 1, 1, 128), 25,
+			       (void *) 6) == 0,
+		"radix_tree_add() failed");
+  ASSERT_RETURN(radix_tree_add(tree, IPV4_TO_INT(0, 128, 128, 128), 9,
+			       (void *) 300) == 0,
+		"radix_tree_add() failed");
+
+  ASSERT_RETURN(radix_tree_get_exact(tree, IPV4_TO_INT(0, 128, 0, 0), 16)
+		== (void *) 100,
+		"radix_tree_get_exact() returned incorrect value");
+  ASSERT_RETURN(radix_tree_get_exact(tree, IPV4_TO_INT(0, 192, 0, 0), 15)
+		== (void *) 200,
+		"radix_tree_get_exact() returned incorrect value");
+  ASSERT_RETURN(radix_tree_get_exact(tree, IPV4_TO_INT(0, 0, 0, 0), 16)
+		== (void *) 1,
+		"radix_tree_get_exact() returned incorrect value");
+  ASSERT_RETURN(radix_tree_get_exact(tree, IPV4_TO_INT(0, 0, 0, 0), 15)
+		== (void *) 2,
+		"radix_tree_get_exact() returned incorrect value");
+  ASSERT_RETURN(radix_tree_get_exact(tree, IPV4_TO_INT(0, 1, 0, 0), 16)
+		== (void *) 3,
+		"radix_tree_get_exact() returned incorrect value");
+  ASSERT_RETURN(radix_tree_get_exact(tree, IPV4_TO_INT(0, 2, 0, 0), 16)
+		== (void *) 4,
+		"radix_tree_get_exact() returned incorrect value");
+  ASSERT_RETURN(radix_tree_get_exact(tree, IPV4_TO_INT(0, 1, 1, 1), 24)
+		== (void *) 5,
+		"radix_tree_get_exact() returned incorrect value");
+  ASSERT_RETURN(radix_tree_get_exact(tree, IPV4_TO_INT(0, 1, 1, 128), 25)
+		== (void *) 6,
+		"radix_tree_get_exact() returned incorrect value");
+  ASSERT_RETURN(radix_tree_get_exact(tree, IPV4_TO_INT(0, 128, 128, 128), 9)
+		== (void *) 300,
+		"radix_tree_get_exact() returned incorrect value");
+
+  radix_tree_destroy(&tree);
+  return UTEST_SUCCESS;
+}
+
 
 /////////////////////////////////////////////////////////////////////
 // GDS_CHECK_TOKENIZER
@@ -1290,30 +1539,30 @@ int test_radix_enum()
 int test_tokenizer_basic()
 {
   char * pacTokens[3]= {"abc", "def", "ghi"};
-  STokenizer * pTokenizer;
-  STokens * pTokens;
-  unsigned int uIndex;
-  int iResult;
+  gds_tokenizer_t * tokenizer;
+  const gds_tokens_t * tokens;
+  unsigned int index;
+  int result;
 
-  pTokenizer= tokenizer_create(" \t", 0, "\"{", "\"}");
-  ASSERT_RETURN(pTokenizer != NULL,
+  tokenizer= tokenizer_create(" \t", "\"{", "\"}");
+  ASSERT_RETURN(tokenizer != NULL,
 		"tokenizer_create() returned NULL pointer");
 
-  iResult= tokenizer_run(pTokenizer, "abc def ghi");
-  ASSERT_RETURN(iResult == TOKENIZER_SUCCESS,
+  result= tokenizer_run(tokenizer, "abc def ghi");
+  ASSERT_RETURN(result == TOKENIZER_SUCCESS,
 		"tokenization of [abc def ghi] failed");
-  pTokens= tokenizer_get_tokens(pTokenizer);
-  ASSERT_RETURN(tokens_get_num(pTokens) == 3,
+  tokens= tokenizer_get_tokens(tokenizer);
+  ASSERT_RETURN(tokens_get_num(tokens) == 3,
 		"wrong number of tokens");
-  for (uIndex= 0; uIndex < tokens_get_num(pTokens); uIndex++) {
-    ASSERT_RETURN(strcmp(tokens_get_string_at(pTokens, uIndex),
-			 pacTokens[uIndex]) == 0,
+  for (index= 0; index < tokens_get_num(tokens); index++) {
+    ASSERT_RETURN(strcmp(tokens_get_string_at(tokens, index),
+			 pacTokens[index]) == 0,
 		  "incorrect value in token (\"%s\" vs \"%s\")",
-		  tokens_get_string_at(pTokens, uIndex),
-		  pacTokens[uIndex]);
+		  tokens_get_string_at(tokens, index),
+		  pacTokens[index]);
   }
 
-  tokenizer_destroy(&pTokenizer);
+  tokenizer_destroy(&tokenizer);
 
   return UTEST_SUCCESS;
 }
@@ -1326,27 +1575,79 @@ int test_tokenizer_basic()
 int test_tokenizer_quotes()
 {
   char * pacTokens[3]= {"abc", "def", "ghi"};
-  STokenizer * pTokenizer= tokenizer_create(" \t", 0, "\"{", "\"}");
-  STokens * pTokens;
-  unsigned int uIndex;
-  int iResult;
+  gds_tokenizer_t * tokenizer= tokenizer_create(" \t", "\"{", "\"}");
+  const gds_tokens_t * tokens;
+  unsigned int index;
+  int result;
 
-  iResult= tokenizer_run(pTokenizer, "abc \"def\" ghi");
-  ASSERT_RETURN(iResult == TOKENIZER_SUCCESS,
+  result= tokenizer_run(tokenizer, "abc \"def\" ghi");
+  ASSERT_RETURN(result == TOKENIZER_SUCCESS,
 		"tokenization of [abc \"def\" ghi] failed");
-  pTokens= tokenizer_get_tokens(pTokenizer);
-  ASSERT_RETURN(tokens_get_num(pTokens) == 3,
+  tokens= tokenizer_get_tokens(tokenizer);
+  ASSERT_RETURN(tokens_get_num(tokens) == 3,
 		"wrong number of tokens");
-  for (uIndex= 0; uIndex < tokens_get_num(pTokens); uIndex++) {
-    ASSERT_RETURN(strcmp(tokens_get_string_at(pTokens, uIndex),
-			 pacTokens[uIndex]) == 0,
+  for (index= 0; index < tokens_get_num(tokens); index++) {
+    ASSERT_RETURN(strcmp(tokens_get_string_at(tokens, index),
+			 pacTokens[index]) == 0,
 		  "incorrect value in token (\"%s\" vs \"%s\")",
-		  tokens_get_string_at(pTokens, uIndex),
-		  pacTokens[uIndex]);
+		  tokens_get_string_at(tokens, index),
+		  pacTokens[index]);
   }
 
-  tokenizer_destroy(&pTokenizer);
+  tokenizer_destroy(&tokenizer);
 
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_tokenizer_escape ]------------------------------------
+static int test_tokenizer_escape()
+{
+  gds_tokenizer_t * tokenizer= tokenizer_create(" ","(", ")");
+  ASSERT_RETURN(tokenizer_run(tokenizer, "abcd \\(12 34\\)")
+		== TOKENIZER_SUCCESS,
+		"should succeed");
+  ASSERT_RETURN(tokens_get_num(tokenizer->tokens) == 3,
+		"incorrect number of tokens");
+  tokenizer_destroy(&tokenizer);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_tokenizer_escape_incomplete ]-------------------------
+static int test_tokenizer_escape_incomplete()
+{
+  gds_tokenizer_t * tokenizer= tokenizer_create(" ", NULL, NULL);
+  ASSERT_RETURN(tokenizer_run(tokenizer, "ab\\")
+		== TOKENIZER_ERROR_ESCAPE,
+		"should return incomplete escape-sequence error");
+  tokenizer_destroy(&tokenizer);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_tokenizer_quotes_missing_close ]----------------------
+static int test_tokenizer_quotes_missing_close()
+{
+  gds_tokenizer_t * tokenizer= tokenizer_create(" ", "(", ")");
+  ASSERT_RETURN(tokenizer_run(tokenizer, "abcd (efg")
+		== TOKENIZER_ERROR_MISSING_CLOSE,
+		"should return missing-close error");
+  ASSERT_RETURN(tokenizer_run(tokenizer, "abcd (efg hij")
+		== TOKENIZER_ERROR_MISSING_CLOSE,
+		"should return missing-close error");
+  tokenizer_destroy(&tokenizer);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_tokenizer_quotes_missing_open ]-------------------------------
+static int test_tokenizer_quotes_missing_open()
+{
+  gds_tokenizer_t * tokenizer= tokenizer_create(" ", "(", ")");
+  ASSERT_RETURN(tokenizer_run(tokenizer, "abcd) efg")
+		== TOKENIZER_ERROR_MISSING_OPEN,
+		"should return missing-open error");
+  ASSERT_RETURN(tokenizer_run(tokenizer, "(abcd) efg) hij")
+		== TOKENIZER_ERROR_MISSING_OPEN,
+		"should return missing-open error");
+  tokenizer_destroy(&tokenizer);
   return UTEST_SUCCESS;
 }
 
@@ -1358,26 +1659,26 @@ int test_tokenizer_quotes()
 int test_tokenizer_quotes2()
 {
   char * pacTokens[3]= {"123", "abcdefghi", "456"};
-  STokenizer * pTokenizer= tokenizer_create(" \t", 0, "\"{", "\"}");
-  STokens * pTokens;
-  unsigned int uIndex;
-  int iResult;
+  gds_tokenizer_t * tokenizer= tokenizer_create(" \t", "\"{", "\"}");
+  const gds_tokens_t * tokens;
+  unsigned int index;
+  int result;
 
-  iResult= tokenizer_run(pTokenizer, "123 abc\"def\"ghi 456");
-  ASSERT_RETURN(iResult == TOKENIZER_SUCCESS,
+  result= tokenizer_run(tokenizer, "123 abc\"def\"ghi 456");
+  ASSERT_RETURN(result == TOKENIZER_SUCCESS,
 		"tokenization of [123 abc\"def\"ghi 456] failed");
-  pTokens= tokenizer_get_tokens(pTokenizer);
-  ASSERT_RETURN(tokens_get_num(pTokens) == 3,
+  tokens= tokenizer_get_tokens(tokenizer);
+  ASSERT_RETURN(tokens_get_num(tokens) == 3,
 		"wrong number of tokens");
-  for (uIndex= 0; uIndex < tokens_get_num(pTokens); uIndex++) {
-    ASSERT_RETURN(strcmp(tokens_get_string_at(pTokens, uIndex),
-			 pacTokens[uIndex]) == 0,
+  for (index= 0; index < tokens_get_num(tokens); index++) {
+    ASSERT_RETURN(strcmp(tokens_get_string_at(tokens, index),
+			 pacTokens[index]) == 0,
 		  "incorrect value in token (\"%s\" vs \"%s\")",
-		  tokens_get_string_at(pTokens, uIndex),
-		  pacTokens[uIndex]);
+		  tokens_get_string_at(tokens, index),
+		  pacTokens[index]);
   }
 
-  tokenizer_destroy(&pTokenizer);
+  tokenizer_destroy(&tokenizer);
 
   return UTEST_SUCCESS;
 }
@@ -1390,26 +1691,26 @@ int test_tokenizer_quotes2()
 int test_tokenizer_braces()
 {
   char * pacTokens[3]= {"123", "abcdefghi", " 456 "};
-  STokenizer * pTokenizer= tokenizer_create(" \t", 0, "\"{", "\"}");
-  STokens * pTokens;
-  unsigned int uIndex;
-  int iResult;
+  gds_tokenizer_t * tokenizer= tokenizer_create(" \t", "\"{", "\"}");
+  const gds_tokens_t * tokens;
+  unsigned int index;
+  int result;
 
-  iResult= tokenizer_run(pTokenizer, "123 abc\"def\"ghi { 456 }");
-  ASSERT_RETURN(iResult == TOKENIZER_SUCCESS,
+  result= tokenizer_run(tokenizer, "123 abc\"def\"ghi { 456 }");
+  ASSERT_RETURN(result == TOKENIZER_SUCCESS,
 		"tokenization of [123 abc\"def\"ghi { 456 }] failed");
-  pTokens= tokenizer_get_tokens(pTokenizer);
-  ASSERT_RETURN(tokens_get_num(pTokens) == 3,
+  tokens= tokenizer_get_tokens(tokenizer);
+  ASSERT_RETURN(tokens_get_num(tokens) == 3,
 		"wrong number of tokens");
-  for (uIndex= 0; uIndex < tokens_get_num(pTokens); uIndex++) {
-    ASSERT_RETURN(strcmp(tokens_get_string_at(pTokens, uIndex),
-			 pacTokens[uIndex]) == 0,
+  for (index= 0; index < tokens_get_num(tokens); index++) {
+    ASSERT_RETURN(strcmp(tokens_get_string_at(tokens, index),
+			 pacTokens[index]) == 0,
 		  "incorrect value in token (\"%s\" vs \"%s\")",
-		  tokens_get_string_at(pTokens, uIndex),
-		  pacTokens[uIndex]);
+		  tokens_get_string_at(tokens, index),
+		  pacTokens[index]);
   }
 
-  tokenizer_destroy(&pTokenizer);
+  tokenizer_destroy(&tokenizer);
 
   return UTEST_SUCCESS;
 }
@@ -1422,26 +1723,26 @@ int test_tokenizer_braces()
 int test_tokenizer_multiquotes()
 {
   char * pacTokens[3]= {"in-filter", ""};
-  STokenizer * pTokenizer= tokenizer_create(" \t", 0, "\"{", "\"}");
-  STokens * pTokens;
-  unsigned int uIndex;
-  int iResult;
+  gds_tokenizer_t * tokenizer= tokenizer_create(" \t", "\"{", "\"}");
+  const gds_tokens_t * tokens;
+  unsigned int index;
+  int result;
 
-  iResult= tokenizer_run(pTokenizer, "  in-filter \"\"\"\"\"\"");
-  ASSERT_RETURN(iResult == TOKENIZER_SUCCESS,
-		"tokenization of [  in-filter \"\"\"\"\"\"] failed")
-    pTokens= tokenizer_get_tokens(pTokenizer);
-  ASSERT_RETURN(tokens_get_num(pTokens) == 2,
+  result= tokenizer_run(tokenizer, "  in-filter \"\"\"\"\"\"");
+  ASSERT_RETURN(result == TOKENIZER_SUCCESS,
+		"tokenization of [  in-filter \"\"\"\"\"\"] failed");
+  tokens= tokenizer_get_tokens(tokenizer);
+  ASSERT_RETURN(tokens_get_num(tokens) == 2,
 		"wrong number of tokens");
-  for (uIndex= 0; uIndex < tokens_get_num(pTokens); uIndex++) {
-    ASSERT_RETURN(strcmp(tokens_get_string_at(pTokens, uIndex),
-			 pacTokens[uIndex]) == 0,
+  for (index= 0; index < tokens_get_num(tokens); index++) {
+    ASSERT_RETURN(strcmp(tokens_get_string_at(tokens, index),
+			 pacTokens[index]) == 0,
 		  "incorrect value in token (\"%s\" vs \"%s\")",
-		  tokens_get_string_at(pTokens, uIndex),
-		  pacTokens[uIndex]);
+		  tokens_get_string_at(tokens, index),
+		  pacTokens[index]);
   }
 
-  tokenizer_destroy(&pTokenizer);
+  tokenizer_destroy(&tokenizer);
 
   return UTEST_SUCCESS;
 }
@@ -1461,41 +1762,199 @@ int test_tokenizer_complex()
 			"-123.456",
 			"Hello World !",
 			"ceci n{'}est pas une pipe"};
-  STokenizer * pTokenizer= tokenizer_create(" \t", 0, "\"{", "\"}");
-  STokens * pTokens;
-  unsigned int uIndex;
-  int iResult;
+  gds_tokenizer_t * tokenizer= tokenizer_create(" \t", "\"{", "\"}");
+  const gds_tokens_t * tokens;
+  unsigned int index;
+  int result;
 
-  iResult= tokenizer_run(pTokenizer, acString);
-  ASSERT_RETURN(iResult == TOKENIZER_SUCCESS,
+  result= tokenizer_run(tokenizer, acString);
+  ASSERT_RETURN(result == TOKENIZER_SUCCESS,
 		"tokenization of [%s] failed", acString);
-  pTokens= tokenizer_get_tokens(pTokenizer);
-  ASSERT_RETURN(tokens_get_num(pTokens) == 7,
+  tokens= tokenizer_get_tokens(tokenizer);
+  ASSERT_RETURN(tokens_get_num(tokens) == 7,
 		"wrong number of tokens");
-  for (uIndex= 0; uIndex < tokens_get_num(pTokens); uIndex++) {
-    ASSERT_RETURN(strcmp(tokens_get_string_at(pTokens, uIndex),
-			 pacTokens[uIndex]) == 0,
+  for (index= 0; index < tokens_get_num(tokens); index++) {
+    ASSERT_RETURN(strcmp(tokens_get_string_at(tokens, index),
+			 pacTokens[index]) == 0,
 		  "incorrect value in token (\"%s\" vs \"%s\")",
-		  tokens_get_string_at(pTokens, uIndex),
-		  pacTokens[uIndex]);
+		  tokens_get_string_at(tokens, index),
+		  pacTokens[index]);
   }
 
-  tokenizer_destroy(&pTokenizer);
+  tokenizer_destroy(&tokenizer);
 
   return UTEST_SUCCESS;
 }
 
+static const char * _params_lookup(const char * param, void * ctx) {
+  if (!strcmp(param, "VAR1")) {
+    return "Hello";
+  } else if (!strcmp(param, "VAR2")) {
+    return "World";
+  } else if (!strcmp(param, "VAR_3")) {
+    return "!!!";
+  }
+  return NULL;
+}
+static param_lookup_t _param_lookup= {
+  .lookup= _params_lookup,
+  .ctx   = NULL
+};
+
+// -----[ test_tokenizer_params ]------------------------------------
+static int test_tokenizer_params()
+{
+  gds_tokenizer_t * tokenizer= tokenizer_create(" ", "(", ")");
+  tokenizer_set_lookup(tokenizer, _param_lookup);
+  ASSERT_RETURN(tokenizer_run(tokenizer, "Yop: $VAR1$VAR2 $VAR_3")
+		== TOKENIZER_SUCCESS,
+		"tokenizing should succeed");
+  ASSERT_RETURN(tokens_get_num(tokenizer_get_tokens(tokenizer)) == 3,
+		"wrong number of tokens");
+  ASSERT_RETURN(tokenizer_run(tokenizer, "Yop: ($VAR1$VAR2 $VAR_3)")
+		== TOKENIZER_SUCCESS,
+		"tokenizing should succeed");
+  ASSERT_RETURN(tokens_get_num(tokenizer_get_tokens(tokenizer)) == 2,
+		"wrong number of tokens");
+  tokenizer_destroy(&tokenizer);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_tokenizer_params_undef ]------------------------------
+static int test_tokenizer_params_undef()
+{
+  gds_tokenizer_t * tokenizer= tokenizer_create(" ", "(", ")");
+  tokenizer_set_lookup(tokenizer, _param_lookup);
+  ASSERT_RETURN(tokenizer_run(tokenizer, "$VAR4")
+		== TOKENIZER_ERROR_PARAM_UNDEF,
+		"tokenizing should fail with undef-param error");
+  tokenizer_destroy(&tokenizer);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_tokenizer_params_invalid ]----------------------------
+static int test_tokenizer_params_invalid()
+{
+  gds_tokenizer_t * tokenizer= tokenizer_create(" ", "(", ")");
+  tokenizer_set_lookup(tokenizer, _param_lookup);
+  ASSERT_RETURN(tokenizer_run(tokenizer, "$1234")
+		== TOKENIZER_ERROR_PARAM_INVALID,
+		"tokenizing should fail with invalid-param error");
+  ASSERT_RETURN(tokenizer_run(tokenizer, "$$1234")
+		== TOKENIZER_ERROR_PARAM_INVALID,
+		"tokenizing should fail with invalid-param error");
+  tokenizer_destroy(&tokenizer);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_tokenizer_opt_single_delim ]--------------------------
+static int test_tokenizer_opt_single_delim()
+{
+  gds_tokenizer_t * tokenizer= tokenizer_create("|", NULL, NULL);
+  const gds_tokens_t * tokens;
+  const char * str= "1|2||3";
+  ASSERT_RETURN(tokenizer_run(tokenizer, str) == TOKENIZER_SUCCESS,
+		"tokenizer_run() should succeed");
+  tokens= tokenizer_get_tokens(tokenizer);
+  ASSERT_RETURN(tokens_get_num(tokens) == 3,
+		"incorrect number of tokens");
+  tokenizer_set_flag(tokenizer, TOKENIZER_OPT_SINGLE_DELIM);
+  ASSERT_RETURN(tokenizer_run(tokenizer, str) == TOKENIZER_SUCCESS,
+		"tokenizer_run() should succeed");
+  tokens= tokenizer_get_tokens(tokenizer);
+  ASSERT_RETURN(tokens_get_num(tokens) == 4,
+		"incorrect number of tokens");
+  tokenizer_destroy(&tokenizer);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_tokenizer_opt_empty_final ]---------------------------
+static int test_tokenizer_opt_empty_final()
+{
+  gds_tokenizer_t * tokenizer= tokenizer_create(" ", NULL, NULL);
+  const char * str= "net node 1.0.0.0 ";
+  const gds_tokens_t * tokens;
+  ASSERT_RETURN(tokenizer_run(tokenizer, str) == TOKENIZER_SUCCESS,
+		"tokenizer_run() should succeed");
+  tokens= tokenizer_get_tokens(tokenizer);
+  ASSERT_RETURN(tokens_get_num(tokens) == 3,
+		"incorrect number of tokens");
+  tokenizer_set_flag(tokenizer, TOKENIZER_OPT_EMPTY_FINAL);
+  ASSERT_RETURN(tokenizer_run(tokenizer, str) == TOKENIZER_SUCCESS,
+		"tokenizer_run() should succeed");
+  tokens= tokenizer_get_tokens(tokenizer);
+  ASSERT_RETURN(tokens_get_num(tokens) == 4,
+		"incorrect number of tokens");
+  tokenizer_destroy(&tokenizer);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_tokenizer_protected_block ]---------------------------
+static int test_tokenizer_protected_block()
+{
+  gds_tokenizer_t * tokenizer= tokenizer_create(" ", "\"'", "\"'");
+  const gds_tokens_t * tokens;
+  tokenizer_set_protect_quotes(tokenizer, "'");
+  tokenizer_set_lookup(tokenizer, _param_lookup);
+  ASSERT_RETURN(tokenizer_run(tokenizer, "\"$VAR1\"") == TOKENIZER_SUCCESS,
+		"tokenizer_run() should succeed");
+  tokens= tokenizer_get_tokens(tokenizer);
+  ASSERT_RETURN(!strcmp(tokens_get_string_at(tokens, 0), "Hello"),
+		"incorrect token value");
+  ASSERT_RETURN(tokenizer_run(tokenizer, "'$VAR1'") == TOKENIZER_SUCCESS,
+		"tokenizer_run() should succeed");
+  tokens= tokenizer_get_tokens(tokenizer);
+  ASSERT_RETURN(!strcmp(tokens_get_string_at(tokens, 0), "$VAR1"),
+		"incorrect token value");
+  tokenizer_destroy(&tokenizer);
+  return UTEST_SUCCESS;
+}
+
+
+/////////////////////////////////////////////////////////////////////
+// GDS_CHECK_PARAMS
+/////////////////////////////////////////////////////////////////////
+
+// -----[ test_params_basic ]----------------------------------------
+static int test_params_basic()
+{
+  char * replaced;
+  ASSERT_RETURN(params_replace("Here is well-known: $VAR1 $VAR2$VAR_3",
+			       _param_lookup, &replaced)
+		== PARAMS_SUCCESS, "params_replace() should succeed");
+  ASSERT_RETURN(replaced != NULL, "replaced string should not be NULL");
+  ASSERT_RETURN(strcmp(replaced, "Here is well-known: Hello World!!!") == 0,
+		"replaced string does not match (%s)", replaced);
+  str_destroy(&replaced);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_params_invalid ]--------------------------------------
+static int test_params_invalid()
+{
+  char * replaced;
+  ASSERT_RETURN(params_replace("replace $12TOTO",
+			       _param_lookup, &replaced)
+		== PARAMS_ERROR_INVALID,
+		"params_replace() should fail with \"invalid param. name\"");
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_params_undef ]----------------------------------------
+static int test_params_undef()
+{
+  char * replaced;
+  ASSERT_RETURN(params_replace("replace $TOTO",
+			       _param_lookup, &replaced)
+		== PARAMS_ERROR_UNDEF,
+		"params_replace() should fail with \"undefined parameter\"");
+  return UTEST_SUCCESS;
+}
+
+
 /////////////////////////////////////////////////////////////////////
 // GDS_CHECK_PATRICIA_TREE
 /////////////////////////////////////////////////////////////////////
-
-int TRIE_DESTROY_COUNT= 0;
-
-// -----[ _trie_destroy ]--------------------------------------------
-static void _trie_destroy(void ** ppData)
-{
-  TRIE_DESTROY_COUNT++;
-}
 
 // -----[ dump ]-----------------------------------------------------
 /*
@@ -1513,7 +1972,7 @@ int dump(trie_key_t uKey, trie_key_len_t uKeyLen,
 
 // -----[ dump_exact ]-----------------------------------------------
  /*
-void dump_exact(STrie * pTrie, trie_key_t uKey, trie_key_len_t uKeyLen)
+void dump_exact(gds_trie_t * pTrie, trie_key_t uKey, trie_key_len_t uKeyLen)
 {
   void * pData= trie_find_exact(pTrie, uKey, uKeyLen);
   printf("exact %s/%u => ", INT_TO_IPV4(uKey), uKeyLen);
@@ -1526,7 +1985,7 @@ void dump_exact(STrie * pTrie, trie_key_t uKey, trie_key_len_t uKeyLen)
 
 // -----[ dump_best ]------------------------------------------------
   /*
-void dump_best(STrie * pTrie, trie_key_t uKey, trie_key_len_t uKeyLen)
+void dump_best(gds_trie_t * pTrie, trie_key_t uKey, trie_key_len_t uKeyLen)
 {
   void * pData= trie_find_best(pTrie, uKey, uKeyLen);
   printf("best %s/%u => ", INT_TO_IPV4(uKey), uKeyLen);
@@ -1537,9 +1996,15 @@ void dump_best(STrie * pTrie, trie_key_t uKey, trie_key_len_t uKeyLen)
 }
   */
 
-STrie * pTrie= NULL;
-#define PATRICIA_NITEMS 9
-size_t PATRICIA_ITEMS[PATRICIA_NITEMS][4]=  {
+gds_trie_t * trie= NULL;
+#define TRIE_NITEMS 9
+typedef struct _trie_item_t {
+  size_t  key;
+  uint8_t key_len;
+  size_t  data;
+  size_t  x;
+} _trie_item_t;
+_trie_item_t TRIE_ITEMS[TRIE_NITEMS]=  {
   {IPV4_TO_INT(0, 128, 0, 0), 16, 100, 0},
   {IPV4_TO_INT(0, 192, 0, 0), 15, 200, 0},
   {IPV4_TO_INT(0, 0, 0, 0), 16, 1, 0},
@@ -1549,242 +2014,410 @@ size_t PATRICIA_ITEMS[PATRICIA_NITEMS][4]=  {
   {IPV4_TO_INT(0, 1, 1, 1), 24, 5, 0},
   {IPV4_TO_INT(0, 1, 1, 128), 25, 6, 0},
   {IPV4_TO_INT(0, 128, 128, 128), 9, 300, 0},
-  };
+};
+int TRIE_FLAGS[TRIE_NITEMS];
+int _trie_destroy_count;
 
-// -----[ test_patricia_init ]---------------------------------------
-int test_patricia_init()
+// -----[ _trie_destroy ]--------------------------------------------
+static void _trie_destroy(void ** data)
 {
-  pTrie= trie_create(_trie_destroy);
-  ASSERT_RETURN(pTrie != NULL, "patricia-tree not initialized");
+  _trie_destroy_count++;
+}
 
+// -----[ test_trie_create_destroy ]---------------------------------
+static int test_trie_create_destroy()
+{
+  gds_trie_t * trie= trie_create(NULL);
+  ASSERT_RETURN(trie != NULL, "trie_create() should succeed");
+  trie_destroy(&trie);
+  ASSERT_RETURN(trie == NULL, "destroyed trie should be NULL");
   return UTEST_SUCCESS;
 }
 
-// -----[ test_patricia_done ]---------------------------------------
-int test_patricia_done()
+// -----[ test_trie_insert ]-----------------------------------------
+static int test_trie_insert()
 {
-  ASSERT_RETURN(pTrie != NULL, "patricia-tree not initialized");
-  trie_destroy(&pTrie);
-
-  return UTEST_SUCCESS;
-}
-
-// -----[ test_patricia_insertion ]----------------------------------
-int test_patricia_insertion()
-{
-  unsigned int uIndex;
-
-  test_patricia_init();
+  gds_trie_t * trie= trie_create(_trie_destroy);
+  trie_key_t key= IPV4_TO_INT(1,2,3, 0);
+  trie_key_len_t key_len= 24;
   
-  for (uIndex= 0; uIndex < PATRICIA_NITEMS; uIndex++) {
-    ASSERT_RETURN(trie_insert(pTrie, PATRICIA_ITEMS[uIndex][0],
-			      PATRICIA_ITEMS[uIndex][1],
-			      (void *) PATRICIA_ITEMS[uIndex][2]) == 0,
-		  "could not insert %d/%d/%d",
-		  PATRICIA_ITEMS[uIndex][0],
-		  PATRICIA_ITEMS[uIndex][1],
-		  PATRICIA_ITEMS[uIndex][2]);
-  }
-
+  _trie_destroy_count= 0;
+  ASSERT_RETURN(trie_insert(trie, key, key_len, (void *) 1234, 0)
+		== TRIE_SUCCESS,
+		"trie_insert() should succeed");
+  ASSERT_RETURN(trie_find_exact(trie, key, key_len) == (void *) 1234,
+		"trie_find_exact() returned an incorrect value");
+  trie_destroy(&trie);
+  ASSERT_RETURN(_trie_destroy_count == 1,
+		"_trie_destroy() has not been called");
   return UTEST_SUCCESS;
 }
 
-// -----[ test_patricia_masking ]------------------------------------
-int test_patricia_masking()
+// -----[ test_trie_insert_dup ]-------------------------------------
+static int test_trie_insert_dup()
 {
-  STrie * pTrie= trie_create(_trie_destroy);
+  gds_trie_t * trie= trie_create(_trie_destroy);
+  trie_key_t key= IPV4_TO_INT(1,2,3, 0);
+  trie_key_len_t key_len= 24;
 
-  ASSERT_RETURN(trie_insert(pTrie, IPV4_TO_INT(123,234,198,76), 17,
-			    (void *) 12357) == 0,
+  _trie_destroy_count= 0;
+  ASSERT_RETURN(trie_insert(trie, key, key_len, (void *) 1234, 0)
+		== TRIE_SUCCESS,
+		"trie_insert() should succeed");
+  ASSERT_RETURN(trie_find_exact(trie, key, key_len) == (void *) 1234,
+		"trie_find_exact() returned an incorrect value");
+  ASSERT_RETURN(trie_insert(trie, key, key_len, (void *) 5678, 0)
+		== TRIE_ERROR_DUPLICATE,
+		"trie_insert(replace=0) should fail (duplicate)");
+  ASSERT_RETURN(_trie_destroy_count == 0,
+		"_trie_destroy() has not been called");
+  ASSERT_RETURN(trie_find_exact(trie, key, key_len) == (void *) 1234,
+		"trie_find_exact() returned an incorrect value");
+  trie_destroy(&trie);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_trie_insert_replace ]-------------------------------------
+static int test_trie_insert_replace()
+{
+  gds_trie_t * trie= trie_create(_trie_destroy);
+  trie_key_t key= IPV4_TO_INT(1,2,3, 0);
+  trie_key_len_t key_len= 24;
+
+  _trie_destroy_count= 0;
+  ASSERT_RETURN(trie_insert(trie, key, key_len, (void *) 1234, 0)
+		== TRIE_SUCCESS,
+		"trie_insert() should succeed");
+  ASSERT_RETURN(trie_find_exact(trie, key, key_len) == (void *) 1234,
+		"trie_find_exact() returned an incorrect value");
+  ASSERT_RETURN(trie_insert(trie, key, key_len, (void *) 5678,
+			    TRIE_INSERT_OR_REPLACE)
+		== TRIE_SUCCESS,
+		"trie_insert(replace=1) should succeed");
+  ASSERT_RETURN(_trie_destroy_count == 1,
+		"_trie_destroy() has not been called");
+  ASSERT_RETURN(trie_find_exact(trie, key, key_len) == (void *) 5678,
+		"trie_find_exact() returned an incorrect value");
+  trie_destroy(&trie);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_trie_exact_match ]--------------------------------
+static int test_trie_exact_match()
+{
+  gds_trie_t * trie= trie_create(NULL);
+  trie_insert(trie, IPV4_TO_INT(0,0,0,0), 0, (void *) 1, 0);
+  trie_insert(trie, IPV4_TO_INT(0,0,0,0), 1, (void *) 2, 0);
+  trie_insert(trie, IPV4_TO_INT(128,0,0,0), 1, (void *) 3, 0);
+  trie_insert(trie, IPV4_TO_INT(0,0,0,0), 2, (void *) 4, 0);
+  trie_insert(trie, IPV4_TO_INT(64,0,0,0), 2, (void *) 5, 0);
+  trie_insert(trie, IPV4_TO_INT(128,0,0,0), 2, (void *) 6, 0);
+  trie_insert(trie, IPV4_TO_INT(192,0,0,0), 2, (void *) 7, 0);
+  ASSERT_RETURN(trie_find_exact(trie, IPV4_TO_INT(0,0,0,0), 0) == (void *) 1,
+		"trie_find_exact() returned an incorrect value");
+  ASSERT_RETURN(trie_find_exact(trie, IPV4_TO_INT(0,0,0,0), 1) == (void *) 2,
+		"trie_find_exact() returned an incorrect value");
+  ASSERT_RETURN(trie_find_exact(trie, IPV4_TO_INT(128,0,0,0), 1) == (void *) 3,
+		"trie_find_exact() returned an incorrect value");
+  ASSERT_RETURN(trie_find_exact(trie, IPV4_TO_INT(0,0,0,0), 2) == (void *) 4,
+		"trie_find_exact() returned an incorrect value");
+  ASSERT_RETURN(trie_find_exact(trie, IPV4_TO_INT(64,0,0,0), 2) == (void *) 5,
+		"trie_find_exact() returned an incorrect value");
+  ASSERT_RETURN(trie_find_exact(trie, IPV4_TO_INT(128,0,0,0), 2) == (void *) 6,
+		"trie_find_exact() returned an incorrect value");
+  ASSERT_RETURN(trie_find_exact(trie, IPV4_TO_INT(192,0,0,0), 2) == (void *) 7,
+		"trie_find_exact() returned an incorrect value");
+  trie_destroy(&trie);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_trie_best_match ]--------------------------------
+static int test_trie_best_match()
+{
+  gds_trie_t * trie= trie_create(NULL);
+  trie_insert(trie, IPV4_TO_INT(0,0,0,0), 0, (void *) 1, 0);
+  trie_insert(trie, IPV4_TO_INT(0,0,0,0), 1, (void *) 2, 0);
+  trie_insert(trie, IPV4_TO_INT(128,0,0,0), 1, (void *) 3, 0);
+  trie_insert(trie, IPV4_TO_INT(64,0,0,0), 2, (void *) 5, 0);
+  trie_insert(trie, IPV4_TO_INT(128,0,0,0), 2, (void *) 6, 0);
+  ASSERT_RETURN(trie_find_best(trie, IPV4_TO_INT(0,0,0,0), 0) == (void *) 1,
+		"trie_find_best() returned an incorrect value");
+  ASSERT_RETURN(trie_find_best(trie, IPV4_TO_INT(0,0,0,0), 1) == (void *) 2,
+		"trie_find_best() returned an incorrect value");
+  ASSERT_RETURN(trie_find_best(trie, IPV4_TO_INT(128,0,0,0), 1) == (void *) 3,
+		"trie_find_best() returned an incorrect value");
+  ASSERT_RETURN(trie_find_best(trie, IPV4_TO_INT(0,0,0,0), 2) == (void *) 2,
+		"trie_find_best() returned an incorrect value");
+  ASSERT_RETURN(trie_find_best(trie, IPV4_TO_INT(64,0,0,0), 2) == (void *) 5,
+		"trie_find_best() returned an incorrect value");
+  ASSERT_RETURN(trie_find_best(trie, IPV4_TO_INT(128,0,0,0), 2) == (void *) 6,
+		"trie_find_best() returned an incorrect value");
+  ASSERT_RETURN(trie_find_best(trie, IPV4_TO_INT(192,0,0,0), 2) == (void *) 3,
+		"trie_find_best() returned an incorrect value");
+  trie_destroy(&trie);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_trie_replace ]------------------------------------
+static int test_trie_replace()
+{
+  gds_trie_t * trie= trie_create(_trie_destroy);
+  uint32_t key= IPV4_TO_INT(0, 128, 128, 127);
+  uint8_t key_len= 9;
+  ASSERT_RETURN(trie_insert(trie, key, key_len, (void *) 5678, 0) == 0,
+		"trie_insert() should succeed");
+  ASSERT_RETURN(trie_replace(trie, key, key_len, (void *) 1234) == 0,
+		"trie_replace() should succeed");
+  trie_destroy(&trie);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_trie_replace_missing ]----------------------------
+static int test_trie_replace_missing()
+{
+  gds_trie_t * trie= trie_create(_trie_destroy);
+  uint32_t key= IPV4_TO_INT(0, 128, 128, 127);
+  uint8_t key_len= 9;
+  ASSERT_RETURN(trie_replace(trie, key, key_len, (void *) 1234) != 0,
+		"trie_replace() should fail (unexisting value)");
+  trie_destroy(&trie);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_trie_num_nodes ]----------------------------------
+static int test_trie_num_nodes()
+{
+  gds_trie_t * trie= trie_create(NULL);
+  trie_insert(trie, IPV4_TO_INT(128,0,0,0), 1, (void *) 128, 0);
+  ASSERT_RETURN(trie_num_nodes(trie, 0)== 1,
+		"incorrect number of nodes");
+  ASSERT_RETURN(trie_num_nodes(trie, 1)== 1,
+		"incorrect number of nodes");
+  trie_insert(trie, IPV4_TO_INT(192,0,0,0), 2, (void *) 192, 0);
+  ASSERT_RETURN(trie_num_nodes(trie, 0)== 2,
+		"incorrect number of nodes"); 
+  ASSERT_RETURN(trie_num_nodes(trie, 1)== 2,
+		"incorrect number of nodes");
+  trie_insert(trie, IPV4_TO_INT(0,0,0,0), 2, (void *) 0, 0);
+  ASSERT_RETURN(trie_num_nodes(trie, 0)== 4,
+		"incorrect number of nodes");
+  ASSERT_RETURN(trie_num_nodes(trie, 1)== 3,
+		"incorrect number of nodes");
+  trie_insert(trie, IPV4_TO_INT(0,0,0,0), 0, (void *) 0, 0);
+  ASSERT_RETURN(trie_num_nodes(trie, 0)== 4,
+		"incorrect number of nodes");
+  ASSERT_RETURN(trie_num_nodes(trie, 1)== 4,
+		"incorrect number of nodes");
+  trie_destroy(&trie);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_trie_remove ] ------------------------------------
+static int test_trie_remove()
+{
+  gds_trie_t * trie= trie_create(_trie_destroy);
+  _trie_destroy_count= 0;
+  trie_insert(trie, IPV4_TO_INT(128,0,0,0), 1, (void *) 128, 0);
+  ASSERT_RETURN(trie_remove(trie, IPV4_TO_INT(128,0,0,0), 2)
+		== TRIE_ERROR_NO_MATCH,
+		"trie_remove() should fail (no-match)");
+  ASSERT_RETURN(_trie_destroy_count == 0, "plouf");
+  ASSERT_RETURN(trie_remove(trie, IPV4_TO_INT(128,0,0,0), 0)
+		== TRIE_ERROR_NO_MATCH,
+		"trie_remove() should fail (no-match)");
+  ASSERT_RETURN(_trie_destroy_count == 0, "plouf");
+  ASSERT_RETURN(trie_remove(trie, IPV4_TO_INT(128,0,0,0), 1)
+		== TRIE_SUCCESS,
+		"trie_remove() should succeed");
+  ASSERT_RETURN(_trie_destroy_count == 1,
+		"_trie_destroy() has not been called");
+  trie_destroy(&trie);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_trie_remove2 ]----------------------------------------
+static int test_trie_remove2()
+{
+  gds_trie_t * trie= trie_create(_trie_destroy);
+  _trie_destroy_count= 0;
+  trie_insert(trie, IPV4_TO_INT(0,0,0,0), 0, (void *) 0, 0);
+  trie_insert(trie, IPV4_TO_INT(0,0,0,0), 1, (void *) 0, 0);
+  trie_insert(trie, IPV4_TO_INT(128,0,0,0), 1, (void *) 1, 0);
+  trie_insert(trie, IPV4_TO_INT(64,0,0,0), 2, (void *) 01, 0);
+  trie_insert(trie, IPV4_TO_INT(0,0,0,0), 2, (void *) 00, 0);
+  trie_insert(trie, IPV4_TO_INT(192,0,0,0), 2, (void *) 11, 0);
+  trie_insert(trie, IPV4_TO_INT(128,0,0,0), 2, (void *) 10, 0);
+  ASSERT_RETURN(trie_remove(trie, IPV4_TO_INT(128,0,0,0), 1) == TRIE_SUCCESS,
+		"trie_remove() should succeed");
+  ASSERT_RETURN(_trie_destroy_count == 1,
+		"_trie_destroy() has not been called");
+  ASSERT_RETURN(trie_remove(trie, IPV4_TO_INT(128,0,0,0), 2) == TRIE_SUCCESS,
+		"trie_remove() should succeed");
+  ASSERT_RETURN(_trie_destroy_count == 2,
+		"_trie_destroy() has not been called");
+  ASSERT_RETURN(trie_remove(trie, IPV4_TO_INT(0,0,0,0), 1) == TRIE_SUCCESS,
+		"trie_remove() should succeed");
+  ASSERT_RETURN(_trie_destroy_count == 3,
+		"_trie_destroy() has not been called");
+  ASSERT_RETURN(trie_remove(trie, IPV4_TO_INT(64,0,0,0), 2) == TRIE_SUCCESS,
+		"trie_remove() should succeed");
+  ASSERT_RETURN(_trie_destroy_count == 4,
+		"_trie_destroy() has not been called");
+  ASSERT_RETURN(trie_remove(trie, IPV4_TO_INT(0,0,0,0), 0) == TRIE_SUCCESS,
+		"trie_remove() should succeed");
+  ASSERT_RETURN(_trie_destroy_count == 5,
+		"_trie_destroy() has not been called");
+  trie_destroy(&trie);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_trie_masking ]------------------------------------
+static int test_trie_masking()
+{
+  gds_trie_t * trie= trie_create(_trie_destroy);
+  ASSERT_RETURN(trie_insert(trie, IPV4_TO_INT(123,234,198,76), 17,
+			    (void *) 12357, 0) == 0,
 		"could not insert");
-  ASSERT_RETURN(trie_find_exact(pTrie, IPV4_TO_INT(123,234,198,76), 17) ==
+  ASSERT_RETURN(trie_find_exact(trie, IPV4_TO_INT(123,234,198,76), 17) ==
 		(void *) 12357,
 		"could not find exact-match");
-  ASSERT_RETURN(trie_find_exact(pTrie, IPV4_TO_INT(123,234,128,0), 17) ==
+  ASSERT_RETURN(trie_find_exact(trie, IPV4_TO_INT(123,234,128,0), 17) ==
 		(void *) 12357,
 		"could not find exact-match");
-  trie_destroy(&pTrie);
-  
+  trie_destroy(&trie);
   return UTEST_SUCCESS;
 }
 
-// -----[ test_patricia_exact ]--------------------------------------
-int test_patricia_exact()
+// -----[ _trie_for_each_cb ]----------------------------------------
+static int _trie_for_each_cb(trie_key_t key, trie_key_len_t key_len,
+			     void * data, void * ctx)
 {
-  unsigned int uIndex;
-  void * pData;
+  unsigned int * count= (unsigned int *) ctx;
+  if (count != NULL)
+    (*count)++;
+  return 0;
+}
 
-  for (uIndex= 0; uIndex < PATRICIA_NITEMS; uIndex++) {
-    pData= trie_find_exact(pTrie, PATRICIA_ITEMS[uIndex][0],
-			   PATRICIA_ITEMS[uIndex][1]);
-    ASSERT_RETURN((size_t) pData == PATRICIA_ITEMS[uIndex][2],
-		  "exact match failed for %d/%d/%d => %d",
-		  PATRICIA_ITEMS[uIndex][0],
-		  PATRICIA_ITEMS[uIndex][1],
-		  PATRICIA_ITEMS[uIndex][2],
-		  (size_t) pData);
+// -----[ test_trie_for_each ]-----------------------------------
+static int test_trie_for_each()
+{
+  gds_trie_t * trie= trie_create(NULL);
+  unsigned int index, count= 0;
+  for (index= 0; index < TRIE_NITEMS; index++)
+    trie_insert(trie, TRIE_ITEMS[index].key,
+		TRIE_ITEMS[index].key_len,
+		(void *) TRIE_ITEMS[index].data, 0);
+  trie_for_each(trie, _trie_for_each_cb, &count);
+  ASSERT_RETURN(count == TRIE_NITEMS,
+		"for-each did not traverse whole trie (%u vs %u)",
+		count, TRIE_NITEMS);
+  trie_destroy(&trie);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_trie_enum ]---------------------------------------
+static int test_trie_enum()
+{
+  gds_enum_t * enu;
+  int data;
+  unsigned int index, count= 0;
+  gds_trie_t * trie= trie_create(NULL);
+  for (index= 0; index < TRIE_NITEMS; index++)
+    trie_insert(trie, TRIE_ITEMS[index].key,
+		TRIE_ITEMS[index].key_len,
+		(void *) TRIE_ITEMS[index].data, 0);
+  enu= trie_get_enum(trie);
+  ASSERT_RETURN(enu != NULL, "trie_get_enum() returned NULL pointer "
+		"(%u vs %u)", count, TRIE_NITEMS);
+  memset(TRIE_FLAGS, 0, sizeof(TRIE_FLAGS));
+  while (enum_has_next(enu)) {
+    data= (int) enum_get_next(enu);
+    for (index= 0; index < TRIE_NITEMS; index++)
+      if (TRIE_ITEMS[index].data == data) {
+	TRIE_FLAGS[index]= 1;
+	break;
+      }
+    count++;
   }
-
+  enum_destroy(&enu);
+  ASSERT_RETURN(count == TRIE_NITEMS,
+		"enumerator did not traverse whole trie");
+  for (index= 0; index < TRIE_NITEMS; index++)
+    ASSERT_RETURN(TRIE_FLAGS[index], "item %u not enumerated");
+  trie_destroy(&trie);
   return UTEST_SUCCESS;
 }
 
-// -----[ test_patricia_best ]---------------------------------------
-/**
- * For each prefix that is shorter than /32 in the initial data, look
- * for a more specific prefix (length+1). Check that if the more
- * specific prefix that is generated exists, the best match should
- * return this prefix. Otherwise, the initial (less specific prefix)
- * should be found.
- *
- * Example:
- *   trie contains (0.192.0.0/16, 0.192.0.0/17)
- *   original=0.192.0.0/16
- *     - generated=0.192.0.0/17 (exists)
- *         => exact-match=0.192.0.0/17
- *     - generated=0.192.128.0/17 (does not exist)
- *         => best-match=0.192.0.0/16
- */
-int test_patricia_best()
+// -----[ test_trie_complex ]--------------------------------------
+static int test_trie_complex()
 {
-  unsigned int uIndex;
-  trie_key_t uKey, uNewKey;
-  trie_key_len_t uKeyLen, uNewKeyLen;
-
-  for (uIndex= 0; uIndex < PATRICIA_NITEMS; uIndex++) {
-    uKey= PATRICIA_ITEMS[uIndex][0];
-    uKeyLen= PATRICIA_ITEMS[uIndex][1];
-    if (uKeyLen < 32) {
-      uNewKeyLen= uKeyLen+1;
-      uNewKey= uKey|(1 << (31-uKeyLen));
-      if (trie_find_exact(pTrie, uNewKey, uNewKeyLen) == NULL) {
-	ASSERT_RETURN((size_t) trie_find_best(pTrie, uNewKey, uNewKeyLen)
-		      == PATRICIA_ITEMS[uIndex][2],
+  gds_trie_t * trie= trie_create(_trie_destroy);
+  unsigned int index;
+  void * data;
+  trie_key_t key, new_key;
+  trie_key_len_t key_len, new_key_len;
+  // Insertion
+  for (index= 0; index < TRIE_NITEMS; index++) {
+    ASSERT_RETURN(trie_insert(trie, TRIE_ITEMS[index].key,
+			      TRIE_ITEMS[index].key_len,
+			      (void *) TRIE_ITEMS[index].data, 0) == 0,
+		  "could not insert %d/%d/%d",
+		  TRIE_ITEMS[index].key,
+		  TRIE_ITEMS[index].key_len,
+		  TRIE_ITEMS[index].data);
+  }
+  // Exact match
+  for (index= 0; index < TRIE_NITEMS; index++) {
+    data= trie_find_exact(trie, TRIE_ITEMS[index].key,
+			  TRIE_ITEMS[index].key_len);
+    ASSERT_RETURN(data == (void *) TRIE_ITEMS[index].data,
+		  "exact match failed for %d/%d: %p vs %p",
+		  TRIE_ITEMS[index].key,
+		  TRIE_ITEMS[index].key_len,
+		  (void *) TRIE_ITEMS[index].data,
+		  data);
+  }
+  // Best match
+  //  For each prefix that is shorter than /32 in the initial data, look
+  //  for a more specific prefix (length+1). Check that if the more
+  //  specific prefix that is generated exists, the best match should
+  //  return this prefix. Otherwise, the initial (less specific prefix)
+  // should be found.
+  //
+  // Example:
+  //   trie contains (0.192.0.0/16, 0.192.0.0/17)
+  //   original=0.192.0.0/16
+  //     - generated=0.192.0.0/17 (exists)
+  //         => exact-match=0.192.0.0/17
+  //     - generated=0.192.128.0/17 (does not exist)
+  //         => best-match=0.192.0.0/16
+  for (index= 0; index < TRIE_NITEMS; index++) {
+    key= TRIE_ITEMS[index].key;
+    key_len= TRIE_ITEMS[index].key_len;
+    if (key_len < 32) {
+      new_key_len= key_len+1;
+      new_key= key|(1 << (31-key_len));
+      if (trie_find_exact(trie, new_key, new_key_len) == NULL) {
+	ASSERT_RETURN((size_t) trie_find_best(trie, new_key, new_key_len)
+		      == TRIE_ITEMS[index].data,
 		      "best-match failed for %d/%d (more specific than %d/%d)",
-		      uNewKey, uNewKeyLen, uKey, uKeyLen);
+		      new_key, new_key_len, key, key_len);
 
       }
-      uNewKey= uKey & ~(1 << (31-uKeyLen));
-      if (trie_find_exact(pTrie, uNewKey, uNewKeyLen) == NULL) {
-	ASSERT_RETURN((size_t) trie_find_best(pTrie, uNewKey, uNewKeyLen)
-		      == PATRICIA_ITEMS[uIndex][2],
+      new_key= key & ~(1 << (31-key_len));
+      if (trie_find_exact(trie, new_key, new_key_len) == NULL) {
+	ASSERT_RETURN((size_t) trie_find_best(trie, new_key, new_key_len)
+		      == TRIE_ITEMS[index].data,
 		      "best-match failed for %d/%d (more specific than %d/%d)",
-		      uNewKey, uNewKeyLen, uKey, uKeyLen);
+		      new_key, new_key_len, key, key_len);
 
       }
     }
   }
-
+  trie_destroy(&trie);
   return UTEST_SUCCESS;
 }
 
-// -----[ test_patricia_update ]-------------------------------------
-int test_patricia_update()
-{
-  uint32_t uKey= IPV4_TO_INT(0, 0, 0, 0);
-  uint8_t uKeyLen= 16;
-  void * pData= (void *) -1;
-  void *pTemp;
-
-  // Check that inserting an already existing value is refused
-  ASSERT_RETURN(trie_insert(pTrie, uKey, uKeyLen, pData) == 0,
-		"did not refuse to update existing value %d/%d/%d",
-		uKey, uKeyLen, (size_t) pData);
-  // Use replace instead
-  /*ASSERT_RETURN(trie_replace(pTrie, uKey, uKeyLen, pData) == 0,
-		"could not update %d/%d/%d",
-		uKey, uKeyLen, (int) pData);*/
-  pTemp= trie_find_exact(pTrie, uKey, uKeyLen);
-  ASSERT_RETURN(pData == pTemp,
-		"exact-match failed %d/%d/%d => %d",
-		uKey, uKeyLen, (size_t) pData, (size_t) pTemp);
-
-  return UTEST_SUCCESS;
-}
-
-// -----[ test_patricia_replace ]------------------------------------
-int test_patricia_replace()
-{
-  uint32_t uKey= IPV4_TO_INT(0, 128, 128, 127);
-  uint8_t uKeyLen= 9;
-  void * pData= (void *) 301;
-  void *pTemp;
-
-  // Check that replacing an unexisting value is refused
-  ASSERT_RETURN(trie_replace(pTrie, uKey, uKeyLen, pData) != 0,
-		"did not refuse to replace an un-existing value %d/%d/%d",
-		uKey, uKeyLen, (size_t) pData);
-  pTemp= trie_find_exact(pTrie, uKey, uKeyLen);
-  ASSERT_RETURN(pData == pTemp,
-		"exact-match failed %d/%d/%d => %d",
-		uKey, uKeyLen, (size_t) pData, (size_t) pTemp);
-
-  return UTEST_SUCCESS;
-}
-
-// -----[ test_patricia_remove ] ------------------------------------
-int test_patricia_remove()
-{
-  /*  fprintf(stdout, "DUMP: {\n");
-  trie_for_each(pTrie, dump, NULL);
-  fprintf(stdout, "}\n");
-  assert(!trie_remove(pTrie, IPV4_TO_INT(0, 0, 0, 0), 16));
-  fprintf(stdout, "DUMP: {\n");
-  trie_for_each(pTrie, dump, NULL);
-  fprintf(stdout, "}\n");
-  assert(!trie_remove(pTrie, IPV4_TO_INT(0, 0, 0, 0), 15));
-  fprintf(stdout, "DUMP: {\n");
-  trie_for_each(pTrie, dump, NULL);
-  fprintf(stdout, "}\n");
-  assert(!trie_remove(pTrie, IPV4_TO_INT(0, 1, 0, 0), 16));
-  fprintf(stdout, "DUMP: {\n");
-  trie_for_each(pTrie, dump, NULL);
-  fprintf(stdout, "}\n");
-  assert(!trie_remove(pTrie, IPV4_TO_INT(0, 2, 0, 0), 16));
-  fprintf(stdout, "DUMP: {\n");
-  trie_for_each(pTrie, dump, NULL);
-  fprintf(stdout, "}\n");
-  assert(!trie_remove(pTrie, IPV4_TO_INT(0, 1, 1, 0), 24));
-  fprintf(stdout, "DUMP: {\n");
-  trie_for_each(pTrie, dump, NULL);
-  fprintf(stdout, "}\n");
-  assert(!trie_remove(pTrie, IPV4_TO_INT(0, 1, 1, 128), 25));
-  fprintf(stdout, "DUMP: {\n");
-  trie_for_each(pTrie, dump, NULL);
-  fprintf(stdout, "}\n");
-  assert(!trie_remove(pTrie, IPV4_TO_INT(0, 128, 0, 0), 9));
-  fprintf(stdout, "DUMP: {\n");
-  trie_for_each(pTrie, dump, NULL);
-  fprintf(stdout, "}\n");
-  assert(!trie_remove(pTrie, IPV4_TO_INT(0, 192, 0, 0), 15));
-  fprintf(stdout, "DUMP: {\n");
-  trie_for_each(pTrie, dump, NULL);
-  fprintf(stdout, "}\n");
-  assert(!trie_remove(pTrie, IPV4_TO_INT(0, 128, 0, 0), 16));
-  fprintf(stdout, "DUMP: {\n");
-  trie_for_each(pTrie, dump, NULL);
-  fprintf(stdout, "}\n");*/
-
-  return UTEST_SUCCESS;
-}
-
-// -----[ test_patricia_enum ]---------------------------------------
-int test_patricia_enum()
-{
-  enum_t * pEnum;
-  void * pData;
-
-  pEnum= trie_get_enum(pTrie);
-  ASSERT_RETURN(pEnum != NULL, "trie_get_enum() returned NULL pointer");
-  while (enum_has_next(pEnum)) {
-    pData= enum_get_next(pEnum);
-    ASSERT_RETURN(pData != NULL, "enum_get_next() returned NULL pointer");
-  }
-  enum_destroy(&pEnum);
-
-  test_patricia_done();
-
-  return UTEST_SUCCESS;
-}
 
 /////////////////////////////////////////////////////////////////////
 // GDS_CHECK_CLI
@@ -1852,38 +2485,45 @@ int test_patricia_enum()
   printf("************************\n");
 }*/
 
+static cli_t * cli= NULL;
+static int cli_cmd_executed;
+static char * cli_param_value;
+
 // -----[ _cli_cmd_success ]-----------------------------------------
-static int _cli_cmd_success(SCliContext * pContext, SCliCmd * pCmd)
+static int _cli_cmd_success(cli_ctx_t * ctx, cli_cmd_t * cmd)
 {
+  if (!strcmp(cmd->name, "cmd3")) {
+    if (cli_param_value != NULL)
+      free(cli_param_value);
+    cli_param_value= strdup(tokens_get_string_at(cmd->param_values, 0));
+  } else if (!strcmp(cmd->name, "cmd4")) {
+    assert(cli_context_get_item_at_top(ctx) == (void *) 1234);
+  }
   return CLI_SUCCESS;
 }
 
 // -----[ _cli_cmd_failure ]-----------------------------------------
-static int _cli_cmd_failure(SCliContext * pContext, SCliCmd * pCmd)
+static int _cli_cmd_failure(cli_ctx_t * ctx, cli_cmd_t * cmd)
 {
   return CLI_ERROR_COMMAND_FAILED;
 }
 
 // -----[ _cli_cmd4_ctx_create ]-------------------------------------
-static int _cli_cmd4_ctx_create(SCliContext * pContext, void ** ppItem)
+static int _cli_cmd4_ctx_create(cli_ctx_t * ctx, void ** item)
 {
   // Should push something on the context stack here that cmd5
   // should try to find (and report an error if it is not found.
+  *item= (void *) 1234;
   return CLI_SUCCESS;
 }
 
 // -----[ _cli_cmd4_ctx_destroy ]------------------------------------
-static void _cli_cmd4_ctx_destroy(void ** ppItem)
+static void _cli_cmd4_ctx_destroy(void ** item)
 {
+  assert(*item == (void *) 1234);
 }
 
-SCli * pCli= NULL;
-SCliCmd * pCmd;
-SCliCmds * pCmds, * pSubCmds;
-SCliParams * pParams;
-int iCLICmdExecuted;
-
-// -----[ test_cli_init ]--------------------------------------------
+// -----[ test_before_cli ]------------------------------------------
 /**
  * Initialize the CLI tests
  *
@@ -1893,71 +2533,78 @@ int iCLICmdExecuted;
  *   cmd2_fail: <param1> => execution fails
  *   cmd3: <param1> [--plop]
  *   cmd4: 
- *     cmd5:
+ *   cmd5:
  */
-int test_cli_init()
+static int test_before_cli()
 {
-  pCli= cli_create();
-  ASSERT_RETURN(pCli != NULL, "cli_create() returned NULL pointer");
+  cli_cmd_t * cmd;
+  cli_cmds_t * cmds, * sub_cmds;
+  cli_params_t * params;
 
-  pCmds= cli_cmds_create();
-  ASSERT_RETURN(pCmds != NULL, "cli_cmds_create() returned NULL pointer");
+  cli= cli_create();
+  ASSERT_RETURN(cli != NULL, "cli_create() returned NULL pointer");
+
+  cmds= cli_cmds_create();
+  ASSERT_RETURN(cmds != NULL, "cli_cmds_create() returned NULL pointer");
 
   // cmd1: <param1> <param2> <...>[0-5]
-  pParams= cli_params_create();
-  cli_params_add(pParams, "<param1>", NULL);
-  cli_params_add(pParams, "<param2>", NULL);
-  cli_params_add_vararg(pParams, "<param3>", 5, NULL);
+  params= cli_params_create();
+  cli_params_add(params, "<param1>", NULL);
+  cli_params_add(params, "<param2>", NULL);
+  cli_params_add_vararg(params, "<param3>", 5, NULL);
   // Note: adding an additional parameter should abort() the program
   // cli_params_add(pParams, "<param4>", NULL);
-  cli_cmds_add(pCmds, cli_cmd_create("cmd1", _cli_cmd_success,
-				     NULL, pParams));
+  cli_cmds_add(cmds, cli_cmd_create("cmd1", _cli_cmd_success,
+				    NULL, params));
 
   // cmd2: <param1>
-  pParams= cli_params_create();
-  cli_params_add(pParams, "<param1>", NULL);
-  cli_cmds_add(pCmds, cli_cmd_create("cmd2", _cli_cmd_success,
-				     NULL, pParams));
+  params= cli_params_create();
+  cli_params_add(params, "<param1>", NULL);
+  cli_cmds_add(cmds, cli_cmd_create("cmd2", _cli_cmd_success,
+				    NULL, params));
 
   // cmd2_fail: <param1> => execution failed
-  pParams= cli_params_create();
-  cli_params_add(pParams, "<param1>", NULL);
-  cli_cmds_add(pCmds, cli_cmd_create("cmd2_fail", _cli_cmd_failure,
-				     NULL, pParams));
+  params= cli_params_create();
+  cli_params_add(params, "<param1>", NULL);
+  cli_cmds_add(cmds, cli_cmd_create("cmd2_fail", _cli_cmd_failure,
+				    NULL, params));
 
   // cmd3: <param1> [--plop]
-  pParams= cli_params_create();
-  cli_params_add(pParams, "<param1>", NULL);
-  pCmd= cli_cmd_create("cmd3", _cli_cmd_success,
-		       NULL, pParams);
-  cli_cmd_add_option(pCmd, "plop", NULL);
-  cli_cmds_add(pCmds, pCmd);
+  params= cli_params_create();
+  cli_params_add(params, "<param1>", NULL);
+  cmd= cli_cmd_create("cmd3", _cli_cmd_success,
+		      NULL, params);
+  cli_cmd_add_option(cmd, "plop", NULL);
+  cli_cmds_add(cmds, cmd);
 
   // cmd5:
-  pSubCmds= cli_cmds_create();
-  cli_cmds_add(pSubCmds, cli_cmd_create("cmd5", _cli_cmd_success,
+  sub_cmds= cli_cmds_create();
+  cli_cmds_add(sub_cmds, cli_cmd_create("cmd5", _cli_cmd_success,
 					NULL, NULL));
 
   // cmd4: create context
-  cli_cmds_add(pCmds, cli_cmd_create_ctx("cmd4",
-					 _cli_cmd4_ctx_create,
-					 _cli_cmd4_ctx_destroy,
-					 pSubCmds, NULL));
+  cli_cmds_add(cmds, cli_cmd_create_ctx("cmd4",
+					_cli_cmd4_ctx_create,
+					_cli_cmd4_ctx_destroy,
+					sub_cmds, NULL));
 
   // test (root of command tree)
-  cli_register_cmd(pCli, cli_cmd_create("test", NULL, pCmds, NULL));
+  cli_register_cmd(cli, cli_cmd_create("test", NULL, cmds, NULL));
 
   // Identifier of last executed command
-  iCLICmdExecuted= 0;
+  cli_cmd_executed= 0;
+  cli_param_value= NULL;
 
   return UTEST_SUCCESS;
 }
 
-// -----[ test_cli_done ]--------------------------------------------
-int test_cli_done()
+// -----[ test_after_cli ]-------------------------------------------
+static int test_after_cli()
 {
-  cli_destroy(&pCli);
-  pCli= NULL;
+  cli_destroy(&cli);
+  cli= NULL;
+  if (cli_param_value != NULL)
+    free(cli_param_value);
 
   return UTEST_SUCCESS;
 }
@@ -1966,16 +2613,14 @@ int test_cli_done()
 /**
  * Test basic use.
  */
-int test_cli_basic()
+static int test_cli_basic()
 {
-  test_cli_init();
-
   // Standard call for cmd2
-  ASSERT_RETURN(cli_execute(pCli, "test cmd2 arg1")
+  ASSERT_RETURN(cli_execute(cli, "test cmd2 arg1")
 		== CLI_SUCCESS, "could not execute command");
 
   // Standard call for cmd2_fail => should fail
-  ASSERT_RETURN(cli_execute(pCli, "test cmd2_fail arg1")
+  ASSERT_RETURN(cli_execute(cli, "test cmd2_fail arg1")
 		== CLI_ERROR_COMMAND_FAILED,
 		"returned wrong error code");
   return UTEST_SUCCESS;
@@ -1985,16 +2630,16 @@ int test_cli_basic()
 /**
  * Test use with varargs
  */
-int test_cli_varargs()
+static int test_cli_varargs()
 {
   // Call cmd1 with 3 varargs
-  ASSERT_RETURN(cli_execute(pCli, "test cmd1 A1 A2 VA1 VA2 VA3")
+  ASSERT_RETURN(cli_execute(cli, "test cmd1 A1 A2 VA1 VA2 VA3")
 		== CLI_SUCCESS, "could not execute command");
   // Call cmd1 with no varargs (this is allowed: [0-N])
-  ASSERT_RETURN(cli_execute(pCli, "test cmd1 A1 A2")
+  ASSERT_RETURN(cli_execute(cli, "test cmd1 A1 A2")
 		== CLI_SUCCESS, "could not execute command");
   // Call cmd1 with too many varargs
-  ASSERT_RETURN(cli_execute(pCli, "test cmd1 A1 A2 VA1 VA2 VA3 VA4 VA5 VA6")
+  ASSERT_RETURN(cli_execute(cli, "test cmd1 A1 A2 VA1 VA2 VA3 VA4 VA5 VA6")
 		== CLI_ERROR_TOO_MANY_PARAMS,
 		"wrong error reported");
 
@@ -2005,16 +2650,16 @@ int test_cli_varargs()
 /**
  * Test with options
  */
-int test_cli_options()
+static int test_cli_options()
 {
   // Call cmd1 with unknown option
-  ASSERT_RETURN(cli_execute(pCli, "test cmd1 --plop A1 A2 VA1")
+  ASSERT_RETURN(cli_execute(cli, "test cmd1 --plop A1 A2 VA1")
 		== CLI_ERROR_UNKNOWN_OPTION, "wrong error reported");
   // Call cmd3 with option
-  ASSERT_RETURN(cli_execute(pCli, "test cmd3 --plop A1")
+  ASSERT_RETURN(cli_execute(cli, "test cmd3 --plop A1")
 		== CLI_SUCCESS, "could not execute command");
   // Call cmd3 with option
-  ASSERT_RETURN(cli_execute(pCli, "test cmd3 --plop=\"AC & DC\" A1")
+  ASSERT_RETURN(cli_execute(cli, "test cmd3 --plop=\"AC & DC\" A1")
 		== CLI_SUCCESS, "could not execute command");
 
   return UTEST_SUCCESS;
@@ -2024,167 +2669,69 @@ int test_cli_options()
 /**
  * Test with context
  */
-int test_cli_context()
+static int test_cli_context()
 {
   // Exit (without context)
-  ASSERT_RETURN(cli_execute(pCli, "exit")
+  ASSERT_RETURN(cli_execute(cli, "exit")
 		== CLI_SUCCESS, "could not execute command");
   // Call cmd4/cmd5
-  ASSERT_RETURN(cli_execute(pCli, "test cmd4 cmd5")
+  ASSERT_RETURN(cli_execute(cli, "test cmd4 cmd5")
 		== CLI_SUCCESS, "could not execute command");
   // Enter context cmd4
-  ASSERT_RETURN(cli_execute(pCli, "test cmd4")
+  ASSERT_RETURN(cli_execute(cli, "test cmd4")
 		== CLI_SUCCESS, "could not execute command");
   // Call cmd5 (from context cmd4)
-  ASSERT_RETURN(cli_execute(pCli, "cmd5")
+  ASSERT_RETURN(cli_execute(cli, "cmd5")
 		== CLI_SUCCESS, "could not execute command");
   // Exit context
-  ASSERT_RETURN(cli_execute(pCli, "exit")
+  ASSERT_RETURN(cli_execute(cli, "exit")
 		== CLI_SUCCESS, "could not execute command");
-
-  test_cli_done();
-
   return UTEST_SUCCESS;
 }
+
+// -----[ test_cli_params ]------------------------------------------
+static int test_cli_params()
+{
+  const char * line= "test cmd3 \"this is a ($VAR1, $VAR2)\"";
+  cli_set_param_lookup(cli, _param_lookup);
+  cli_execute_line(cli, line);
+  ASSERT_RETURN((cli_param_value != NULL) &&
+		!strcmp(cli_param_value, "this is a (Hello, World)"),
+		"parameter incorrectly replaced (%s)", cli_param_value);
+  return UTEST_SUCCESS;
+}
+
 
 /////////////////////////////////////////////////////////////////////
 // GDS_CHECK_HASH
 /////////////////////////////////////////////////////////////////////
 
-typedef struct _HashItem {
-  uint32_t uNbr;
-} SHashItem;
-
-// -----[ _hash_cmp ]------------------------------------------------
-static int _hash_cmp(void * pElt1, void * pElt2, unsigned int uEltSize)
+/*
+int test_hash_set_insertion_search_deletion()
 {
-  SHashItem * pItem1 = (SHashItem *)pElt1;
-  SHashItem * pItem2 = (SHashItem *)pElt2;
-
-  if (pItem1->uNbr > pItem2->uNbr) {
-    return 1;
-  } else if (pItem1->uNbr < pItem2->uNbr) {
-    return -1;
-  }
-  return 0;
-}
-
-// -----[ _hash_destroy ]-------------------------------------------
-static void _hash_destroy(void * pElt)
-{
-  SHashItem * pItem = (SHashItem *)pElt;
-  
-  if (pItem) {
-    FREE(pItem);
-  }
-}
-
-
-// -----[ _hash_fct ]------------------------------------------------
-static uint32_t _hash_fct(const void * pElt, const unsigned int uHashSize)
-{
-  SHashItem * pItem = (SHashItem *)pElt;
-
-  return (pItem->uNbr) % uHashSize;
-}
-
-// -----[ _hash_for_each ]-------------------------------------------
-/*static int _hash_for_each(void * pElt, void * pContext)
-{
-  //fprintf(stderr, "for-each-item: %d\n", (size_t) pElt);
-  return 0;
-  }*/
-
-//
-int test_hash_creation_destruction()
-{
-  hash_t* pHash;
-
-  pHash= hash_init(6, 0, _hash_cmp, _hash_destroy, _hash_fct);
-  ASSERT_RETURN(pHash, "hash can't be created");
-  hash_destroy(&pHash);
-  ASSERT_RETURN(!pHash, "hash isn't well destroyed");
-  pHash = hash_init(10, 0.75, _hash_cmp, _hash_destroy, _hash_fct);
-  ASSERT_RETURN(pHash, "hash can't be created");
-  hash_destroy(&pHash);
-  ASSERT_RETURN(!pHash, "hash isn't well destroyed");
-
-  return UTEST_SUCCESS;
-}
-
-int test_hash_insertion_search_deletion()
-{
-  hash_t* pHash;
+  gds_hash_set_t* pHash;
   uint32_t uNbr;
   SHashItem * pItem;
 
-  /* static test */
-  pHash= hash_init(6, 0, _hash_cmp, _hash_destroy, _hash_fct);
-  for (uNbr = 0; uNbr < 20; uNbr++) {
-    pItem = MALLOC(sizeof(SHashItem));
-    pItem->uNbr = uNbr;
-    ASSERT_RETURN(hash_add(pHash, pItem) != NULL , "%d can't be inserted (static)", uNbr);
-  }
-  for (uNbr = 0; uNbr < 20; uNbr++) {
-    pItem = MALLOC(sizeof(SHashItem));
-    pItem->uNbr = uNbr;
-    ASSERT_RETURN(hash_search(pHash, pItem), "%d can't be found (static)", uNbr);
-    FREE(pItem);
-  }
-  for (uNbr = 0; uNbr < 20; uNbr++) {
-    pItem = MALLOC(sizeof(SHashItem));
-    pItem->uNbr = uNbr;
-    ASSERT_RETURN(hash_del(pHash, pItem) == 2, "%d hasn't been deleted (static)", uNbr);
-    FREE(pItem);
-  }
-  pItem = MALLOC(sizeof(SHashItem));
-  pItem->uNbr = 0;
-  ASSERT_RETURN(hash_del(pHash, pItem) == 0, "0 should not be present (static)");
-  FREE(pItem);
-  hash_destroy(&pHash);
-
-  /* dynamic test */
-  pHash = hash_init(6, 0.75, _hash_cmp, _hash_destroy, _hash_fct);
- /* for (uNbr = 0; uNbr < 20; uNbr++) {
-    printf("insert %d\n", uNbr);
-    pItem = MALLOC(sizeof(SHashItem));
-    pItem->uNbr = uNbr;
-    ASSERT_RETURN(hash_add(pHash, pItem) != -1, "%d can't be inserted (dynamic)", uNbr);
-  }
-  for (uNbr = 0; uNbr < 20; uNbr++) {
-    pItem = MALLOC(sizeof(SHashItem));
-    pItem->uNbr = uNbr;
-    ASSERT_RETURN(hash_search(pHash, pItem), "%d can't be found (static)", uNbr);
-    FREE(pItem);
-  }
-  for (uNbr = 0; uNbr < 20; uNbr++) {
-    pItem = MALLOC(sizeof(SHashItem));
-    pItem->uNbr = uNbr;
-    ASSERT_RETURN(hash_del(pHash, pItem) == 2, "%d hasn't been deleted (dynamic)", uNbr);
-    FREE(pItem);
-  }
-  pItem = MALLOC(sizeof(SHashItem));
-  pItem->uNbr = 0;
-  ASSERT_RETURN(hash_del(pHash, pItem) == 0, "0 shoud not be present (dynamic)");
-  FREE(pItem);*/
-  hash_destroy(&pHash);
 
   return UTEST_SUCCESS;
 }
+*/
 
-int test_hash_reference()
+ /*
+int test_hash_set_reference()
 {
-  hash_t* pHash;
+  gds_hash_set_t* pHash;
   uint32_t uNbr, uCpt;
   SHashItem * pItem;
 
-  /* static test */
-  pHash= hash_init(6, 0, _hash_cmp, _hash_destroy, _hash_fct);
+  // static test
+  pHash= hash_set_create(6, 0, _hash_cmp, _hash_set_destroy, _hash_fct);
   for (uCpt = 0; uCpt < 10; uCpt++) {
     for (uNbr = 0; uNbr < 20; uNbr++) {
       pItem = MALLOC(sizeof(SHashItem));
       pItem->uNbr = uNbr;
-      ASSERT_RETURN(hash_add(pHash, pItem) != NULL, "%d can't be inserted (static)", uNbr);
+      ASSERT_RETURN(hash_set_add(pHash, pItem) != NULL, "%d can't be inserted (static)", uNbr);
     }
   }
   for (uCpt = 0; uCpt < 9; uCpt++) {
@@ -2203,65 +2750,26 @@ int test_hash_reference()
   }
 
 
-  hash_destroy(&pHash);
+  hash_set_destroy(&pHash);
 
   return UTEST_SUCCESS;
 }
+ */
 
-#define HASH_NITEMS 1024
-int HASH_ITEMS_INT[HASH_NITEMS];
-char * HASH_ITEMS_STR[HASH_NITEMS];
-
-// -----[ test_hash_init ]-------------------------------------------
-int test_hash_init()
-{
-  unsigned int uIndex, uIndex2;
-  unsigned int uLength;
-  char acAllowedChars[]= "abcdefghijklmnopqrstuvwxyz"
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
-
-  for (uIndex= 0; uIndex < HASH_NITEMS; uIndex++) {
-    // Random number
-    HASH_ITEMS_INT[uIndex]= random() % 4096;
-
-    // Random string
-    uLength= (random() % 1024)+1;
-    HASH_ITEMS_STR[uIndex]= malloc(sizeof(char)*uLength);
-    for (uIndex2= 0; uIndex2 < uLength-1; uIndex2++) {
-      HASH_ITEMS_STR[uIndex][uIndex2]=
-	acAllowedChars[random() % strlen(acAllowedChars)];
-    }
-    HASH_ITEMS_STR[uIndex][uLength-1]= '\0';
-  }
-
-  return UTEST_SUCCESS;
-}
-
-// -----[ test_hash_done ]-------------------------------------------
-int test_hash_done()
-{
-  unsigned int uIndex;
-
-  for (uIndex= 0; uIndex < HASH_NITEMS; uIndex++) {
-    free(HASH_ITEMS_STR[uIndex]);
-  }
-  return UTEST_SUCCESS;
-}
-
-// -----[ test_hash_old ]--------------------------------------------
-int test_hash_old()
+// -----[ test_hash_set_old ]--------------------------------------------
+int test_hash_set_old()
 {
   /*
   hash_t* pHash;
-  enum_t * pEnum;
+  gds_enum_t * pEnum;
   uint32_t uNbr;
   
   // static mode
-  pHash= hash_init(6, 0, _hash_cmp, _hash_destroy, _hash_fct);
+  pHash= hash_set_create(6, 0, _hash_cmp, _hash_set_destroy, _hash_fct);
   ASSERT_RETURN(pHash != NULL, "hash_init() returned NULL pointer");
 
   for (uNbr = 0; uNbr < 20; uNbr++) {
-    hash_add(pHash, (void *) uNbr);
+    hash_set_add(pHash, (void *) uNbr);
   }
   hash_for_each(pHash, _hash_for_each, NULL);
   pEnum= hash_get_enum(pHash);
@@ -2291,54 +2799,300 @@ int test_hash_old()
   hash_for_each(pHash, _hash_for_each, NULL);
 
   printf("*** add a second elt 4 ***\n");
-  hash_add(pHash, (void *)4);
+  hash_set_add(pHash, (void *)4);
 
   printf("*** removal of 4 ***\n");
   hash_del(pHash, (void *)4);
   hash_for_each(pHash, _hash_for_each, NULL);
 
   printf("*** add 22 ***\n");
-  hash_add(pHash, (void *)22);
+  hash_set_add(pHash, (void *)22);
   hash_for_each(pHash, _hash_for_each, NULL);
 
-  hash_destroy(&pHash);
+  hash_set_destroy(&pHash);
 
   // dynamic mode
-  pHash= hash_init(3, 0.75, _hash_cmp, _hash_destroy, _hash_fct);
+  pHash= hash_set_create(3, 0.75, _hash_cmp, _hash_set_destroy, _hash_fct);
   for (uNbr = 0; uNbr < 20; uNbr++) {
     hash_add(pHash, (void *) uNbr);
   }
   hash_for_each(pHash, _hash_for_each, NULL);
 
-  hash_destroy(&pHash);
+  hash_set_destroy(&pHash);
   */
   return UTEST_SUCCESS;
 }
 
-// -----[ test_hash_for_each ]---------------------------------------
-int test_hash_for_each()
+
+/////////////////////////////////////////////////////////////////////
+// GDS_CHECK_HASH_SET
+/////////////////////////////////////////////////////////////////////
+
+unsigned int _hash_set_destroy_count;
+
+// -----[ _hash_cmp ]------------------------------------------------
+static int _hash_cmp(const void * item1, const void * item2, unsigned int size)
 {
-  return UTEST_SKIPPED;
+  unsigned int i1= (unsigned int) item1;
+  unsigned int i2= (unsigned int) item2;
+
+  // -> item(K) == item(K+1000*N)
+  i1= i1 % 1000;
+  i2= i2 % 1000;
+
+  if (i1 < i2)
+    return 1;
+  if (i1 > i2)
+    return -1;
+  return 0;
 }
 
-// -----[ test_hash_enum ]-------------------------------------------
-int test_hash_enum()
+// -----[ _hash_set_destroy ]--------------------------------------------
+static void _hash_set_destroy(void * item)
 {
-  /*
-  enum_t * pEnum;
+  _hash_set_destroy_count++;
+}
 
-  pEnum= hash_get_enum(pHash);
-  while (enum_has_next(pEnum)) {
-    printf("hash-item: %d\n", (unsigned int) enum_get_next(pEnum));
+// -----[ _hash_compute ]--------------------------------------------
+static uint32_t _hash_compute(const void * item, unsigned int size)
+{
+  return ((unsigned int) item) % size;
+}
+
+// -----[ _hash_for_each ]-------------------------------------------
+static int _hash_for_each(void * item, void * ctx)
+{
+  unsigned int * count= (unsigned int *) ctx;
+  if (count != NULL)
+    (*count)++;
+  return 0;
+}
+
+// -----[ test_hash_set_create_destroy ]---------------------------------
+static int test_hash_set_create_destroy()
+{
+  gds_hash_set_t * hash= hash_set_create(100, 0.0, _hash_cmp,
+				     _hash_set_destroy, _hash_compute);
+  ASSERT_RETURN(hash != NULL, "hash_set_create() should succeed");
+  hash_set_destroy(&hash);
+  ASSERT_RETURN(hash == NULL, "destroyed hash should be NULL");
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_hash_set_add ]--------------------------------------------
+static int test_hash_set_add()
+{
+  gds_hash_set_t * hash= hash_set_create(100, 0.0, _hash_cmp,
+				     _hash_set_destroy, _hash_compute);
+  ASSERT_RETURN(hash_set_add(hash, (void *) 100) == (void *) 100,
+		"hash_set_add() should return same pointer");
+  ASSERT_RETURN(hash_set_get_refcnt(hash, (void *) 100) == 1,
+		"incorrect reference count");
+  hash_set_destroy(&hash);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_hash_set_add_ref ]----------------------------------------
+static int test_hash_set_add_ref()
+{
+  gds_hash_set_t * hash= hash_set_create(100, 0.0, _hash_cmp,
+				     _hash_set_destroy, _hash_compute);
+  _hash_set_destroy_count= 0;
+  ASSERT_RETURN(hash_set_add(hash, (void *) 100) == (void *) 100,
+		"hash_set_add() should return same pointer");
+  ASSERT_RETURN(hash_set_get_refcnt(hash, (void *) 100) == 1,
+		"incorrect reference count");
+  ASSERT_RETURN(hash_set_add(hash, (void *) 1100) == (void *) 100,
+		"hash_set_add() should return other pointer (ref)");
+  ASSERT_RETURN(hash_set_get_refcnt(hash, (void *) 100) == 2,
+		"incorrect reference count");
+  ASSERT_RETURN(_hash_set_destroy_count == 0,
+		"_hash_set_destroy() should not have been called");
+  hash_set_destroy(&hash);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_hash_set_search ]-----------------------------------------
+static int test_hash_set_search()
+{
+  gds_hash_set_t * hash= hash_set_create(100, 0.0, _hash_cmp,
+				     _hash_set_destroy, _hash_compute);
+  hash_set_add(hash, (void *) 1);
+  hash_set_add(hash, (void *) 2);
+  ASSERT_RETURN(hash_set_search(hash, (void *) 1) == (void *) 1,
+		"hash_set_search() returned an incorrect value");
+  ASSERT_RETURN(hash_set_search(hash, (void *) 1) == (void *) 1,
+		"hash_set_search() returned an incorrect value");
+  hash_set_destroy(&hash);  
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_hash_set_search_missing ]---------------------------------
+static int test_hash_set_search_missing()
+{
+  gds_hash_set_t * hash= hash_set_create(100, 0.0, _hash_cmp,
+				     _hash_set_destroy, _hash_compute);
+  ASSERT_RETURN(hash_set_search(hash, (void *) 1) == NULL,
+		"hash_set_search() should return NULL");
+  hash_set_destroy(&hash);  
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_hash_set_remove ]-----------------------------------------
+static int test_hash_set_remove()
+{
+  gds_hash_set_t * hash= hash_set_create(100, 0.0, _hash_cmp,
+				     _hash_set_destroy, _hash_compute);
+  _hash_set_destroy_count= 0;
+  hash_set_add(hash, (void *) 100);
+  ASSERT_RETURN(hash_set_get_refcnt(hash, (void *) 100) == 1,
+		"incorrect reference count");
+  ASSERT_RETURN(hash_set_remove(hash, (void *) 100) == HASH_SUCCESS,
+		"hash_set_remove() should succeed");
+  ASSERT_RETURN(_hash_set_destroy_count == 1,
+		"_hash_set_destroy() was not called");
+  hash_set_destroy(&hash);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_hash_set_remove_unref ]-----------------------------------
+static int test_hash_set_remove_unref()
+{
+  gds_hash_set_t * hash= hash_set_create(100, 0.0, _hash_cmp,
+				     _hash_set_destroy, _hash_compute);
+  _hash_set_destroy_count= 0;
+  hash_set_add(hash, (void *) 100);
+  hash_set_add(hash, (void *) 100);
+  ASSERT_RETURN(hash_set_get_refcnt(hash, (void *) 100) == 2,
+		"incorrect reference count");
+  ASSERT_RETURN(hash_set_remove(hash, (void *) 100) == HASH_SUCCESS_UNREF,
+		"hash_set_remove() should succeed");
+  ASSERT_RETURN(_hash_set_destroy_count == 0,
+		"_hash_set_destroy() should not have been called");
+  hash_set_destroy(&hash);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_hash_set_remove_missing ]---------------------------------
+static int test_hash_set_remove_missing()
+{
+  gds_hash_set_t * hash= hash_set_create(100, 0.0, _hash_cmp,
+				     _hash_set_destroy, _hash_compute);
+  ASSERT_RETURN(hash_set_remove(hash, (void *) 100) == HASH_ERROR_NO_MATCH,
+		"hash_set_remove() should fail (no-match)");
+  hash_set_destroy(&hash);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_hash_set_for_each ]---------------------------------------
+static int test_hash_set_for_each()
+{
+  gds_hash_set_t * hash= hash_set_create(100, 0.0, _hash_cmp,
+				     _hash_set_destroy, _hash_compute);
+  unsigned int count= 0;
+  hash_set_add(hash, (void *) 1);
+  hash_set_add(hash, (void *) 2);
+  hash_set_add(hash, (void *) 3);
+  hash_set_add(hash, (void *) 4);
+  ASSERT_RETURN(hash_set_for_each(hash, _hash_for_each, &count) == 0,
+		"hash_set_for_each() should succeed");
+  ASSERT_RETURN(count == 4, "incorrect number of items enumerated");
+  hash_set_destroy(&hash);
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_hash_set_enum ]-------------------------------------------
+static int test_hash_set_enum()
+{
+  gds_hash_set_t * hash= hash_set_create(100, 0.0, _hash_cmp,
+				     _hash_set_destroy, _hash_compute);
+  gds_enum_t * enu;
+  unsigned int value;
+  unsigned int count= 0;
+  hash_set_add(hash, (void *) 1);
+  hash_set_add(hash, (void *) 2);
+  hash_set_add(hash, (void *) 3);
+  hash_set_add(hash, (void *) 4);
+  enu= hash_set_get_enum(hash);
+  while (enum_has_next(enu)) {
+    value= **(unsigned int**) enum_get_next(enu);
+    count++;
   }
-  enum_destroy(&pEnum);
-  */
-  return UTEST_SKIPPED;
+  ASSERT_RETURN(count == 4, "incorrect number of items enumerated");
+  hash_set_destroy(&hash);
+  return UTEST_SUCCESS;
 }
+
+// -----[ test_hash_set_strings ]----------------------------------------
+static int test_hash_set_strings()
+{
+  unsigned int index;
+  unsigned int len;
+  char allowed_chars[]= "abcdefghijklmnopqrstuvwxyz"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+  gds_hash_set_t * hash= hash_set_create(6, 0,
+					 hash_utils_compare_string,
+					 _hash_set_destroy,
+					 hash_utils_key_compute_string);
+  char * tmp;
+  int result;
+
+#define HASH_NITEMS      1024
+#define HASH_STR_MAX_LEN 1024
+  char * HASH_ITEMS_STR[HASH_NITEMS];
+  char * HASH_ITEMS_STR_PTR[HASH_NITEMS];
+
+  // Generate random strings
+  for (index= 0; index < HASH_NITEMS; index++) {
+    // Note
+    // - empty strings allowed
+    // - collisions (non unique strings) are allowed
+    len= random() % HASH_STR_MAX_LEN;
+    HASH_ITEMS_STR[index]= malloc(sizeof(char)*(len+1));
+    HASH_ITEMS_STR[index][len]= '\0';
+    while (len > 0) {
+      HASH_ITEMS_STR[index][len-1]=
+	allowed_chars[random() % strlen(allowed_chars)];
+      len--;
+    }
+    HASH_ITEMS_STR_PTR[index]= HASH_ITEMS_STR[index];
+  }
+
+  for (index= 0; index < HASH_NITEMS; index++) {
+    tmp= (char *) hash_set_add(hash, HASH_ITEMS_STR[index]);
+    ASSERT_RETURN((tmp == HASH_ITEMS_STR[index]) ||
+		  !strcmp(tmp, HASH_ITEMS_STR[index]),
+		  "hash_set_add() failed (tmp=%p [%s] / data=%p [%s])",
+		  tmp, tmp, HASH_ITEMS_STR[index], HASH_ITEMS_STR[index]);
+    if (tmp != HASH_ITEMS_STR[index])
+      HASH_ITEMS_STR_PTR[index]= tmp;
+  }
+
+  for (index= 0; index < HASH_NITEMS; index++) {
+    ASSERT_RETURN(hash_set_search(hash, HASH_ITEMS_STR[index])
+		  == HASH_ITEMS_STR_PTR[index],
+		  "hash_set_search() returned an incorrect value");
+  }
+
+  for (index= 0; index < HASH_NITEMS; index++) {
+    result= hash_set_remove(hash, HASH_ITEMS_STR[index]);
+    ASSERT_RETURN((result == HASH_SUCCESS) ||
+		  (result == HASH_SUCCESS_UNREF),
+		  "hash_set_remove() failed");
+  }
+
+  for (index= 0; index < HASH_NITEMS; index++) {
+    free(HASH_ITEMS_STR[index]);
+  }
+  hash_set_destroy(&hash);
+  return UTEST_SUCCESS;
+}
+
 
 /////////////////////////////////////////////////////////////////////
 // GDS_CHECK_BIT_VECTOR
 /////////////////////////////////////////////////////////////////////
+
 #include <libgds/bit_vector.h>
 int test_bit_vector_creation_destruction()
 {
@@ -2602,14 +3356,14 @@ int test_bloom_hash_creation_destruction()
 int test_bloom_hash_insertion()
 {
   SBloomFilterHash * pBloomHash;
-  SUInt32Array * uArray;
+  uint32_array_t * uArray;
   uint8_t uCpt;
   uint32_t uByte;
 
   pBloomHash = bloom_hash_create(MAX_UINT32_T, 20);
   uArray = bloom_hash_get(pBloomHash, (uint8_t*)msg[0], strlen(msg[0]));
   for (uCpt = 0; uCpt < 20; uCpt++) {
-    _array_get_at((SArray*)uArray, uCpt, &uByte);
+    uByte= uArray->data[uCpt];
     if (uByte != uResByte[uCpt] ) {
       bloom_hash_destroy(&pBloomHash);
       return UTEST_FAILURE;
@@ -2680,7 +3434,8 @@ unit_test_t STRUTILS_TESTS[]= {
   {test_strutils_create_null, "create (null)"},
   {test_strutils_lcreate, "lcreate"},
   {test_strutils_append, "append"},
-  {test_strutils_append_null, "append (null)"},
+  {test_strutils_append_null, "append (append=null)"},
+  {test_strutils_append_src_null, "append (src=null)"},
   {test_strutils_prepend, "prepend"},
   {test_strutils_prepend_null, "prepend (null)"},
   {test_strutils_convert_int, "conversion int"},
@@ -2705,9 +3460,14 @@ unit_test_t STACK_TESTS[]= {
 };
 #define STACK_NTESTS ARRAY_SIZE(STACK_TESTS)
 
+unit_test_t ENUM_TESTS[]= {
+  {test_enum_template, "template"},
+};
+#define ENUM_NTESTS ARRAY_SIZE(ENUM_TESTS)
+
 unit_test_t ARRAY_TESTS[]= {
+  {test_array_create, "create/destroy"},
   {test_array_basic, "basic use"},
-  {test_array_access, "access"},
   {test_array_enum, "enum"},
   {test_array_copy, "copy"},
   {test_array_remove, "remove items"},
@@ -2721,59 +3481,94 @@ unit_test_t ARRAY_TESTS[]= {
 
 unit_test_t PTRARRAY_TESTS[]= {
   {test_ptr_array, "basic use"},
+  {test_ptr_array_template, "template"},
+  {test_ptr_array_template_sorted, "template (sorted)"},
 };
 #define PTRARRAY_NTESTS ARRAY_SIZE(PTRARRAY_TESTS)
 
 unit_test_t TOKENIZER_TESTS[]= {
   {test_tokenizer_basic, "basic use"},
   {test_tokenizer_quotes, "quotes"},
+  {test_tokenizer_escape, "escaped characters"},
+  {test_tokenizer_escape_incomplete, "escaped characters (incomplete)"},
+  {test_tokenizer_quotes_missing_close, "quotes (close missing)"},
+  {test_tokenizer_quotes_missing_open, "quotes (open missing)"},
   {test_tokenizer_quotes2, "quotes (2)"},
   {test_tokenizer_multiquotes, "multiquotes"},
   {test_tokenizer_braces, "braces"},
   {test_tokenizer_complex, "complex"},
+  {test_tokenizer_params, "params"},
+  {test_tokenizer_params_invalid, "params (invalid)"},
+  {test_tokenizer_params_undef, "params (undef)"},
+  {test_tokenizer_opt_single_delim, "option single-delim"},
+  {test_tokenizer_opt_empty_final, "option empty-final"},
+  {test_tokenizer_protected_block, "protected block"},
 };
 #define TOKENIZER_NTESTS ARRAY_SIZE(TOKENIZER_TESTS)
+
+unit_test_t PARAMS_TESTS[]= {
+  {test_params_basic, "params"},
+  {test_params_invalid, "params (invalid)"},
+  {test_params_undef, "params (undef)"},
+};
+#define PARAMS_NTESTS ARRAY_SIZE(PARAMS_TESTS)
 
 unit_test_t CLI_TESTS[]= {
   {test_cli_basic, "basic use"},
   {test_cli_options, "options"},
   {test_cli_varargs, "varargs"},
   {test_cli_context, "context"},
+  {test_cli_params, "params"},
 };
 #define CLI_NTESTS ARRAY_SIZE(CLI_TESTS)
 
-unit_test_t PATRICIA_TESTS[]= {
-  {test_patricia_insertion, "insertion"},
-  {test_patricia_masking, "masking"},
-  {test_patricia_exact, "exact-match"},
-  {test_patricia_best, "best-match"},
-  {test_patricia_update, "update"},
-  {test_patricia_update, "replace"},
-  {test_patricia_remove, "remove"},
-  {test_patricia_enum, "enum"},
+unit_test_t TRIE_TESTS[]= {
+  {test_trie_create_destroy, "creation/destruction"},
+  {test_trie_insert, "insert"},
+  {test_trie_insert_dup, "insert (duplicate)"},
+  {test_trie_insert_replace, "insert (replace)"},
+  {test_trie_exact_match, "exact-match"},
+  {test_trie_best_match, "best-match"},
+  {test_trie_replace, "replace"},
+  {test_trie_replace_missing, "replace (missing)"},
+  {test_trie_num_nodes, "num-nodes"},
+  {test_trie_remove, "remove"},
+  {test_trie_remove2, "remove (2)"},
+  {test_trie_masking, "masking"},
+  {test_trie_for_each, "for-each"},
+  {test_trie_enum, "enum"},
+  {test_trie_complex, "complex"},
 };
-#define PATRICIA_NTESTS ARRAY_SIZE(PATRICIA_TESTS)
+#define TRIE_NTESTS ARRAY_SIZE(TRIE_TESTS)
 
 unit_test_t ASSOC_TESTS[]= {
+  {test_assoc_create_destroy, "creation/destruction"},
   {test_assoc_basic, "basic use"},
   {test_assoc_for_each, "for-each"},
+  {test_assoc_enum_keys, "enum (keys)"},
+  {test_assoc_enum_values, "enum (values)"},
 };
 #define ASSOC_NTESTS ARRAY_SIZE(ASSOC_TESTS)
 
 unit_test_t DLLIST_TESTS[]= {
-  {test_dllist_basic, "basic use"},  
+  {test_dllist_basic, "basic use"},
 };
 #define DLLIST_NTESTS ARRAY_SIZE(DLLIST_TESTS)
 
-unit_test_t HASH_TESTS[]= {
-  {test_hash_creation_destruction, "creation/destruction"},
-  {test_hash_insertion_search_deletion, "insertion/deletion" },
-  {test_hash_reference, "references/unreferences" },
-  {test_hash_old, "old test"},
-  {test_hash_for_each, "for-each"},
-  {test_hash_enum, "enum"},
+unit_test_t HASH_SET_TESTS[]= {
+  {test_hash_set_create_destroy, "creation/destruction"},
+  {test_hash_set_add, "add"},
+  {test_hash_set_add_ref, "add (ref)"},
+  {test_hash_set_search, "search"},
+  {test_hash_set_search_missing, "search (missing)"},
+  {test_hash_set_remove, "remove"},
+  {test_hash_set_remove_unref, "remove (unref)"},
+  {test_hash_set_remove_missing, "remove (missing)"},
+  {test_hash_set_for_each, "for-each"},
+  {test_hash_set_enum, "enum"},
+  {test_hash_set_strings, "strings"},
 };
-#define HASH_NTESTS ARRAY_SIZE(HASH_TESTS)
+#define HASH_SET_NTESTS ARRAY_SIZE(HASH_SET_TESTS)
 
 unit_test_t LIST_TESTS[]= {
   {test_list_basic, "basic use"},
@@ -2781,11 +3576,12 @@ unit_test_t LIST_TESTS[]= {
 #define LIST_NTESTS ARRAY_SIZE(LIST_TESTS)
 
 unit_test_t RADIX_TESTS[]= {
-  {test_radix_basic, "basic use"},
-  {test_radix_old, "old test"},
-  {test_radix_old_ipv4, "old IPv4 test"},
+  {test_radix_basic, "creation/destruction"},
+  {test_radix_add_remove, "add/remove"},
+  {test_radix_num_nodes, "num-nodes"},
   {test_radix_for_each, "for-each"},
   {test_radix_enum, "enum"},
+  {test_radix_ipv4, "IPv4"},
 };
 #define RADIX_NTESTS ARRAY_SIZE(RADIX_TESTS)
 
@@ -2816,16 +3612,20 @@ unit_test_suite_t SUITES[]= {
   {"String-Utilities", STRUTILS_NTESTS, STRUTILS_TESTS},
   {"FIFO", FIFO_NTESTS, FIFO_TESTS},
   {"Stack", STACK_NTESTS, STACK_TESTS},
-  {"Array", ARRAY_NTESTS, ARRAY_TESTS},
+  {"Enumerator", ENUM_NTESTS, ENUM_TESTS},
+  {"Array", ARRAY_NTESTS, ARRAY_TESTS,
+   test_before_array, NULL},
   {"Pointer-Array", PTRARRAY_NTESTS, PTRARRAY_TESTS},
   {"Associative-Array", ASSOC_NTESTS, ASSOC_TESTS},
   {"List", LIST_NTESTS, LIST_TESTS},
   {"Doubly-Linked-List", DLLIST_NTESTS, DLLIST_TESTS},
-  {"Hash-Table", HASH_NTESTS, HASH_TESTS},
-  {"Radix-Tree", RADIX_NTESTS, RADIX_TESTS},
-  {"Patricia-Tree", PATRICIA_NTESTS, PATRICIA_TESTS},
-  {"Tokenizer",TOKENIZER_NTESTS, TOKENIZER_TESTS},
-  {"CLI", CLI_NTESTS, CLI_TESTS},
+  {"Hash-Set", HASH_SET_NTESTS, HASH_SET_TESTS},
+  {"Radix-Tree", RADIX_NTESTS, RADIX_TESTS,
+   test_radix_before, NULL},
+  {"Trie", TRIE_NTESTS, TRIE_TESTS},
+  {"Tokenizer", TOKENIZER_NTESTS, TOKENIZER_TESTS},
+  {"Params", PARAMS_NTESTS, PARAMS_TESTS},
+  {"CLI", CLI_NTESTS, CLI_TESTS, test_before_cli, test_after_cli},
   {"Bit Vector", BIT_VECTOR_NTESTS, BIT_VECTOR_TESTS},
   {"Bloom Hash", BLOOM_HASH_NTESTS, BLOOM_HASH_TESTS},
   {"Bloom Filter", BLOOM_FILTER_NTESTS, BLOOM_FILTER_TESTS}
@@ -2835,21 +3635,22 @@ unit_test_suite_t SUITES[]= {
 // ----- main -------------------------------------------------------
 int main(int argc, char * argv[])
 {
-  int iResult= 0;
+  int result= 0;
 
   srandom(2007);
   gds_init(0);
   //gds_init(GDS_OPTION_MEMORY_DEBUG);
 
   utest_init(0);
+  //utest_set_fork();
   utest_set_user(getenv("USER"));
   utest_set_project(PACKAGE_NAME, PACKAGE_VERSION);
   utest_set_xml_logging("libgds-check.xml");
-  iResult= utest_run_suites(SUITES, NUM_SUITES);
+  result= utest_run_suites(SUITES, NUM_SUITES);
 
   utest_done();
-
+  
   gds_destroy();
 
-  return (iResult==0?EXIT_SUCCESS:EXIT_FAILURE);
+  return (result==0?EXIT_SUCCESS:EXIT_FAILURE);
 }

@@ -1,9 +1,9 @@
 // ==================================================================
 // @(#)cli.c
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 25/06/2003
-// @lastdate 03/07/2008
+// $Id$
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -11,21 +11,24 @@
 #endif
 
 #include <assert.h>
-#include <libgds/cli.h>
-#include <libgds/cli_ctx.h>
-#include <libgds/log.h>
-#include <libgds/memory.h>
-#include <libgds/str_util.h>
+#include <ctype.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define CLI_DELIMITERS " \t"
-#define CLI_OPENING_QUOTES "\""
-#define CLI_CLOSING_QUOTES "\""
+#include <libgds/cli.h>
+#include <libgds/cli_ctx.h>
+#include <libgds/stream.h>
+#include <libgds/memory.h>
+#include <libgds/str_util.h>
 
-static inline void _cli_cmds_set_parent(SCliCmds * pCmds,
-					SCliCmd * pParent);
+#define CLI_DELIMITERS " \t"
+#define CLI_OPENING_QUOTES "\"'"
+#define CLI_CLOSING_QUOTES "\"'"
+#define CLI_PROTECT_QUOTES "'"
+
+static inline void _cli_cmds_set_parent(cli_cmds_t * cmds,
+					cli_cmd_t * parent);
 
 /////////////////////////////////////////////////////////////////////
 //
@@ -37,86 +40,86 @@ static inline void _cli_cmds_set_parent(SCliCmds * pCmds,
 /**
  * Initialize the parameters and option values of the command.
  */
-static void _cli_cmd_init(SCliCmd * pCmd)
+static void _cli_cmd_init(cli_cmd_t * cmd)
 {
-  tokens_destroy(&pCmd->pParamValues);
-  if (pCmd->pOptions != NULL)
-    cli_options_init(pCmd->pOptions);
+  tokens_destroy(&cmd->param_values);
+  if (cmd->options != NULL)
+    cli_options_init(cmd->options);
 }
 
 // -----[ _cli_cmd_create ]------------------------------------------
-static SCliCmd * _cli_cmd_create(char * pcName,
-				 FCliCommand fCommand,
-				 FCliContextCreate fCtxCreate,
-				 FCliContextDestroy fCtxDestroy,
-				 SCliCmds * pSubCmds,
-				 SCliParams * pParams)
+static inline
+cli_cmd_t * _cli_cmd_create(char * name,
+			    FCliCommand fCommand,
+			    FCliContextCreate fCtxCreate,
+			    FCliContextDestroy fCtxDestroy,
+			    cli_cmds_t * sub_cmds,
+			    cli_params_t * params)
 {
-  SCliCmd * pCmd= (SCliCmd *) MALLOC(sizeof(SCliCmd));
+  cli_cmd_t * cmd= (cli_cmd_t *) MALLOC(sizeof(cli_cmd_t));
 
-  pCmd->pcName= (char *) MALLOC(sizeof(char)*(strlen(pcName)+1));
-  strcpy(pCmd->pcName, pcName);
-  pCmd->pOptions= NULL;
-  pCmd->pParams= pParams;
-  pCmd->pSubCmds= pSubCmds;
+  cmd->name= (char *) MALLOC(sizeof(char)*(strlen(name)+1));
+  strcpy(cmd->name, name);
+  cmd->options= NULL;
+  cmd->params= params;
+  cmd->sub_cmds= sub_cmds;
 
-  pCmd->pParent= NULL;
-  pCmd->fCtxCreate= fCtxCreate;
-  pCmd->fCtxDestroy= fCtxDestroy;
-  pCmd->fCommand= fCommand;
-  pCmd->pcHelp= NULL;
-  pCmd->pParamValues= NULL;
+  cmd->parent= NULL;
+  cmd->fCtxCreate= fCtxCreate;
+  cmd->fCtxDestroy= fCtxDestroy;
+  cmd->fCommand= fCommand;
+  cmd->help= NULL;
+  cmd->param_values= NULL;
 
-  if (pSubCmds != NULL)
-    _cli_cmds_set_parent(pSubCmds, pCmd);
-  return pCmd;
+  if (sub_cmds != NULL)
+    _cli_cmds_set_parent(sub_cmds, cmd);
+  return cmd;
 }
 
 // ----- cli_cmd_create ---------------------------------------------
 /**
  * Create a CLI command (executable).
  */
-SCliCmd * cli_cmd_create(char * pcName,
-			 FCliCommand fCommand,
-			 SCliCmds * pSubCmds,
-			 SCliParams * pParams)
+cli_cmd_t * cli_cmd_create(char * name,
+			   FCliCommand fCommand,
+			   cli_cmds_t * sub_cmds,
+			   cli_params_t * params)
 {
-  return _cli_cmd_create(pcName,
+  return _cli_cmd_create(name,
 			 fCommand,
 			 NULL, NULL,
-			 pSubCmds, pParams);
+			 sub_cmds, params);
 }
 
 // ----- cli_cmd_create_ctx -----------------------------------------
 /**
  * Create a CLI context command (not executable).
  */
-SCliCmd * cli_cmd_create_ctx(char * pcName,
-			     FCliContextCreate fCtxCreate,
-			     FCliContextDestroy fCtxDestroy,
-			     SCliCmds * pSubCmds,
-			     SCliParams * pParams)
+cli_cmd_t * cli_cmd_create_ctx(char * name,
+			       FCliContextCreate fCtxCreate,
+			       FCliContextDestroy fCtxDestroy,
+			       cli_cmds_t * sub_cmds,
+			       cli_params_t * params)
 {
-  return _cli_cmd_create(pcName,
-			 NULL,
+  return _cli_cmd_create(name, NULL,
 			 fCtxCreate, fCtxDestroy,
-			 pSubCmds, pParams);
+			 sub_cmds, params);
 }
 
 // ----- cli_cmd_destroy --------------------------------------------
 /**
  * Destroy a CLI command.
  */
-void cli_cmd_destroy(SCliCmd ** ppCmd)
+void cli_cmd_destroy(cli_cmd_t ** cmd_ref)
 {
-  if (*ppCmd != NULL) {
-    FREE((*ppCmd)->pcName);
-    ptr_array_destroy(&(*ppCmd)->pSubCmds);
-    cli_params_destroy(&(*ppCmd)->pParams);
-    cli_options_destroy(&(*ppCmd)->pOptions);
-    tokens_destroy(&(*ppCmd)->pParamValues);
-    FREE(*ppCmd);
-    *ppCmd= NULL;
+  if (*cmd_ref != NULL) {
+    FREE((*cmd_ref)->name);
+    ptr_array_destroy(&(*cmd_ref)->sub_cmds);
+    cli_params_destroy(&(*cmd_ref)->params);
+    cli_options_destroy(&(*cmd_ref)->options);
+    tokens_destroy(&(*cmd_ref)->param_values);
+    FREE(*cmd_ref);
+    *cmd_ref= NULL;
   }
 }
 
@@ -124,40 +127,40 @@ void cli_cmd_destroy(SCliCmd ** ppCmd)
 /**
  *
  */
-void cli_cmd_dump(SLogStream * pStream, char * pcPrefix, SCliCmd * pCmd)
+void cli_cmd_dump(gds_stream_t * stream, char * prefix, cli_cmd_t * cmd)
 {
-  int iIndex;
-  SCliCmd * pSubCmd;
-  SCliOption * pOption;
-  SCliParam * pParam;
+  unsigned int index;
+  cli_cmd_t * sub_cmd;
+  cli_option_t * option;
+  cli_param_t * param;
   char * pcNewPrefix;
 
-  log_printf(pStream, "%s%s", pcPrefix, pCmd->pcName);
-  if (pCmd->pOptions != NULL) {
-    for (iIndex= 0; iIndex < ptr_array_length(pCmd->pOptions); iIndex++) {
-      pOption= (SCliOption *) pCmd->pOptions->data[iIndex];
-      log_printf(pStream, " [--%s]", pOption->pcName);
+  stream_printf(stream, "%s%s", prefix, cmd->name);
+  if (cmd->options != NULL) {
+    for (index= 0; index < ptr_array_length(cmd->options); index++) {
+      option= (cli_option_t *) cmd->options->data[index];
+      stream_printf(stream, " [--%s]", option->name);
     }
   }
-  if (pCmd->pParams != NULL)
-    for (iIndex= 0; iIndex < ptr_array_length(pCmd->pParams); iIndex++) {
-      pParam= (SCliParam *) pCmd->pParams->data[iIndex];
-      log_printf(pStream, " %s", pParam->pcName);
-      if (pParam->tType == CLI_PARAM_TYPE_VARARG) {
-	if (pParam->uMaxArgs > 0)
-	  log_printf(pStream, "?(0-%d)", pParam->uMaxArgs);
+  if (cmd->params != NULL)
+    for (index= 0; index < ptr_array_length(cmd->params); index++) {
+      param= (cli_param_t *) cmd->params->data[index];
+      stream_printf(stream, " %s", param->name);
+      if (param->type == CLI_PARAM_TYPE_VARARG) {
+	if (param->max_args > 0)
+	  stream_printf(stream, "?(0-%d)", param->max_args);
 	else
-	  log_printf(pStream, "?(0-any)");
+	  stream_printf(stream, "?(0-any)");
       }
     }
-  log_printf(pStream, "\n");
-  if (pCmd->pSubCmds != NULL) {
-    pcNewPrefix= (char *) MALLOC(sizeof(char)*(strlen(pcPrefix)+3));
-    strcpy(pcNewPrefix, pcPrefix);
+  stream_printf(stream, "\n");
+  if (cmd->sub_cmds != NULL) {
+    pcNewPrefix= (char *) MALLOC(sizeof(char)*(strlen(prefix)+3));
+    strcpy(pcNewPrefix, prefix);
     strcat(pcNewPrefix, "  ");
-    for (iIndex= 0; iIndex < ptr_array_length(pCmd->pSubCmds); iIndex++) {
-      pSubCmd= (SCliCmd *) pCmd->pSubCmds->data[iIndex];
-      cli_cmd_dump(pStream, pcNewPrefix, pSubCmd);
+    for (index= 0; index < ptr_array_length(cmd->sub_cmds); index++) {
+      sub_cmd= (cli_cmd_t *) cmd->sub_cmds->data[index];
+      cli_cmd_dump(stream, pcNewPrefix, sub_cmd);
     }
     FREE(pcNewPrefix);
   }
@@ -169,22 +172,23 @@ void cli_cmd_dump(SLogStream * pStream, char * pcPrefix, SCliCmd * pCmd)
  * ordering is used for the comparison. This is used for sorting
  * commands in the CLI command tree.
  */
-static int _cli_cmds_item_compare(void * pItem1, void * pItem2,
-				  unsigned int EltSize)
+static int _cli_cmds_item_compare(const void * item1,
+				  const void * item2,
+				  unsigned int elt_size)
 {
-  SCliCmd * pCmd1= *((SCliCmd **) pItem1);
-  SCliCmd * pCmd2= *((SCliCmd **) pItem2);
+  cli_cmd_t * cmd1= *((cli_cmd_t **) item1);
+  cli_cmd_t * cmd2= *((cli_cmd_t **) item2);
 
-  return strcmp(pCmd1->pcName, pCmd2->pcName);
+  return strcmp(cmd1->name, cmd2->name);
 }
 
 // ----- _cli_cmds_item_destroy -------------------------------------
 /**
  * Free a command in a list of commands.
  */
-static void _cli_cmds_item_destroy(void * pItem)
+static void _cli_cmds_item_destroy(void * item, const void * ctx)
 {
-  cli_cmd_destroy((SCliCmd **) pItem);
+  cli_cmd_destroy((cli_cmd_t **) item);
 }
 
 // ----- cli_cmds_create --------------------------------------------
@@ -193,11 +197,12 @@ static void _cli_cmds_item_destroy(void * pItem)
  * on the alphanumeric ordering (thanks to the _cli_cmds_item_compare
  * function).
  */
-SCliCmds * cli_cmds_create()
+cli_cmds_t * cli_cmds_create()
 {
-  return (SCliCmds *) ptr_array_create(ARRAY_OPTION_SORTED,
-				       _cli_cmds_item_compare,
-				       _cli_cmds_item_destroy);
+  return (cli_cmds_t *) ptr_array_create(ARRAY_OPTION_SORTED,
+					 _cli_cmds_item_compare,
+					 _cli_cmds_item_destroy,
+					 NULL);
 }
 
 // ----- cli_cmds_destroy -------------------------------------------
@@ -209,40 +214,40 @@ SCliCmds * cli_cmds_create()
  * function on lists returned by the cli_matching_cmds function since
  * in this case, the underlying array's destroy function is NULL.
  */
-void cli_cmds_destroy(SCliCmds ** ppCmds)
+void cli_cmds_destroy(cli_cmds_t ** cmds_ref)
 {
-  ptr_array_destroy((SPtrArray **) ppCmds);
+  ptr_array_destroy((SPtrArray **) cmds_ref);
 }
 
 // ----- cli_cmds_add -----------------------------------------------
 /**
  * Add a command (pCmd) in the list (pCmds).
  */
-int cli_cmds_add(SCliCmds * pCmds, SCliCmd * pCmd)
+int cli_cmds_add(cli_cmds_t * cmds, cli_cmd_t * cmd)
 {
-  return ptr_array_add((SPtrArray *) pCmds, &pCmd);
+  return ptr_array_add((SPtrArray *) cmds, &cmd);
 }
 
 // -----[ cli_cmds_get_num ]-----------------------------------------
 /**
  * Get the number of commands.
  */
-int cli_cmds_get_num(SCliCmds * pCmds)
+int cli_cmds_get_num(cli_cmds_t * cmds)
 {
-  return ptr_array_length(pCmds);
+  return ptr_array_length(cmds);
 }
 
 // -----[ _cli_cmds_set_parent ]-------------------------------------
 /**
  * Set the parent field of all the commands in this set.
  */
-static inline void _cli_cmds_set_parent(SCliCmds * pCmds,
-					SCliCmd * pParent)
+static inline void _cli_cmds_set_parent(cli_cmds_t * cmds,
+					cli_cmd_t * parent)
 {
-  unsigned int uIndex;
+  unsigned int index;
 
-  for (uIndex= 0; uIndex < cli_cmds_get_num(pCmds); uIndex++)
-    ((SCliCmd *) pCmds->data[uIndex])->pParent= pParent;
+  for (index= 0; index < cli_cmds_get_num(cmds); index++)
+    ((cli_cmd_t *) cmds->data[index])->parent= parent;
 }
 
 // ----- cli_matching_cmds ------------------------------------------
@@ -256,24 +261,25 @@ static inline void _cli_cmds_set_parent(SCliCmds * pCmds,
  * commands can be freed using the cli_cmds_destroy function, since
  * the underlying array's destroy function is NULL.
  */
-SCliCmds * cli_matching_cmds(SCliCmds * pCmds, const char * pcText)
+cli_cmds_t * cli_matching_cmds(cli_cmds_t * cmds, const char * text)
 {
-  int iIndex;
-  int iTextLen= strlen(pcText);
-  SCliCmds * pMatchingCmds=
-    (SCliCmds *) ptr_array_create(ARRAY_OPTION_SORTED,
-				  _cli_cmds_item_compare, NULL);
+  unsigned int index;
+  int text_len= strlen(text);
+  cli_cmds_t * matching_cmds=
+    (cli_cmds_t *) ptr_array_create(ARRAY_OPTION_SORTED,
+				    _cli_cmds_item_compare,
+				    NULL, NULL);
 
-  if (pCmds == NULL) {
-    return pMatchingCmds;
+  if (cmds == NULL) {
+    return matching_cmds;
   }
-  for (iIndex= 0; iIndex < ptr_array_length(pCmds); iIndex++) {
-    if (strncmp(pcText, ((SCliCmd *) pCmds->data[iIndex])->pcName,
-		iTextLen) == 0) {
-      ptr_array_add(pMatchingCmds, &pCmds->data[iIndex]);
+  for (index= 0; index < ptr_array_length(cmds); index++) {
+    if (strncmp(text, ((cli_cmd_t *) cmds->data[index])->name,
+		text_len) == 0) {
+      ptr_array_add(matching_cmds, &cmds->data[index]);
     }
   }
-  return pMatchingCmds;
+  return matching_cmds;
 }
 
 
@@ -281,14 +287,14 @@ SCliCmds * cli_matching_cmds(SCliCmds * pCmds, const char * pcText)
 /**
  *
  */
-SCliCmd * cli_cmd_find_subcmd(SCliCmd * pCmd, char * pcName)
+cli_cmd_t * cli_cmd_find_subcmd(cli_cmd_t * cmd, char * name)
 {
-  char ** x= &pcName;
-  unsigned int uIndex;
+  char ** x= &name;
+  unsigned int index;
 
-  if (pCmd->pSubCmds != NULL)
-    if (!ptr_array_sorted_find_index(pCmd->pSubCmds, &x, &uIndex))
-      return pCmd->pSubCmds->data[uIndex];
+  if (cmd->sub_cmds != NULL)
+    if (!ptr_array_sorted_find_index(cmd->sub_cmds, &x, &index))
+      return cmd->sub_cmds->data[index];
   return NULL;
 }
 
@@ -296,10 +302,10 @@ SCliCmd * cli_cmd_find_subcmd(SCliCmd * pCmd, char * pcName)
 /**
  *
  */
-int cli_cmd_get_num_subcmds(SCliCmd * pCmd)
+int cli_cmd_get_num_subcmds(cli_cmd_t * cmd)
 {
-  if (pCmd->pSubCmds != NULL)
-    return ptr_array_length(pCmd->pSubCmds);
+  if (cmd->sub_cmds != NULL)
+    return ptr_array_length(cmd->sub_cmds);
   return 0;
 }
 
@@ -307,66 +313,66 @@ int cli_cmd_get_num_subcmds(SCliCmd * pCmd)
 /**
  *
  */
-SCliCmd * cli_cmd_get_subcmd_at(SCliCmd * pCmd, int iIndex)
+cli_cmd_t * cli_cmd_get_subcmd_at(cli_cmd_t * cmd, unsigned int index)
 {
-  return (SCliCmd *) pCmd->pSubCmds->data[iIndex];
+  return (cli_cmd_t *) cmd->sub_cmds->data[index];
 }
 
 // ----- cli_cmd_add_subcmd -----------------------------------------
 /**
  *
  */
-int cli_cmd_add_subcmd(SCliCmd * pCmd, SCliCmd * pSubCmd)
+int cli_cmd_add_subcmd(cli_cmd_t * cmd, cli_cmd_t * sub_cmd)
 {
-  if (pCmd->pSubCmds == NULL)
-    pCmd->pSubCmds= cli_cmds_create();
-  pSubCmd->pParent= pCmd;
-  return cli_cmds_add(pCmd->pSubCmds, pSubCmd);
+  if (cmd->sub_cmds == NULL)
+    cmd->sub_cmds= cli_cmds_create();
+  sub_cmd->parent= cmd;
+  return cli_cmds_add(cmd->sub_cmds, sub_cmd);
 }
 
 // ----- cli_cmd_add_param ------------------------------------------
 /**
  *
  */
-int cli_cmd_add_param(SCliCmd * pCmd, char * pcName,
+int cli_cmd_add_param(cli_cmd_t * cmd, char * name,
 		      FCliCheckParam fCheck)
 {
-  if (pCmd->pParams == NULL)
-    pCmd->pParams= cli_params_create();
-  return cli_params_add(pCmd->pParams, pcName, fCheck);
+  if (cmd->params == NULL)
+    cmd->params= cli_params_create();
+  return cli_params_add(cmd->params, name, fCheck);
 }
 
 // ----- cli_cmd_get_num_params -------------------------------------
 /**
  *
  */
-int cli_cmd_get_num_params(SCliCmd * pCmd)
+int cli_cmd_get_num_params(cli_cmd_t * cmd)
 {
-  if (pCmd->pParams == NULL)
+  if (cmd->params == NULL)
     return 0;
-  return ptr_array_length(pCmd->pParams);
+  return ptr_array_length(cmd->params);
 }
 
 // ----- cli_cmd_get_param_at ---------------------------------------
 /**
  *
  */
-SCliParam * cli_cmd_get_param_at(SCliCmd * pCmd, uint32_t uIndex)
+cli_param_t * cli_cmd_get_param_at(cli_cmd_t * cmd, unsigned int index)
 {
-  return (SCliParam *) pCmd->pParams->data[uIndex];
+  return (cli_param_t *) cmd->params->data[index];
 }
 
 // ----- cli_cmd_add_option -----------------------------------------
 /**
  *
  */
-int cli_cmd_add_option(SCliCmd * pCmd,
-		       char * pcName,
+int cli_cmd_add_option(cli_cmd_t * cmd,
+		       char * name,
 		       FCliCheckParam fCheck)
 {
-  if (pCmd->pOptions == NULL)
-    pCmd->pOptions= cli_options_create();
-  return cli_options_add(pCmd->pOptions, pcName, fCheck);
+  if (cmd->options == NULL)
+    cmd->options= cli_options_create();
+  return cli_options_add(cmd->options, name, fCheck);
 }
 
 // ----- _cli_cmd_match ---------------------------------------------
@@ -380,48 +386,48 @@ int cli_cmd_add_option(SCliCmd * pCmd,
  *   CLI_MATCH_OPTION_VALUE : matched an option value (option returned)
  *   CLI_MATCH_PARAM_VALUE  : matched a parameter value (parameter returned)
  */
-int cli_cmd_match(SCli * pCli, SCliCmd * pCmd, char * pcStartCmd,
-		  char * pcEndCmd, void ** ppCtx)
+int cli_cmd_match(cli_t * cli, cli_cmd_t * cmd, char * pcStartCmd,
+		  char * pcEndCmd, void ** pctx)
 {
-  STokens * pTokens;
+  const gds_tokens_t * tokens;
   int iTokenIndex= 0;
   int iLastTokenIndex;
   int iParamIndex;
   char * pcToken;
-  char * pcValue, * pcName;
-  SCliOption * pOption;
-  int iResult;
+  char * pcValue, * name;
+  cli_option_t * option;
+  int result;
   
-  pCli->pTokenizer->iAllowFinalEmptyField= 1;
-  iResult= tokenizer_run(pCli->pTokenizer, pcStartCmd);
-  pCli->pTokenizer->iAllowFinalEmptyField= 0;
-  if (iResult < 0)
+  tokenizer_set_flag(cli->tokenizer, TOKENIZER_OPT_EMPTY_FINAL);
+  result= tokenizer_run(cli->tokenizer, pcStartCmd);
+  tokenizer_reset_flag(cli->tokenizer, TOKENIZER_OPT_EMPTY_FINAL);
+  if (result < 0)
     return CLI_MATCH_NOTHING;
   
-  pTokens= tokenizer_get_tokens(pCli->pTokenizer);
-  iLastTokenIndex= tokens_get_num(pTokens)-1;
+  tokens= tokenizer_get_tokens(cli->tokenizer);
+  iLastTokenIndex= tokens_get_num(tokens)-1;
   
   // Match all tokens...
-  while (iTokenIndex < tokens_get_num(pTokens)) {
-    pcToken= tokens_get_string_at(pTokens, iTokenIndex);
+  while (iTokenIndex < tokens_get_num(tokens)) {
+    pcToken= tokens_get_string_at(tokens, iTokenIndex);
     
     if ((iTokenIndex == iLastTokenIndex) &&
 	!strcmp(pcToken, "")) {
-      *ppCtx= pCmd;
+      *pctx= cmd;
       return CLI_MATCH_COMMAND;
     }
     
     // Current token matches a sub-command ?
-    pCmd= cli_cmd_find_subcmd(pCmd, pcToken);
-    if (pCmd == NULL) {
-      *ppCtx= pCmd;
+    cmd= cli_cmd_find_subcmd(cmd, pcToken);
+    if (cmd == NULL) {
+      *pctx= cmd;
       return CLI_MATCH_NOTHING;
     }
     iTokenIndex++;
     
     // Match options (if supported)...
-    while (iTokenIndex < tokens_get_num(pTokens)) {
-      pcToken= tokens_get_string_at(pTokens, iTokenIndex);
+    while (iTokenIndex < tokens_get_num(tokens)) {
+      pcToken= tokens_get_string_at(tokens, iTokenIndex);
       
       // Is this an option ?
       if (strncmp(pcToken, "--", 2))
@@ -429,21 +435,21 @@ int cli_cmd_match(SCli * pCli, SCliCmd * pCmd, char * pcStartCmd,
       pcToken+= 2;
       
       // Does the command support options ?
-      if (pCmd->pOptions == NULL)
+      if (cmd->options == NULL)
 	return CLI_MATCH_NOTHING;
       
       // Locate option name/value
       pcValue= pcToken;
-      pcName= strsep(&pcValue, "=");
-      pOption= cli_options_find(pCmd->pOptions, pcToken);
-      if (pOption == NULL)
+      name= strsep(&pcValue, "=");
+      option= cli_options_find(cmd->options, pcToken);
+      if (option == NULL)
 	return CLI_MATCH_NOTHING;
       
       if (pcValue != NULL) {
 	// If we have received the name, but no value and this is the
 	// last token, need to complete value
 	if (iTokenIndex == iLastTokenIndex) {
-	  *ppCtx= pOption;
+	  *pctx= option;
 	  return CLI_MATCH_OPTION_VALUE;
 	}
       }
@@ -453,17 +459,17 @@ int cli_cmd_match(SCli * pCli, SCliCmd * pCmd, char * pcStartCmd,
     
     // Match params...
     iParamIndex= 0;
-    while (iParamIndex < cli_cmd_get_num_params(pCmd)) {
+    while (iParamIndex < cli_cmd_get_num_params(cmd)) {
       if (iTokenIndex == iLastTokenIndex) {
 	
 	// Try to match an option ?
-	if ((pCmd->pOptions != NULL) && (pcEndCmd != NULL) &&
+	if ((cmd->options != NULL) && (pcEndCmd != NULL) &&
 	    (!strncmp(pcEndCmd, "--", 2))) {
-	  *ppCtx= pCmd;
+	  *pctx= cmd;
 	  return CLI_MATCH_OPTION_NAMES;
 	}
 	
-	*ppCtx= pCmd->pParams->data[iParamIndex];
+	*pctx= cmd->params->data[iParamIndex];
 	return CLI_MATCH_PARAM_VALUE;
       }
       
@@ -473,7 +479,7 @@ int cli_cmd_match(SCli * pCli, SCliCmd * pCmd, char * pcStartCmd,
     
   }
   
-  *ppCtx= pCmd;
+  *pctx= cmd;
   return CLI_MATCH_COMMAND;
 }
 
@@ -488,17 +494,17 @@ int cli_cmd_match(SCli * pCli, SCliCmd * pCmd, char * pcStartCmd,
  *   - CLI_ERROR_BAD_OPTION     if the option value was not valid
  *   - CLI_STATUS_NOT_AN_OPTION if the token is not an option
  */
-static int _cli_cmd_process_options(SCli * pCli)
+static int _cli_cmd_process_options(cli_t * cli)
 {
   char * pcValue;
-  int iResult;
-  SCliCmd * pCmd= pCli->pCtx->pCmd;
-  STokens * pTokens= tokenizer_get_tokens(pCli->pTokenizer);
+  int result;
+  cli_cmd_t * cmd= cli->ctx->cmd;
+  const gds_tokens_t * tokens= tokenizer_get_tokens(cli->tokenizer);
   char * pcToken;
-  char * pcName;
+  char * name;
 
-  while (pCli->uExecTokenIndex < tokens_get_num(pTokens)) {
-    pcToken= tokens_get_string_at(pTokens, pCli->uExecTokenIndex);
+  while (cli->uExecTokenIndex < tokens_get_num(tokens)) {
+    pcToken= tokens_get_string_at(tokens, cli->uExecTokenIndex);
 
     // Is this an option ?
     if (strncmp(pcToken, "--", 2))
@@ -506,17 +512,17 @@ static int _cli_cmd_process_options(SCli * pCli)
     pcToken+= 2;
     
     // Does the command support options ?
-    if (pCmd->pOptions == NULL)
+    if (cmd->options == NULL)
       return CLI_ERROR_UNKNOWN_OPTION;
     
     // Locate option specification
     pcValue= pcToken;
-    pcName= strsep(&pcValue, "=");
-    iResult= cli_options_set_value(pCmd->pOptions, pcName, pcValue);
-    if (iResult)
-      return iResult;
+    name= strsep(&pcValue, "=");
+    result= cli_options_set_value(cmd->options, name, pcValue);
+    if (result)
+      return result;
 
-    pCli->uExecTokenIndex++;
+    cli->uExecTokenIndex++;
   }
   
   return CLI_SUCCESS;
@@ -531,54 +537,54 @@ static int _cli_cmd_process_options(SCli * pCli)
  *   - CLI_SUCCESS               in case of success
  *   - CLI_ERROR_MISSING_PARAM   if there is not enough parameter
  */
-static int _cli_cmd_process_params(SCli * pCli)
+static int _cli_cmd_process_params(cli_t * cli)
 {
-  STokens * pTokens= tokenizer_get_tokens(pCli->pTokenizer);
+  const gds_tokens_t * tokens= tokenizer_get_tokens(cli->tokenizer);
   char * pcToken;
   unsigned int uParamIndex= 0;
-  SCliParam * pParam;
-  int iResult;
-  SCliCmd * pCmd= pCli->pCtx->pCmd;
+  cli_param_t * param;
+  int result;
+  cli_cmd_t * cmd= cli->ctx->cmd;
   unsigned int uNumTokens;
 
   // Does the command support parameters
-  if (pCmd->pParams == NULL)
+  if (cmd->params == NULL)
     return CLI_SUCCESS;
 
-  while (uParamIndex < cli_params_num(pCmd->pParams)) {
-    pParam= cli_cmd_get_param_at(pCmd, uParamIndex);
+  while (uParamIndex < cli_params_num(cmd->params)) {
+    param= cli_cmd_get_param_at(cmd, uParamIndex);
 
-    uNumTokens= tokens_get_num(pTokens)-pCli->uExecTokenIndex;
+    uNumTokens= tokens_get_num(tokens)-cli->uExecTokenIndex;
 
     // If the parameter is of type vararg (CLI_PARAM_TYPE_VARARG), it
     // will eat all the remaining arguments. In the other case, we
     // must check if there is still enough parameters.
-    if (pParam->tType == CLI_PARAM_TYPE_STD) {
+    if (param->type == CLI_PARAM_TYPE_STD) {
       if (uNumTokens < 1)
 	return CLI_ERROR_MISSING_PARAM;
       uNumTokens= 1;
     } else { /* pParam->tType == CLI_PARAM_TYPE_VARARG */
-      if (uNumTokens > pParam->uMaxArgs)
+      if (uNumTokens > param->max_args)
 	return CLI_ERROR_TOO_MANY_PARAMS;
     }
 
     // Parse each token for this parameter specification
     while (uNumTokens-- > 0) {
-      pcToken= tokens_get_string_at(pTokens, pCli->uExecTokenIndex);
+      pcToken= tokens_get_string_at(tokens, cli->uExecTokenIndex);
 
       // Check the parameter's value (if supported)
-      if (pParam->fCheck != NULL) {
-	iResult= pParam->fCheck(pcToken);
-	if (iResult)
-	  return iResult; // parameter error !!!
+      if (param->fCheck != NULL) {
+	result= param->fCheck(pcToken);
+	if (result)
+	  return result; // parameter error !!!
       }
       
       // Add the token to the list of values
-      if (pCmd->pParamValues == NULL)
-	pCmd->pParamValues= tokens_create();
-      tokens_add_copy(pCmd->pParamValues, pcToken);
+      if (cmd->param_values == NULL)
+	cmd->param_values= tokens_create();
+      tokens_add_copy(cmd->param_values, pcToken);
       
-      pCli->uExecTokenIndex++;
+      cli->uExecTokenIndex++;
     }
     uParamIndex++;
   }
@@ -597,48 +603,54 @@ static int _cli_cmd_process_params(SCli * pCli)
 /**
  *
  */
-SCli * cli_create()
+cli_t * cli_create()
 {
-  SCli * pCli= (SCli *) MALLOC(sizeof(SCli));
+  cli_t * cli= (cli_t *) MALLOC(sizeof(cli_t));
 
-  pCli->pTokenizer= tokenizer_create(CLI_DELIMITERS,
-				     0,
-				     CLI_OPENING_QUOTES,
-				     CLI_CLOSING_QUOTES);
-  pCli->pBaseCommand= NULL;
-  pCli->pExecParam= NULL;
-  pCli->pCtx= cli_context_create();
-  pCli->sErrorDetails.pcUserError= NULL;
-  return pCli;
+  cli->tokenizer= tokenizer_create(CLI_DELIMITERS,
+				   CLI_OPENING_QUOTES,
+				   CLI_CLOSING_QUOTES);
+  tokenizer_set_protect_quotes(cli->tokenizer, CLI_PROTECT_QUOTES);
+  cli->root_cmd= NULL;
+  cli->exec_param= NULL;
+  cli->ctx= cli_context_create();
+  cli->error.user_msg= NULL;
+  return cli;
 }
 
 // ----- cli_destroy ------------------------------------------------
 /**
  *
  */
-void cli_destroy(SCli ** ppCli)
+void cli_destroy(cli_t ** pcli)
 {
-  if (*ppCli != NULL) {
-    tokenizer_destroy(&(*ppCli)->pTokenizer);
-    cli_context_destroy(&(*ppCli)->pCtx);
-    cli_cmd_destroy(&(*ppCli)->pBaseCommand);
-    if ((*ppCli)->sErrorDetails.pcUserError != NULL)
-      free((*ppCli)->sErrorDetails.pcUserError);
-    FREE(*ppCli);
-    *ppCli= NULL;
+  if (*pcli != NULL) {
+    tokenizer_destroy(&(*pcli)->tokenizer);
+    cli_context_destroy(&(*pcli)->ctx);
+    cli_cmd_destroy(&(*pcli)->root_cmd);
+    if ((*pcli)->error.user_msg != NULL)
+      free((*pcli)->error.user_msg);
+    FREE(*pcli);
+    *pcli= NULL;
   }
 }
 
-// ----- cli_set_exit_callback ------------------------------------
+// -----[ cli_set_exit_callback ]------------------------------------
 /**
  * Set the exit callback function. The default behaviour of the CLI
  * is to exit as soon as an error occurs. If this callback is
  * defined, it will be called in order to check it the CLI must
  * exit or not.
  */
-void cli_set_exit_callback(SCli * pCli, FCliExitOnError fExitOnError)
+void cli_set_exit_callback(cli_t * cli, FCliExitOnError fExitOnError)
 {
-  pCli->fExitOnError= fExitOnError;
+  cli->fExitOnError= fExitOnError;
+}
+
+// -----[ cli_set_param_lookup ]-------------------------------------
+void cli_set_param_lookup(cli_t * cli, param_lookup_t lookup)
+{
+  tokenizer_set_lookup(cli->tokenizer, lookup);
 }
 
 // ----- _cli_execute_cmd -------------------------------------------
@@ -646,46 +658,45 @@ void cli_set_exit_callback(SCli * pCli, FCliExitOnError fExitOnError)
  * This function executes a CLI command.
  *
  * The function modifies the following state variable of the CLI:
- *   - pExecParam
+ *   - exec_param
  *   - uExecTokenIndex
  *   - pExecContext: will push context on the stack if the current
  *                   command produces context
  */
-static int _cli_execute_cmd(SCli * pCli, SCliCmd * pCmd)
+static int _cli_execute_cmd(cli_t * cli, cli_cmd_t * cmd)
 {
-  int iResult;
-  STokens * pTokens= tokenizer_get_tokens(pCli->pTokenizer);
+  int result;
+  const gds_tokens_t * tokens= tokenizer_get_tokens(cli->tokenizer);
 
-  cli_set_user_error(pCli, NULL);
+  cli_set_user_error(cli, NULL);
 
-  pCli->pCtx->pCmd= pCmd;
+  cli->ctx->cmd= cmd;
   // Init command fields (param values and options)
-  _cli_cmd_init(pCmd);
+  _cli_cmd_init(cmd);
 
   // STEP (1): MATCH ALL OPTIONS
-  if ((iResult= _cli_cmd_process_options(pCli)) != CLI_SUCCESS)
-    return iResult;
+  if ((result= _cli_cmd_process_options(cli)) != CLI_SUCCESS)
+    return result;
 
   // STEP (2): MATCH ALL PARAMETERS
-  if ((iResult= _cli_cmd_process_params(pCli)) != CLI_SUCCESS)
-    return iResult;
+  if ((result= _cli_cmd_process_params(cli)) != CLI_SUCCESS)
+    return result;
 
   // --------------------------------------------
   // STEP (3): PRODUCE CONTEXT / EXECUTE COMMAND ?
   // --------------------------------------------
-  if (pCli->pCtx->pCmd->fCtxCreate != NULL) {
-    if ((iResult= pCli->pCtx->pCmd->fCtxCreate(pCli->pCtx,
-					       &pCli->pCtx->pUserData))
+  if (cli->ctx->cmd->fCtxCreate != NULL) {
+    if ((result= cli->ctx->cmd->fCtxCreate(cli->ctx,
+					       &cli->ctx->user_data))
 	!= CLI_SUCCESS)
-      return iResult;
-    cli_context_push(pCli->pCtx);
-  } else if (pCli->uExecTokenIndex == tokens_get_num(pTokens)) {
-    if (pCli->pCtx->pCmd->fCommand != NULL) {
-      if ((iResult= pCli->pCtx->pCmd->fCommand(pCli->pCtx,
-					       pCli->pCtx->pCmd))
+      return result;
+    cli_context_push(cli->ctx);
+  } else if (cli->uExecTokenIndex == tokens_get_num(tokens)) {
+    if (cli->ctx->cmd->fCommand != NULL) {
+      if ((result= cli->ctx->cmd->fCommand(cli->ctx, cli->ctx->cmd))
 	  != CLI_SUCCESS)
-	return iResult;
-      cli_context_restore_depth(pCli->pCtx);
+	return result;
+      cli_context_restore_depth(cli->ctx);
     } else
       return CLI_ERROR_NOT_A_COMMAND;
   }
@@ -695,43 +706,47 @@ static int _cli_execute_cmd(SCli * pCli, SCliCmd * pCmd)
 
 // ----- cli_execute_ctx -------------------------------------------
 /**
- * Execute the given command (pcCmd) with the given CLI (pCli) and
+ * Execute the given command (pcCmd) with the given CLI (cli) and
  * the given context (user-data).
  */
-int cli_execute_ctx(SCli * pCli, char * pcCmd, void * pUserData)
+int cli_execute_ctx(cli_t * cli, const char * cmd, void * user_data)
 {
-  int iResult= CLI_SUCCESS;
-  STokens * pTokens;
+  int result= CLI_SUCCESS;
+  int result2;
+  const gds_tokens_t * tokens;
   char * pcToken;
-  SCliCmd * pNewCmd;
-  SCliCtxItem * pCtxItem;
+  cli_cmd_t * pNewCmd;
+  _cli_ctx_item_t * ctx_item;
 
-  pCli->pCtx->pUserData= pUserData;
+  cli->ctx->user_data= user_data;
 
   // --------------------------------------------
   // STEP (1): Split command line into tokens...
   // --------------------------------------------
-  if (tokenizer_run(pCli->pTokenizer, pcCmd))
-    return CLI_ERROR_UNEXPECTED;
-  pTokens= tokenizer_get_tokens(pCli->pTokenizer);
+  result2= tokenizer_run(cli->tokenizer, cmd);
+  if (result2 < 0) {
+    cli_set_user_error(cli, tokenizer_strerror(result2));
+    return CLI_ERROR_SYNTAX;
+  }
+  tokens= tokenizer_get_tokens(cli->tokenizer);
 
 
   // --------------------------------------------
   // STEP (2): Handle special commands
   // --------------------------------------------
   // Empty line ?
-  if (tokens_get_num(pTokens) == 0) {
-    cli_context_clear(pCli->pCtx);
+  if (tokens_get_num(tokens) == 0) {
+    cli_context_clear(cli->ctx);
     return CLI_SUCCESS;
   }
   // Single "exit" token ?
-  if ((tokens_get_num(pTokens) == 1) &&
-      (!strcmp("exit", tokens_get_string_at(pTokens, 0)))) {
-    cli_context_pop(pCli->pCtx);
+  if ((tokens_get_num(tokens) == 1) &&
+      (!strcmp("exit", tokens_get_string_at(tokens, 0)))) {
+    cli_context_pop(cli->ctx);
     return CLI_SUCCESS;
   }
   // Ends with "?" token ?
-  if (!strcmp("?", tokens_get_string_at(pTokens, tokens_get_num(pTokens)-1))) {
+  if (!strcmp("?", tokens_get_string_at(tokens, tokens_get_num(tokens)-1))) {
     return CLI_SUCCESS_HELP;
   }
 
@@ -739,87 +754,87 @@ int cli_execute_ctx(SCli * pCli, char * pcCmd, void * pUserData)
   // --------------------------------------------
   // STEP (3): Retrieve current context
   // --------------------------------------------
-  if (!cli_context_is_empty(pCli->pCtx)) {
-    pCtxItem= cli_context_top(pCli->pCtx);
-    assert(pCtxItem != NULL);
-    pCli->pCtx->pCmd= pCtxItem->pCmd;
+  if (!cli_context_is_empty(cli->ctx)) {
+    ctx_item= cli_context_top(cli->ctx);
+    assert(ctx_item != NULL);
+    cli->ctx->cmd= ctx_item->cmd;
   } else 
-    pCli->pCtx->pCmd= pCli->pBaseCommand;
+    cli->ctx->cmd= cli->root_cmd;
 
   
   // --------------------------------------------
   // STEP (4): Match tokens with command...
   // --------------------------------------------
-  pCli->uExecTokenIndex= 0;
-  pCli->pExecParam= NULL;
-  cli_context_save_depth(pCli->pCtx);
-  while (pCli->uExecTokenIndex < tokenizer_get_num_tokens(pCli->pTokenizer)) {
-    if (pCli->pCtx->pCmd != NULL) {
-      pcToken= tokens_get_string_at(pTokens, pCli->uExecTokenIndex);
-      pNewCmd= cli_cmd_find_subcmd(pCli->pCtx->pCmd, pcToken);
+  cli->uExecTokenIndex= 0;
+  cli->exec_param= NULL;
+  cli_context_save_depth(cli->ctx);
+  while (cli->uExecTokenIndex < tokenizer_get_num_tokens(cli->tokenizer)) {
+    if (cli->ctx->cmd != NULL) {
+      pcToken= tokens_get_string_at(tokens, cli->uExecTokenIndex);
+      pNewCmd= cli_cmd_find_subcmd(cli->ctx->cmd, pcToken);
       if (pNewCmd == NULL) {
-	iResult= CLI_ERROR_UNKNOWN_COMMAND;
+	result= CLI_ERROR_UNKNOWN_COMMAND;
 	break;
       }
-      pCli->pCtx->pCmd= pNewCmd;
-      pCli->uExecTokenIndex++;
-      iResult= _cli_execute_cmd(pCli, pCli->pCtx->pCmd);
-      if (iResult)
+      cli->ctx->cmd= pNewCmd;
+      cli->uExecTokenIndex++;
+      result= _cli_execute_cmd(cli, cli->ctx->cmd);
+      if (result)
 	break;
     } else {
-      iResult= CLI_ERROR_UNKNOWN_COMMAND;
+      result= CLI_ERROR_UNKNOWN_COMMAND;
       break;
     }
   }
 
   // In case of error, restore saved context
-  if (iResult < 0)
-    cli_context_restore_depth(pCli->pCtx);
+  if (result < 0)
+    cli_context_restore_depth(cli->ctx);
 
-  return iResult;
+  return result;
 }
 
 // ----- cli_execute ------------------------------------------------
 /**
  *
  */
-int cli_execute(SCli * pCli, char * pcCmd)
+int cli_execute(cli_t * cli, const char * cmd)
 {
-  pCli->sErrorDetails.iErrorCode= cli_execute_ctx(pCli, pcCmd, NULL);
-  return pCli->sErrorDetails.iErrorCode;
+  cli->error.error= cli_execute_ctx(cli, cmd, NULL);
+  return cli->error.error;
 }
 
 // ----- cli_register_cmd -------------------------------------------
 /**
  *
  */
-int cli_register_cmd(SCli * pCli, SCliCmd * pCmd)
+int cli_register_cmd(cli_t * cli, cli_cmd_t * cmd)
 {
-  if (pCli->pBaseCommand == NULL)
-    pCli->pBaseCommand= cli_cmd_create("", NULL, NULL, NULL);
-  return cli_cmd_add_subcmd(pCli->pBaseCommand, pCmd);
+  if (cli->root_cmd == NULL)
+    cli->root_cmd= cli_cmd_create("", NULL, NULL, NULL);
+  return cli_cmd_add_subcmd(cli->root_cmd, cmd);
 }
 
 // ----- cli_perror -------------------------------------------------
 /**
  *
  */
-void cli_perror(SLogStream * pStream, int iErrorCode)
+void cli_perror(gds_stream_t * stream, int error)
 {
-  char * pcErrorStr= cli_strerror(iErrorCode);
-  if (pcErrorStr != NULL)
-    log_printf(pStream, pcErrorStr);
+  const char * error_str= cli_strerror(error);
+  if (error_str != NULL)
+    stream_printf(stream, error_str);
   else
-    log_printf(pStream, "unknown error (%i)", iErrorCode);
+    stream_printf(stream, "unknown error (%i)", error);
 }
 
 // ----- cli_strerror -----------------------------------------------
 /**
  *
  */
-char * cli_strerror(int iErrorCode)
+const char * cli_strerror(int error)
 {
-  switch (iErrorCode) {
+  switch (error) {
   case CLI_SUCCESS:
     return "success";
   case CLI_ERROR_GENERIC:
@@ -846,6 +861,8 @@ char * cli_strerror(int iErrorCode)
     return "bad option value";
   case CLI_WARNING_EMPTY_COMMAND:
     return "empty command";
+  case CLI_ERROR_SYNTAX:
+    return "syntax error";
   }
   return NULL;
 }
@@ -854,53 +871,52 @@ char * cli_strerror(int iErrorCode)
 /**
  *
  */
-void cli_perror_details(SLogStream * pStream, int iResult, SCli * pCli,
-			const char * pcLine)
+void cli_perror_details(gds_stream_t * stream, int result, cli_t * cli,
+			const char * line)
 {
-  STokens * pTokens;
-  int iIndex;
+  const gds_tokens_t * tokens;
+  int index;
 
-  log_printf(pStream, "*** command: \"%s\"\n", pcLine);
-  if ((iResult == CLI_ERROR_UNKNOWN_COMMAND) ||
-      (iResult == CLI_ERROR_NOT_A_COMMAND) ||
-      (iResult == CLI_ERROR_MISSING_PARAM) ||
-      (iResult == CLI_ERROR_BAD_PARAM) ||
-      (iResult == CLI_ERROR_UNKNOWN_OPTION) ||
-      (iResult == CLI_ERROR_BAD_OPTION)) {
-    log_printf(pStream, "*** error  : \"");
-    pTokens= tokenizer_get_tokens(pCli->pTokenizer);
-    for (iIndex= 0; iIndex < pCli->uExecTokenIndex; iIndex++)
-      log_printf(pStream, "%s ", tokens_get_string_at(pTokens, iIndex));
-    log_printf(pStream, "^^^\"\n");
+  stream_printf(stream, "*** command: \"%s\"\n", line);
+  if ((result == CLI_ERROR_UNKNOWN_COMMAND) ||
+      (result == CLI_ERROR_NOT_A_COMMAND) ||
+      (result == CLI_ERROR_MISSING_PARAM) ||
+      (result == CLI_ERROR_BAD_PARAM) ||
+      (result == CLI_ERROR_UNKNOWN_OPTION) ||
+      (result == CLI_ERROR_BAD_OPTION)) {
+    stream_printf(stream, "*** error  : \"");
+    tokens= tokenizer_get_tokens(cli->tokenizer);
+    for (index= 0; index < cli->uExecTokenIndex; index++)
+      stream_printf(stream, "%s ", tokens_get_string_at(tokens, index));
+    stream_printf(stream, "^^^\"\n");
 
-    switch (iResult) {
+    switch (result) {
     case CLI_ERROR_UNKNOWN_COMMAND:
     case CLI_ERROR_NOT_A_COMMAND:
-      if (pCli->pCtx->pCmd != NULL) {
-	log_printf(pStream, "*** expect : ");
+      if (cli->ctx->cmd != NULL) {
+	stream_printf(stream, "*** expect : ");
 
-	for (iIndex= 0;
-	     iIndex < cli_cmd_get_num_subcmds(pCli->pCtx->pCmd);
-	     iIndex++) {
-	  if (iIndex > 0)
-	    log_printf(pStream, ", ");
-	  log_printf(pStream, "%s",
-		     cli_cmd_get_subcmd_at(pCli->pCtx->pCmd, iIndex)->pcName);
+	for (index= 0;
+	     index < cli_cmd_get_num_subcmds(cli->ctx->cmd);
+	     index++) {
+	  if (index > 0)
+	    stream_printf(stream, ", ");
+	  stream_printf(stream, "%s",
+			cli_cmd_get_subcmd_at(cli->ctx->cmd, index)->name);
 	}
-	log_printf(pStream, "\n");
+	stream_printf(stream, "\n");
       }
       break;
 
     case CLI_ERROR_MISSING_PARAM:
     case CLI_ERROR_BAD_PARAM:
-      if (pCli->pExecParam != NULL) {
-	log_printf(pStream, "*** expect : %s\n", pCli->pExecParam->pcName);
-      }
+      if (cli->exec_param != NULL)
+	stream_printf(stream, "*** expect : %s\n", cli->exec_param->name);
       break;
 
     case CLI_ERROR_UNKNOWN_OPTION:
     case CLI_ERROR_BAD_OPTION:
-      //log_printf(pStream, "*** option : %s\n", pCli->pcOption);
+      //stream_printf(stream, "*** option : %s\n", cli->pcOption);
       break;
       
     }
@@ -911,29 +927,29 @@ void cli_perror_details(SLogStream * pStream, int iResult, SCli * pCli,
 /**
  *
  */
-int cli_execute_line(SCli * pCli, const char * pcLine)
+int cli_execute_line(cli_t * cli, const char * line)
 {
-  int iResult= CLI_SUCCESS;
+  int result= CLI_SUCCESS;
 
   // Skip leading blank spaces
-  while ((*pcLine == ' ') || (*pcLine == '\t'))
-    pcLine++;
+  while ((*line == ' ') || (*line == '\t'))
+    line++;
 
   // Skip commented lines
-  if (*pcLine == '#')
-    return iResult;
+  if (*line == '#')
+    return result;
 
   // Parse and execute command
-  iResult= cli_execute(pCli, (char *) pcLine);
-  if (iResult < 0) {
-    if (pCli->sErrorDetails.pcUserError != NULL)
-      log_printf(pLogErr, "Error: %s\n", pCli->sErrorDetails.pcUserError);
-    log_printf(pLogErr, "\033[0;31;1mError: ");
-    cli_perror(pLogErr, iResult);
-    log_printf(pLogErr, "\033[0m\n");
-    cli_perror_details(pLogErr, iResult, pCli, pcLine);
+  result= cli_execute(cli, (char *) line);
+  if (result < 0) {
+    if (cli->error.user_msg != NULL)
+      stream_printf(gdserr, "Error: %s\n", cli->error.user_msg);
+    stream_printf(gdserr, "\033[0;31;1mError: ");
+    cli_perror(gdserr, result);
+    stream_printf(gdserr, "\033[0m\n");
+    cli_perror_details(gdserr, result, cli, line);
   }
-  return iResult;
+  return result;
 }
 
 // ----- cli_execute_file -------------------------------------------
@@ -942,40 +958,40 @@ int cli_execute_line(SCli * pCli, const char * pcLine)
  *
  * NOTE: The execution of the script will stop at the first error.
  */
-int cli_execute_file(SCli * pCli, FILE * pStream)
+int cli_execute_file(cli_t * cli, FILE * stream)
 {
   int iLen;
   char acLine[MAX_CLI_LINE_LENGTH];
-  int iResult;
-  pCli->sErrorDetails.iLineNumber= 1;
+  int result;
+  cli->error.line_number= 1;
 
   /* Execute all lines in the input file... */
-  while (fgets(acLine, sizeof(acLine), pStream) != NULL) {
+  while (fgets(acLine, sizeof(acLine), stream) != NULL) {
     /* Chop trailing '\n' */
     iLen= strlen(acLine);
     if ((iLen >= 1) && (acLine[iLen-1] == '\n'))
       acLine[iLen-1]= '\0';
 
-    iResult= cli_execute_line(pCli, acLine);
-    if (iResult < 0) {
-      log_printf(pLogErr, "*** in script file, line %d\n",
-		 pCli->sErrorDetails.iLineNumber);
+    result= cli_execute_line(cli, acLine);
+    if (result < 0) {
+      stream_printf(gdserr, "*** in script file, line %d\n",
+		    cli->error.line_number);
 
       // In case of error, we call the exit-on-error function (if
       // it is defined). The decision to stop depends on the error
       // code returned by this function. If the fExitOnError function
       // is not defined, we just return the error code.
-      if (pCli->fExitOnError != NULL)
-	iResult= pCli->fExitOnError(iResult);
-      if (iResult)
-	return iResult;
+      if (cli->fExitOnError != NULL)
+	result= cli->fExitOnError(result);
+      if (result)
+	return result;
 
     }
-    pCli->sErrorDetails.iLineNumber++;
+    cli->error.line_number++;
   }
 
   /* Clear the context (if required) */
-  cli_context_clear(pCli->pCtx);
+  cli_context_clear(cli->ctx);
 
   return CLI_SUCCESS;
 }
@@ -985,48 +1001,48 @@ int cli_execute_file(SCli * pCli, FILE * pStream)
  * Returns the current command context. If there is currently no
  * context, the root command is returned.
  */
-SCliCmd * cli_get_cmd_context(SCli * pCli)
+cli_cmd_t * cli_get_cmd_context(cli_t * cli)
 {
-  SCliCmd * pCmdContext= NULL;
-  SCliCtxItem * pCtxItem;
+  cli_cmd_t * pCmdContext= NULL;
+  _cli_ctx_item_t * ctx_item;
 
   // Get current command from context.
-  if (pCli->pCtx != NULL) {
-    pCtxItem= cli_context_top(pCli->pCtx);
-    if (pCtxItem != NULL)
-      pCmdContext= pCtxItem->pCmd;
+  if (cli->ctx != NULL) {
+    ctx_item= cli_context_top(cli->ctx);
+    if (ctx_item != NULL)
+      pCmdContext= ctx_item->cmd;
   }
 
   // If no current command, return root command.
   if (pCmdContext == NULL)
-    pCmdContext= pCli->pBaseCommand;
+    pCmdContext= cli->root_cmd;
 
   return pCmdContext;
 }
 
 // ----- cli_get_error_details --------------------------------------
-int cli_get_error_details(SCli * pCli, SCliErrorDetails * psDetails)
+int cli_get_error_details(cli_t * cli, cli_error_t * error)
 {
-  memcpy(psDetails, &pCli->sErrorDetails, sizeof(SCliErrorDetails));
-  return pCli->sErrorDetails.iErrorCode;
+  memcpy(error, &cli->error, sizeof(cli_error_t));
+  return cli->error.error;
 }
 
 // ----- cli_set_user_error -----------------------------------------
-void cli_set_user_error(SCli * pCli, char * pcFormat, ...)
+void cli_set_user_error(cli_t * cli, const char * format, ...)
 {
 #define CLI_USER_ERROR_BUFFER_SIZE 1000
   char acBuffer[CLI_USER_ERROR_BUFFER_SIZE];
   va_list ap;
 
-  if (pCli->sErrorDetails.pcUserError != NULL) {
-    free(pCli->sErrorDetails.pcUserError);
-    pCli->sErrorDetails.pcUserError= NULL;
+  if (cli->error.user_msg != NULL) {
+    free(cli->error.user_msg);
+    cli->error.user_msg= NULL;
   }
 
-  if (pcFormat != NULL) {
-    va_start(ap, pcFormat);
-    vsnprintf(acBuffer, CLI_USER_ERROR_BUFFER_SIZE, pcFormat, ap);
+  if (format != NULL) {
+    va_start(ap, format);
+    vsnprintf(acBuffer, CLI_USER_ERROR_BUFFER_SIZE, format, ap);
     
-    pCli->sErrorDetails.pcUserError= strdup(acBuffer);
+    cli->error.user_msg= strdup(acBuffer);
   }
 }

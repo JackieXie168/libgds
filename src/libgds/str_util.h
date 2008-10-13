@@ -1,15 +1,22 @@
 // =================================================================
 // @(#)str_util.h
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 24/07/2003
-// @lastdate 04/12/2007
+// $Id$
 // =================================================================
 
 #ifndef __GDS_STR_UTIL_H__
 #define __GDS_STR_UTIL_H__
 
 #include <string.h>
+
+typedef struct str_buf_t {
+  char         * data;      // Buffer
+  size_t         size;      // Current buffer size
+  unsigned int   index;     // Current position in buffer
+  size_t         min_size;  // Initial size (and increment)
+} str_buf_t;
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,27 +28,25 @@ extern "C" {
 #endif
 
   // ----- str_lcreate ----------------------------------------------
-  char * str_lcreate(size_t tLen);
+  char * str_lcreate(size_t len);
   // ----- str_create -----------------------------------------------
-  char * str_create(const char * pcString);
+  char * str_create(const char * s);
   // ----- str_ncreate ----------------------------------------------
-  char * str_ncreate(const char * pcString, size_t tLen);
+  char * str_ncreate(const char * s, size_t len);
   // ----- str_lextend ----------------------------------------------
-  char * str_lextend(char ** ppcString, size_t tNewLen);
+  char * str_lextend(char ** s, size_t new_len);
   // ----- str_destroy ----------------------------------------------
-  void str_destroy(char ** ppcString);
+  void str_destroy(char ** s);
   // ----- str_append -----------------------------------------------
-  char * str_append(char ** ppcString,
-		    const char * pcStrToAppend);
+  char * str_append(char ** s,
+		    const char * append);
   // ----- str_nappend ----------------------------------------------
-  char * str_nappend(char ** ppcString,
-		     const char * pcStrToAppend,
-		     size_t tLen);
+  char * str_nappend(char ** s, const char * append, size_t len);
   // ----- str_prepend ----------------------------------------------
-  char * str_prepend(char ** ppcString, const char * pcStrToPrepend);
+  char * str_prepend(char ** s, const char * prepend);
   // ----- str_translate --------------------------------------------
-  void str_translate(char * pcString, const char * pcSrcChars,
-		     const char * pcDstChars);
+  void str_translate(char * s, const char * src_chars,
+		     const char * dst_chars);
 
 
   ///////////////////////////////////////////////////////////////////
@@ -49,18 +54,34 @@ extern "C" {
   ///////////////////////////////////////////////////////////////////
 
   // ----- str_as_long ----------------------------------------------
-  int str_as_long(const char * pcString, long int * plValue);
+  int str_as_long(const char * s, long int * value);
   // ----- str_as_int -----------------------------------------------
-  int str_as_int(const char * pcString, int * piValue);
+  int str_as_int(const char * s, int * value);
   // ----- str_as_ulong ---------------------------------------------
-  int str_as_ulong(const char * pcString, unsigned long int * pulValue);
+  int str_as_ulong(const char * s, unsigned long int * value);
   // ----- str_as_uint ----------------------------------------------
-  int str_as_uint(const char * pcString, unsigned int * puValue);
+  int str_as_uint(const char * s, unsigned int * value);
   // ----- str_as_double --------------------------------------------
-  int str_as_double(const char * pcString, double * pdValue);
+  int str_as_double(const char * s, double * value);
+
+
+  ///////////////////////////////////////////////////////////////////
+  // STRING BUFFER
+  ///////////////////////////////////////////////////////////////////
+
+  // -----[ str_buf_create ]-----------------------------------------
+  str_buf_t * str_buf_create(size_t min_size);
+  // -----[ str_buf_destroy ]----------------------------------------
+  void str_buf_destroy(str_buf_t ** buf);
+  // -----[ str_buf_reset ]------------------------------------------
+  void str_buf_reset(str_buf_t * buf);
+  // -----[ str_buf_write_char ]-------------------------------------
+  void str_buf_write_char(str_buf_t * buf, char c);
+  // -----[ str_buf_write_string ]-----------------------------------
+  void str_buf_write_string(str_buf_t * buf, const char * str);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif
+#endif /* __GDS_STR_UTIL_H__ */

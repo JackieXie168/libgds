@@ -4,15 +4,16 @@
 // A library of function that handles radix-trees intended to store
 // IPv4 prefixes.
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 21/10/2002
-// @lastdate 08/11/2005
+// $Id$
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -20,18 +21,25 @@
 #include <libgds/radix-tree.h>
 #include <libgds/stack.h>
 
+// ----- structure of a radix-tree node -----------------------------
+typedef struct _radix_tree_item_t {
+  struct _radix_tree_item_t * left;  // 0
+  struct _radix_tree_item_t * right; // 1
+  void                      * data;
+} _radix_tree_item_t;
+
 // ----- radix_tree_item_create -------------------------------------
 /**
  *
  */
-SRadixTreeItem * radix_tree_item_create(void * pItem)
+_radix_tree_item_t * radix_tree_item_create(void * data)
 {
-  SRadixTreeItem * pTreeItem=
-    (SRadixTreeItem *) MALLOC(sizeof(SRadixTreeItem));
-  pTreeItem->pLeft= NULL;
-  pTreeItem->pRight= NULL;
-  pTreeItem->pItem= pItem;
-  return pTreeItem;
+  _radix_tree_item_t * tree_item=
+    (_radix_tree_item_t *) MALLOC(sizeof(_radix_tree_item_t));
+  tree_item->left= NULL;
+  tree_item->right= NULL;
+  tree_item->data= data;
+  return tree_item;
 }
 
 // ----- radix_tree_item_destroy ------------------------------------
@@ -39,72 +47,72 @@ SRadixTreeItem * radix_tree_item_create(void * pItem)
  * Remove an item. Remove also all its children if the parameter
  * 'iSingle' is 1.
  */
-void radix_tree_item_destroy(SRadixTreeItem ** ppTreeItem,
+void radix_tree_item_destroy(_radix_tree_item_t ** ptree_item,
 			     FRadixTreeDestroy fDestroy,
 			     int iSingle)
 {
-  SStack * pStack= stack_create(32);
-  SRadixTreeItem * pTreeItem= *ppTreeItem;
+  gds_stack_t * stack= stack_create(32);
+  _radix_tree_item_t * tree_item= *ptree_item;
 
-  while (pTreeItem != NULL) {
+  while (tree_item != NULL) {
 
     /* If all children are to be removed, push them onto stack. */
     if (!iSingle) {
-      if (pTreeItem->pLeft != NULL)
-	stack_push(pStack, pTreeItem->pLeft);
-      if (pTreeItem->pRight != NULL)
-	stack_push(pStack, pTreeItem->pRight);
+      if (tree_item->left != NULL)
+	stack_push(stack, tree_item->left);
+      if (tree_item->right != NULL)
+	stack_push(stack, tree_item->right);
     }
 
     /* Destroy the item. */
-    if ((pTreeItem->pItem != NULL) && (fDestroy != NULL)) {
-      fDestroy(&pTreeItem->pItem);
-      pTreeItem->pItem= NULL;
+    if ((tree_item->data != NULL) && (fDestroy != NULL)) {
+      fDestroy(&tree_item->data);
+      tree_item->data= NULL;
     }
 
     /* If the current item is empty (no child) or if we delete all
        child, then free the item's memory. */
-    if (((pTreeItem->pLeft == NULL) && (pTreeItem->pRight == NULL)) ||
+    if (((tree_item->left == NULL) && (tree_item->right == NULL)) ||
 	!iSingle) {
-      FREE(pTreeItem);
-      *ppTreeItem= NULL;
+      FREE(tree_item);
+      *ptree_item= NULL;
     }
 
     /* Any other child to be removed ? */
-    if (stack_depth(pStack) > 0)
-      pTreeItem= (SRadixTreeItem *) stack_pop(pStack);
+    if (stack_depth(stack) > 0)
+      tree_item= (_radix_tree_item_t *) stack_pop(stack);
     else
-      pTreeItem= NULL;
+      tree_item= NULL;
 
   }
-  stack_destroy(&pStack);
+  stack_destroy(&stack);
 }
 
 // ----- radix_tree_create ------------------------------------------
 /**
  *
  */
-SRadixTree * radix_tree_create(uint8_t uKeyLen,
-			       FRadixTreeDestroy fDestroy)
+gds_radix_tree_t * radix_tree_create(uint8_t key_len,
+				     FRadixTreeDestroy fDestroy)
 {
-  SRadixTree * pTree= (SRadixTree *) MALLOC(sizeof(SRadixTree));
-  pTree->pRoot= NULL;
-  pTree->uKeyLen= uKeyLen;
-  pTree->fDestroy= fDestroy;
-  return pTree;
+  gds_radix_tree_t * tree= (gds_radix_tree_t *) MALLOC(sizeof(gds_radix_tree_t));
+  tree->root= NULL;
+  tree->key_len= key_len;
+  tree->fDestroy= fDestroy;
+  return tree;
 }
 
 // ----- radix_tree_destroy -----------------------------------------
 /**
  * Free the whole radix-tree.
  */
-void radix_tree_destroy(SRadixTree ** ppTree)
+void radix_tree_destroy(gds_radix_tree_t ** tree_ref)
 {
-  if (*ppTree != NULL) {
-    if ((*ppTree)->pRoot != NULL)
-      radix_tree_item_destroy(&(*ppTree)->pRoot, (*ppTree)->fDestroy, 0);
-    FREE(*ppTree);
-    *ppTree= NULL;
+  if (*tree_ref != NULL) {
+    if ((*tree_ref)->root != NULL)
+      radix_tree_item_destroy(&(*tree_ref)->root, (*tree_ref)->fDestroy, 0);
+    FREE(*tree_ref);
+    *tree_ref= NULL;
   }
 }
 
@@ -112,36 +120,36 @@ void radix_tree_destroy(SRadixTree ** ppTree)
 /**
  * Add an 'item' in the radix-tree at 'key/len' position.
  */
-int radix_tree_add(SRadixTree * pTree, uint32_t uKey,
-		   uint8_t uKeyLen, void * pItem)
+int radix_tree_add(gds_radix_tree_t * tree, uint32_t key,
+		   uint8_t key_len, void * data)
 {
-  SRadixTreeItem ** ppTreeItem= &pTree->pRoot;
-  uint8_t uLen= uKeyLen;
+  _radix_tree_item_t ** ptree_item= &tree->root;
+  uint8_t uLen= key_len;
 
   // Go to given 'key/len' position. Create path along the way if
   // required...
-  // Warning: '*ppTreeItem' is used to add new nodes while
-  // 'ppTreeItem' is used to keep track of the current node !!
+  // Warning: '*ptree_item' is used to add new nodes while
+  // 'ptree_item' is used to keep track of the current node !!
   while (uLen > 0) {
-    if (*ppTreeItem == NULL)
-      *ppTreeItem= radix_tree_item_create(NULL);
-    if (uKey & (1 << (pTree->uKeyLen-(uKeyLen+1-uLen))))
-      ppTreeItem= &(*ppTreeItem)->pRight;
+    if (*ptree_item == NULL)
+      *ptree_item= radix_tree_item_create(NULL);
+    if (key & (1 << (tree->key_len-(key_len+1-uLen))))
+      ptree_item= &(*ptree_item)->right;
     else
-      ppTreeItem= &(*ppTreeItem)->pLeft;
+      ptree_item= &(*ptree_item)->left;
     uLen--;
   }
 
-  if (*ppTreeItem == NULL) {
-    *ppTreeItem= radix_tree_item_create(pItem);
+  if (*ptree_item == NULL) {
+    *ptree_item= radix_tree_item_create(data);
   } else {
     // If a previous value exists, replace it
-    if ((*ppTreeItem)->pItem != NULL) {
-      if (pTree->fDestroy != NULL)
-	pTree->fDestroy(&(*ppTreeItem)->pItem);
+    if ((*ptree_item)->data != NULL) {
+      if (tree->fDestroy != NULL)
+	tree->fDestroy(&(*ptree_item)->data);
     }
     // Set new value
-    (*ppTreeItem)->pItem= pItem;
+    (*ptree_item)->data= data;
   }
 
   return 0;
@@ -156,56 +164,56 @@ int radix_tree_add(SRadixTree * pTree, uint32_t uKey,
  * - iSingle, if 1 remove a single key otherwise, remove the key and
  *   all the keys under.
  */
-int radix_tree_remove(SRadixTree * pTree, uint32_t uKey,
-		      uint8_t uKeyLen, int iSingle)
+int radix_tree_remove(gds_radix_tree_t * tree, uint32_t key,
+		      uint8_t key_len, int iSingle)
 {
-  SStack * pStack= stack_create(pTree->uKeyLen);
-  uint8_t uLen= uKeyLen;
-  SRadixTreeItem ** ppTreeItem= &pTree->pRoot;
+  gds_stack_t * stack= stack_create(tree->key_len);
+  uint8_t uLen= key_len;
+  _radix_tree_item_t ** ptree_item= &tree->root;
   int iEmpty;
   
   while (uLen > 0) {
-    if (*ppTreeItem == NULL)
+    if (*ptree_item == NULL)
       return -1;
-    if (uKey & (1 << (pTree->uKeyLen-(uKeyLen+1-uLen)))) {
-      if ((*ppTreeItem)->pRight != NULL) {
-	stack_push(pStack, ppTreeItem);
-	ppTreeItem= &(*ppTreeItem)->pRight;
+    if (key & (1 << (tree->key_len-(key_len+1-uLen)))) {
+      if ((*ptree_item)->right != NULL) {
+	stack_push(stack, ptree_item);
+	ptree_item= &(*ptree_item)->right;
       } else
 	return -1;
     } else {
-      if ((*ppTreeItem)->pLeft != NULL) {
-	stack_push(pStack, ppTreeItem);
-	ppTreeItem= &(*ppTreeItem)->pLeft;
+      if ((*ptree_item)->left != NULL) {
+	stack_push(stack, ptree_item);
+	ptree_item= &(*ptree_item)->left;
       } else
 	return -1;
     }
     uLen--;
   }
-  if ((*ppTreeItem == NULL) || ((*ppTreeItem)->pItem == NULL))
+  if ((*ptree_item == NULL) || ((*ptree_item)->data == NULL))
     return -1;
 
   /* Keep information on the current key's emptiness. The key is
      considered empty if it has no child and has no item. */
-  iEmpty= (((*ppTreeItem)->pLeft == NULL)
-	   && ((*ppTreeItem)->pRight == NULL));
+  iEmpty= (((*ptree_item)->left == NULL)
+	   && ((*ptree_item)->right == NULL));
 
-  radix_tree_item_destroy(ppTreeItem, pTree->fDestroy, iSingle);
+  radix_tree_item_destroy(ptree_item, tree->fDestroy, iSingle);
 
   /* If the current item is empty (no key below, go up towards the
      radix-tree's root and clear keys until a non-empty is found. */
-  while (iEmpty && (stack_depth(pStack) > 0)) {
-    ppTreeItem= (SRadixTreeItem **) stack_pop(pStack);
+  while (iEmpty && (stack_depth(stack) > 0)) {
+    ptree_item= (_radix_tree_item_t **) stack_pop(stack);
 
     /* If the key is empty (no child and no item), remove it. */
-    if (((*ppTreeItem)->pLeft == NULL) &&
-	((*ppTreeItem)->pRight == NULL) &&
-	((*ppTreeItem)->pItem == NULL)) {
-      radix_tree_item_destroy(ppTreeItem, pTree->fDestroy, 1);
+    if (((*ptree_item)->left == NULL) &&
+	((*ptree_item)->right == NULL) &&
+	((*ptree_item)->data == NULL)) {
+      radix_tree_item_destroy(ptree_item, tree->fDestroy, 1);
     } else
       break;
   }
-  stack_destroy(&pStack);
+  stack_destroy(&stack);
   return 0;
 }
 
@@ -213,31 +221,31 @@ int radix_tree_remove(SRadixTree * pTree, uint32_t uKey,
 /**
  * Return the item exactly at position 'key/len'.
  */
-void * radix_tree_get_exact(SRadixTree * pTree,
-			    uint32_t uKey,
-			    uint8_t uKeyLen)
+void * radix_tree_get_exact(gds_radix_tree_t * tree,
+			    uint32_t key,
+			    uint8_t key_len)
 {
-  uint8_t uLen= uKeyLen;
-  SRadixTreeItem * pTreeItem= pTree->pRoot;
+  uint8_t uLen= key_len;
+  _radix_tree_item_t * tree_item= tree->root;
 
   while (uLen > 0) {
-    if (pTreeItem == NULL)
+    if (tree_item == NULL)
       return NULL;
-    if (uKey & (1 << (pTree->uKeyLen-(uKeyLen+1-uLen)))) {
-      if (pTreeItem->pRight != NULL)
-	pTreeItem= pTreeItem->pRight;
+    if (key & (1 << (tree->key_len-(key_len+1-uLen)))) {
+      if (tree_item->right != NULL)
+	tree_item= tree_item->right;
       else
 	return NULL;
     } else {
-      if (pTreeItem->pLeft != NULL)
-	pTreeItem= pTreeItem->pLeft;
+      if (tree_item->left != NULL)
+	tree_item= tree_item->left;
       else
 	return NULL;
     }
     uLen--;
   }
-  if (pTreeItem != NULL)
-    return pTreeItem->pItem;
+  if (tree_item != NULL)
+    return tree_item->data;
   return NULL;
 }
 
@@ -245,115 +253,135 @@ void * radix_tree_get_exact(SRadixTree * pTree,
 /**
  * Return the item that best matches position 'key/len'.
  */
-void * radix_tree_get_best(SRadixTree * pTree,
-			   uint32_t uKey,
-			   uint8_t uKeyLen)
+void * radix_tree_get_best(gds_radix_tree_t * tree,
+			   uint32_t key,
+			   uint8_t key_len)
 {
-  uint8_t uLen= uKeyLen;
-  SRadixTreeItem * pTreeItem= pTree->pRoot;
-  void * pResult= NULL;
+  uint8_t uLen= key_len;
+  _radix_tree_item_t * tree_item= tree->root;
+  void * result= NULL;
 
   /* If the tree is empty, there is no possible match. */
-  if (pTreeItem == NULL)
+  if (tree_item == NULL)
     return NULL;
 
   /* Otherwize, the shortest match corresponds to the root. */
-  if (pTreeItem->pItem != NULL)
-    pResult= pTreeItem->pItem;
+  if (tree_item->data != NULL)
+    result= tree_item->data;
 
   /* Go down the tree, as long as the requested key matches the
      traversed prefixes and as deep as the requested key length... */
   while (uLen > 0) {
 
-    if (uKey & (1 << (pTree->uKeyLen-(uKeyLen+1-uLen)))) {
+    if (key & (1 << (tree->key_len-(key_len+1-uLen)))) {
       // Bit is 1
-      if (pTreeItem->pRight != NULL)
-	pTreeItem= pTreeItem->pRight;
+      if (tree_item->right != NULL)
+	tree_item= tree_item->right;
       else
 	break;
     } else {
       // Bit is 0
-      if (pTreeItem->pLeft != NULL)
-	pTreeItem= pTreeItem->pLeft;
+      if (tree_item->left != NULL)
+	tree_item= tree_item->left;
       else
 	break;
     }
     uLen--;
 
-    if ((pTreeItem != NULL) && (pTreeItem->pItem != NULL))
-      pResult= pTreeItem->pItem;
+    if ((tree_item != NULL) && (tree_item->data != NULL))
+      result= tree_item->data;
   }
   
-  return pResult;
+  return result;
 }
 
+// -----[ _stack_ctx_t ]---------------------------------------------
 typedef struct {
-  SRadixTreeItem * pTreeItem;
-  uint32_t uKey;
-  uint8_t uKeyLen;
-} SRadixTreeForEachContext;
+  _radix_tree_item_t * tree_item;
+  uint32_t             key;
+  uint8_t              key_len;
+} _stack_ctx_t;
+
+// -----[ _stack_push ]----------------------------------------------
+static inline void _stack_push(gds_stack_t * stack,
+			       _radix_tree_item_t * item,
+			       uint8_t key_len,
+			       uint32_t key)
+{
+  _stack_ctx_t * stack_ctx= (_stack_ctx_t *)
+    MALLOC(sizeof(_stack_ctx_t));
+  stack_ctx->tree_item= item;
+  stack_ctx->key_len= key_len;
+  stack_ctx->key= key;
+  assert(stack_push(stack, stack_ctx) >= 0);
+}
+
+// -----[ _stack_pop ]-----------------------------------------------
+static inline void _stack_pop(gds_stack_t * stack,
+			      _radix_tree_item_t ** tree_item,
+			      uint8_t * key_len,
+			      uint32_t * key)
+{
+  _stack_ctx_t * stack_ctx= (_stack_ctx_t *) stack_pop(stack);
+  *tree_item= stack_ctx->tree_item;
+  *key_len= stack_ctx->key_len;
+  *key= stack_ctx->key;
+  FREE(stack_ctx);
+}
 
 // ----- radix_tree_for_each ----------------------------------------
 /**
  * Call the 'fForEach' function for each non empty node.
  */
-int radix_tree_for_each(SRadixTree * pTree,
+int radix_tree_for_each(gds_radix_tree_t * tree,
 			FRadixTreeForEach fForEach,
-			void * pContext)
+			void * ctx)
 {
-  SStack * pStack= stack_create(pTree->uKeyLen);
-  SRadixTreeItem * pTreeItem;
-  SRadixTreeForEachContext * pStackContext;
-  int iResult= 0;
-  uint32_t uKey;
-  uint8_t uKeyLen;
+  gds_stack_t * stack= stack_create(tree->key_len);
+  _radix_tree_item_t * tree_item;
+  int result= 0;
+  uint32_t key;
+  uint8_t key_len;
 
-  pTreeItem= pTree->pRoot;
-  uKey= 0;
-  uKeyLen= 0;
+  tree_item= tree->root;
+  key= 0;
+  key_len= 0;
+
   // Depth first search
-  while (pTreeItem != NULL) {
-    if (pTreeItem->pItem != NULL) {
-      iResult= fForEach(uKey, uKeyLen, pTreeItem->pItem, pContext);
-      if (iResult != 0)
-	return iResult;
+  while (tree_item != NULL) {
+    if (tree_item->data!= NULL) {
+      result= fForEach(key, key_len, tree_item->data, ctx);
+      if (result != 0)
+	return result;
     }
-    if (pTreeItem->pLeft != NULL) {
-      if (pTreeItem->pRight != NULL) {
-	pStackContext= (SRadixTreeForEachContext *)
-	  MALLOC(sizeof(SRadixTreeForEachContext));
-	pStackContext->pTreeItem= pTreeItem->pRight;
-	pStackContext->uKeyLen= uKeyLen+1;
-	pStackContext->uKey= uKey+(1 << (pTree->uKeyLen-uKeyLen-1));
-	stack_push(pStack, pStackContext);
-      }
-      pTreeItem= pTreeItem->pLeft;
-      uKeyLen++;
-    } else if (pTreeItem->pRight != NULL) {
-      pTreeItem= pTreeItem->pRight;
-      uKey= uKey+(1 << (pTree->uKeyLen-uKeyLen-1));
-      uKeyLen++;
+    if (tree_item->left != NULL) {
+      if (tree_item->right != NULL)
+	_stack_push(stack, tree_item->right, key_len+1,
+		    key+(1 << (tree->key_len-key_len-1)));
+      tree_item= tree_item->left;
+      key_len++;
+    } else if (tree_item->right != NULL) {
+      tree_item= tree_item->right;
+      key= key+(1 << (tree->key_len-key_len-1));
+      key_len++;
     } else {
-      if (stack_depth(pStack) > 0) {
-	pStackContext= (SRadixTreeForEachContext *) stack_pop(pStack);
-	pTreeItem= pStackContext->pTreeItem;
-	uKey= pStackContext->uKey;
-	uKeyLen= pStackContext->uKeyLen;
-	FREE(pStackContext);
-      } else
+      if (stack_depth(stack) > 0)
+	_stack_pop(stack, &tree_item, &key_len, &key);
+      else
 	break;
     }
   }
-  stack_destroy(&pStack);
+  stack_destroy(&stack);
   return 0;
 }
 
 // ----- _radix_tree_item_num_nodes ---------------------------------
-int _radix_tree_item_num_nodes(SRadixTreeItem * pTreeItem)
+int _radix_tree_item_num_nodes(_radix_tree_item_t * tree_item, int with_data)
 {
-  if (pTreeItem != NULL) {
-    return 1 + _radix_tree_item_num_nodes(pTreeItem->pLeft)+
-      _radix_tree_item_num_nodes(pTreeItem->pRight);
+  if (tree_item != NULL) {
+    return (with_data?(tree_item->data != NULL):1) +
+      _radix_tree_item_num_nodes(tree_item->left, with_data) +
+      _radix_tree_item_num_nodes(tree_item->right, with_data);
   }
   return 0;
 }
@@ -363,7 +391,94 @@ int _radix_tree_item_num_nodes(SRadixTreeItem * pTreeItem)
  * Count the number of nodes in the tree. The algorithm uses a
  * divide-and-conquer recursive approach.
  */
-int radix_tree_num_nodes(SRadixTree * pTree)
+int radix_tree_num_nodes(gds_radix_tree_t * tree, int with_data)
 {
-  return _radix_tree_item_num_nodes(pTree->pRoot);
+  return _radix_tree_item_num_nodes(tree->root, with_data);
+}
+
+
+/////////////////////////////////////////////////////////////////////
+//
+// ENUMERATION
+//
+/////////////////////////////////////////////////////////////////////
+
+// -----[ _enum_ctx_t ]----------------------------------------------
+typedef struct {
+  gds_radix_tree_t   * tree;
+  gds_stack_t        * stack;
+  _radix_tree_item_t * tree_item;
+  uint32_t             key;
+  uint8_t              key_len;
+  void               * data;
+} _enum_ctx_t;
+
+// -----[ _radix_tree_enum_has_next ]--------------------------------
+static int _radix_tree_enum_has_next(void * ctx)
+{
+  _enum_ctx_t * ectx= (_enum_ctx_t *) ctx;
+
+  // Depth first search
+  while ((ectx->data == NULL) && (ectx->tree_item != NULL)) {
+
+    if (ectx->tree_item->data != NULL)
+      ectx->data= ectx->tree_item->data;
+
+    // Move to next item
+    if (ectx->tree_item->left != NULL) {
+      if (ectx->tree_item->right != NULL)
+	_stack_push(ectx->stack, ectx->tree_item->right, ectx->key_len+1,
+		    ectx->key+(1 << (ectx->tree->key_len-ectx->key_len-1)));
+      ectx->tree_item= ectx->tree_item->left;
+      ectx->key_len++;
+    } else if (ectx->tree_item->right != NULL) {
+      ectx->tree_item= ectx->tree_item->right;
+      ectx->key= ectx->key+(1 << (ectx->tree->key_len-ectx->key_len-1));
+      ectx->key_len++;
+    } else {
+      if (stack_depth(ectx->stack) > 0)
+	_stack_pop(ectx->stack, &ectx->tree_item, &ectx->key_len, &ectx->key);
+      else
+	ectx->tree_item= NULL;
+    }
+  }
+  return (ectx->data != NULL);
+}
+
+// -----[ _radix_tree_enum_get_next ]--------------------------------
+static void * _radix_tree_enum_get_next(void * ctx)
+{
+  _enum_ctx_t * ectx= (_enum_ctx_t *) ctx;
+  void * data= NULL;
+
+  if (_radix_tree_enum_has_next(ctx)) {
+    data= ectx->data;
+    ectx->data= NULL;
+  }
+  return data;
+}
+
+// -----[ _radix_tree_enum_destroy ]---------------------------------
+static void _radix_tree_enum_destroy(void * ctx)
+{
+  _enum_ctx_t * ectx= (_enum_ctx_t *) ctx;
+  stack_destroy(&ectx->stack);
+  FREE(ectx);
+}
+
+// -----[ radix_tree_get_enum ]--------------------------------------
+gds_enum_t * radix_tree_get_enum(gds_radix_tree_t * tree)
+{
+  _enum_ctx_t * ectx=
+    (_enum_ctx_t *) MALLOC(sizeof(_enum_ctx_t));
+  ectx->tree= tree;
+  ectx->stack= stack_create(tree->key_len);
+  ectx->tree_item= tree->root;
+  ectx->key= 0;
+  ectx->key_len= 0;
+  ectx->data= NULL;
+  return enum_create(ectx,
+		     _radix_tree_enum_has_next,
+		     _radix_tree_enum_get_next,
+		     _radix_tree_enum_destroy);
 }

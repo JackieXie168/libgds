@@ -1,9 +1,9 @@
 // ==================================================================
 // @(#)cli_params.h
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 25/06/2003
-// @lastdate 25/06/2007
+// $Id$
 // ==================================================================
 
 #ifndef __GDS_CLI_PARAMS_H__
@@ -11,8 +11,8 @@
 
 #include <libgds/array.h>
 
-typedef int (*FCliCheckParam)(const char * pcValue);
-typedef char * (*FCliEnumParam)(const char * pcText, int state);
+typedef int (*FCliCheckParam)(const char * value);
+typedef char * (*FCliEnumParam)(const char * text, int state);
 
 /////////////////////////////////////////////////////////////////////
 //
@@ -20,47 +20,49 @@ typedef char * (*FCliEnumParam)(const char * pcText, int state);
 //
 /////////////////////////////////////////////////////////////////////
 
-typedef SPtrArray SCliParams;
+typedef SPtrArray cli_params_t;
+typedef cli_params_t SCliParams;
 typedef enum {
   CLI_PARAM_TYPE_STD,
   CLI_PARAM_TYPE_VARARG,
 } cli_param_type_t;
 
 typedef struct {
-  char * pcName;
-  cli_param_type_t tType;
-  uint8_t uMaxArgs;
-  FCliCheckParam fCheck;
-  FCliEnumParam fEnum;
-  char * pcInfo;
-} SCliParam;
+  char             * name;
+  cli_param_type_t   type;
+  uint8_t            max_args;
+  FCliCheckParam     fCheck;
+  FCliEnumParam      fEnum;
+  char             * info;
+} cli_param_t;
+typedef cli_param_t SCliParam;
 
 #ifdef __cplusplus
 extern"C" {
 #endif
 
   // ----- cli_cmd_param_create -------------------------------------
-  SCliParam * cli_cmd_param_create(char * pcName,
+  cli_param_t * cli_cmd_param_create(char * name,
 				   FCliCheckParam fCheckParam);
   // ----- cli_cmd_param_destroy ------------------------------------
-  void cli_cmd_param_destroy(SCliParam ** ppParam);
+  void cli_cmd_param_destroy(cli_param_t ** param_ref);
   // ----- cli_params_create ----------------------------------------
-  SCliParams * cli_params_create();
+  cli_params_t * cli_params_create();
   // ----- cli_params_destroy ---------------------------------------
-  void cli_params_destroy(SCliParams ** ppParams);
+  void cli_params_destroy(cli_params_t ** params_ref);
   // ----- cli_params_add -------------------------------------------
-  int cli_params_add(SCliParams * pParams, char * pcName,
+  int cli_params_add(cli_params_t * params, char * name,
 		     FCliCheckParam fCheckParam);
   // ----- cli_params_add -------------------------------------------
-  int cli_params_add2(SCliParams * pParams, char * pcName,
+  int cli_params_add2(cli_params_t * params, char * name,
 		      FCliCheckParam fCheckParam,
 		      FCliEnumParam fEnumParam);
   // ----- cli_params_add_vararg ------------------------------------
-  int cli_params_add_vararg(SCliParams * pParams, char * pcName,
+  int cli_params_add_vararg(cli_params_t * params, char * name,
 			    uint8_t uMaxArgs,
 			    FCliCheckParam fCheckParam);
   // ----- cli_params_num -------------------------------------------
-  unsigned int cli_params_num(SCliParams * pParams);
+  unsigned int cli_params_num(cli_params_t * params);
   
 #ifdef __cplusplus
 }
@@ -73,39 +75,40 @@ extern"C" {
 //
 /////////////////////////////////////////////////////////////////////
 
-typedef SPtrArray SCliOptions;
+typedef SPtrArray cli_options_t;
 typedef struct {
-  char * pcName;
-  char * pcValue;
-  uint8_t uPresent;
-  FCliCheckParam fCheck;
-  char * pcInfo;
-} SCliOption;
+  char           * name;
+  char           * value;
+  uint8_t          present;
+  FCliCheckParam   fCheck;
+  char           * info;
+} cli_option_t;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
   // ----- cli_options_create ---------------------------------------
-  SCliOptions * cli_options_create();
+  cli_options_t * cli_options_create();
   // ----- cli_options_destroy --------------------------------------
-  void cli_options_destroy(SCliOptions ** ppOptions);
+  void cli_options_destroy(cli_options_t ** options_ref);
   // ----- cli_options_find -----------------------------------------
-  SCliOption * cli_options_find(SCliOptions * pOptions, const char * pcName);
+  cli_option_t * cli_options_find(cli_options_t * options,
+				  const char * name);
   // ----- cli_options_add ------------------------------------------
-  int cli_options_add(SCliOptions * pOptions, char * pcName,
+  int cli_options_add(cli_options_t * options, char * name,
 		      FCliCheckParam fCheck);
   // ----- cli_options_has_value ------------------------------------
-  int cli_options_has_value(SCliOptions * pOptions, char * pcName);
+  int cli_options_has_value(cli_options_t * options, char * name);
   // ----- cli_options_get_value ------------------------------------
-  char * cli_options_get_value(SCliOptions * pOptions, char * pcName);
+  char * cli_options_get_value(cli_options_t * options, char * name);
   // ----- cli_options_set_value ------------------------------------
-  int cli_options_set_value(SCliOptions * pOptions, char * pcName,
-			    char * pcValue);
+  int cli_options_set_value(cli_options_t * options, char * name,
+			    char * value);
   // ----- cli_options_num ------------------------------------------
-  unsigned int cli_options_num(SCliOptions * pOptions);
+  unsigned int cli_options_num(cli_options_t * options);
   // ----- cli_options_init -------------------------------------------
-  void cli_options_init(SCliOptions * pOptions);
+  void cli_options_init(cli_options_t * options);
 
 #ifdef __cplusplus
 }

@@ -17,15 +17,18 @@
  * freed as soon as its reference counter drops to 0.
  */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
-#include <config.h>
 #include <libgds/array.h>
 #include <libgds/memory.h>
-#include <libgds/log.h>
+#include <libgds/stream.h>
 #include <libgds/hash.h>
 
 typedef struct {
@@ -34,12 +37,12 @@ typedef struct {
   FHashCompute    hash_compute;
 } hash_ops_t;
 
-struct hash_table_t {
+struct gds_hash_set_t {
   unsigned int    size;
   unsigned int    num_elts;
   float           resize_thr;
   hash_ops_t      ops;
-  SPtrArray    ** items;
+  ptr_array_t  ** items;
 };
 
 typedef struct {
@@ -53,7 +56,8 @@ typedef struct {
 /**
  *
  */
-static int _hash_element_compare(void * elt1, void * elt2,
+static int _hash_element_compare(const void * elt1,
+				 const void * elt2,
 				 unsigned int elt_size)
 {
   hash_elt_t * hash_elt1= *((hash_elt_t **) elt1);
@@ -68,7 +72,7 @@ static int _hash_element_compare(void * elt1, void * elt2,
 /**
  *
  */
-static void _hash_element_remove(void * elt)
+static void _hash_element_remove(void * elt, const void * ctx)
 {
   hash_elt_t * hash_elt= *((hash_elt_t **) elt);
 
@@ -80,7 +84,7 @@ static void _hash_element_remove(void * elt)
 /**
  *
  */
-static void _hash_element_destroy(void * elt)
+static void _hash_element_destroy(void * elt, const void * ctx)
 {
   hash_elt_t * hash_elt= *((hash_elt_t **) elt);
 
@@ -138,7 +142,7 @@ static hash_elt_t * _hash_element_init(void * item,
  *   0  if element was found. In this case, *puIndex will contain the
  *      index of the element.
  */
-static inline int _hash_element_search(const SPtrArray * aHashElts,
+static inline int _hash_element_search(const ptr_array_t * aHashElts,
 				       void * item, 
 				       unsigned int * index_ref)
 {
@@ -172,7 +176,7 @@ static inline uint32_t _hash_element_get_current_key(const hash_elt_t * elt)
 /**
  * Add an element to an hash table bucket (ptr-array).
  */
-static inline hash_elt_t * _hash_element_add(const SPtrArray * aHashElt,
+static inline hash_elt_t * _hash_element_add(const ptr_array_t * aHashElt,
 					   void * item,
 					   hash_ops_t * ops)
 {
@@ -181,21 +185,20 @@ static inline hash_elt_t * _hash_element_add(const SPtrArray * aHashElt,
   return elt;
 }
 
-// ----- hash_init ---------------------------------------------------
+// -----[ hash_set_create ]------------------------------------------
 /**
- * Create a new hash table.
+ * Create a new hash set.
  *
  * Note on parameters:
  *   resize-threshold (use 0 to avoid re-hashing)
- *   
  */
-hash_t * hash_init(unsigned int size,
-		   float resize_thr, 
-		   FHashEltCompare elt_cmp,
-		   FHashEltDestroy elt_destroy,
-		   FHashCompute hash_compute)
+gds_hash_set_t * hash_set_create(unsigned int size,
+				 float resize_thr, 
+				 FHashEltCompare elt_cmp,
+				 FHashEltDestroy elt_destroy,
+				 FHashCompute hash_compute)
 {
-  hash_t * hash= MALLOC(sizeof(hash_t));
+  gds_hash_set_t * hash= MALLOC(sizeof(gds_hash_set_t));
 
   hash->items= MALLOC(sizeof(void *)*size);
   memset(hash->items, 0, sizeof(void *)*size);
@@ -215,46 +218,63 @@ hash_t * hash_init(unsigned int size,
   return hash;
 }
 
-// -----[ _hash_get_hash_array ]-------------------------------------
+// -----[ hash_set_destroy ]-----------------------------------------
+void hash_set_destroy(gds_hash_set_t ** hash_ref)
+{
+  unsigned int index;
+
+  if (*hash_ref != NULL) {
+    for (index= 0; index < (*hash_ref)->size; index++) {
+      if ((*hash_ref)->items[index] != NULL)
+	ptr_array_destroy(&((*hash_ref)->items[index]));
+    }
+    FREE((*hash_ref)->items);
+    FREE((*hash_ref) );
+    (*hash_ref)= NULL;
+  } 
+}
+
+// -----[ _hash_set_get_hash_array ]---------------------------------
 /**
  * Initialize a new hash table bucket (ptr-array).
  */
-static inline SPtrArray * _hash_get_hash_array(hash_t * hash,
-					       uint32_t key)
+static inline
+ptr_array_t * _hash_set_get_hash_array(gds_hash_set_t * hash,
+				       uint32_t key)
 {
   assert(key < hash->size);
 
   if (hash->items[key] == NULL) {
     hash->items[key]=
-      ptr_array_create(
-		       ARRAY_OPTION_UNIQUE|ARRAY_OPTION_SORTED,
+      ptr_array_create(ARRAY_OPTION_UNIQUE|ARRAY_OPTION_SORTED,
 		       _hash_element_compare,
-		       _hash_element_destroy);
+		       _hash_element_destroy, NULL);
   }
   return hash->items[key];
 }
 
-// -----[ _hash_compute_key ]----------------------------------------
+// -----[ _hash_set_compute_key ]------------------------------------
 /**
  * Wrapper for computing the hash key for an element.
  */
-static uint32_t _hash_compute_key(const hash_t * hash, const void * item)
+static inline
+uint32_t _hash_set_compute_key(const gds_hash_set_t * hash, const void * item)
 {
   return hash->ops.hash_compute(item, hash->size);
 }
 
-// ----- hash_rehash -------------------------------------------------
+// -----[ hash_set_rehash ]------------------------------------------
 /**
  * Re-hash the entire hash table.
  */
-static void _hash_rehash(hash_t * hash)
+static void _hash_set_rehash(gds_hash_set_t * hash)
 {
   uint32_t key;
   unsigned int index, index2;
   unsigned int new_size;
   unsigned int old_size;
-  SPtrArray * aHashElt;
-  SPtrArray * aHashEltNew;
+  ptr_array_t * aHashElt;
+  ptr_array_t * aHashEltNew;
   hash_elt_t * hash_elt;
   void * item= NULL;
   
@@ -271,7 +291,7 @@ static void _hash_rehash(hash_t * hash)
       for (index2= 0; index2 < ptr_array_length(aHashElt); index2++) {
 	// Extract the Elt
 	hash_elt= aHashElt->data[index2];
-	key= _hash_compute_key(hash, item);
+	key= _hash_set_compute_key(hash, item);
 	/* If the old key is the same as the new. Don't move the hash_elt as it
 	 * stays in the same array of the hash table */
 	if (key != _hash_element_get_current_key(hash_elt)) {
@@ -279,15 +299,15 @@ static void _hash_rehash(hash_t * hash)
 	  // Remove the element
 	  /* change the destroy function in the array structure as we don't
 	   * want the pElt to be destroyed */
-	  ptr_array_set_fdestroy(aHashElt, _hash_element_remove);
+	  ptr_array_set_fdestroy(aHashElt, _hash_element_remove, NULL);
 	  ptr_array_remove_at(aHashElt, index2);
 	  // Get his new aHashElt array in which setting pElt
-	  aHashEltNew= _hash_get_hash_array(hash, key);
+	  aHashEltNew= _hash_set_get_hash_array(hash, key);
 	  hash_elt= _hash_element_add(aHashEltNew, item, &hash->ops);
 	  /* Change the current key of the Elt */
 	  _hash_element_set_current_key(hash_elt, key);
 	  /* restore the destroy function */
-	  ptr_array_set_fdestroy(aHashEltNew, _hash_element_destroy);
+	  ptr_array_set_fdestroy(aHashEltNew, _hash_element_destroy, NULL);
 	} 
       } 
     }
@@ -295,7 +315,7 @@ static void _hash_rehash(hash_t * hash)
 }
 
 
-// ----- hash_add ----------------------------------------------------
+// -----[ hash_set_add ]---------------------------------------------
 /**
  * Add a new element to the hash-table. If the element already exists,
  * i.e. if it is the same as an already existing element according to
@@ -312,17 +332,17 @@ static void _hash_rehash(hash_t * hash)
  *   value is different from pElt, that means that an equivalent
  *   element was already in the hash table.
  */
-void * hash_add(hash_t * hash, void * item)
+void * hash_set_add(gds_hash_set_t * hash, void * item)
 {
   unsigned int index= 0;
   hash_elt_t * elt;
-  SPtrArray * aHashElt;
+  ptr_array_t * aHashElt;
   uint32_t key;
 
-  key= _hash_compute_key(hash, item);
+  key= _hash_set_compute_key(hash, item);
 
   // Return the hash bucket for this key (create the bucket if required)
-  aHashElt= _hash_get_hash_array(hash, key);
+  aHashElt= _hash_set_get_hash_array(hash, key);
 
   // Lookup in the bucket for an existing element
   if (_hash_element_search(aHashElt, item, &index) == -1) {
@@ -336,11 +356,11 @@ void * hash_add(hash_t * hash, void * item)
     if (hash->resize_thr > 0.0) {
       if (++hash->num_elts >
 	  (uint32_t)((float)hash->size*hash->resize_thr)) {
-	_hash_rehash(hash);
+	_hash_set_rehash(hash);
 	// Recompute the new element's key and find the new bucket as
 	// the hash table size has changed.
-	key= _hash_compute_key(hash, item);
-	aHashElt= _hash_get_hash_array(hash, key);
+	key= _hash_set_compute_key(hash, item);
+	aHashElt= _hash_set_get_hash_array(hash, key);
       }
     }
 
@@ -360,7 +380,7 @@ void * hash_add(hash_t * hash, void * item)
   return elt->item;
 }
 
-// ----- hash_search -------------------------------------------------
+// -----[ hash_set_search ]------------------------------------------
 /**
  * Lookup an element equivalent to pElt.
  *
@@ -368,48 +388,43 @@ void * hash_add(hash_t * hash, void * item)
  *   NULL if no elt found
  *   pointer to found elt otherwise
  */
-void * hash_search(const hash_t * hash, void * item)
+void * hash_set_search(const gds_hash_set_t * hash, void * item)
 {
   unsigned int index;
-  SPtrArray * aHashElts;
+  ptr_array_t * aHashElts;
   hash_elt_t * searched_elt = NULL;
   uint32_t key= hash->ops.hash_compute(item, hash->size);
 
   aHashElts= hash->items[key];
   if (aHashElts != NULL) {
-    if (_hash_element_search(aHashElts, item, &index) != -1) {
-      _array_get_at((SArray*)aHashElts, index, &searched_elt);
-    }
+    if (_hash_element_search(aHashElts, item, &index) != -1)
+      searched_elt= (hash_elt_t *) aHashElts->data[index];
   }
   return (searched_elt == NULL) ? NULL : searched_elt->item;
 }
 
-// ----- hash_del ----------------------------------------------------
+// -----[ hash_set_remove ]------------------------------------------
 /**
  * Remove an element from the hash table.
  *
  * Return value:
- *   0 if no elt was deleted or unreferenced
- *   1 if one element was unreferenced 
- *   2 if one element was deleted (refcount became 0)
+ *   HASH_ERROR_NO_MATCH if no elt was deleted or unreferenced
+ *   HASH_SUCCESS_UNREF  if one element was unreferenced 
+ *   HASH_SUCCESS        if one element was deleted (refcount became 0)
  */
-int hash_del(hash_t * hash, void * item)
+int hash_set_remove(gds_hash_set_t * hash, void * item)
 {
-#define NO_ELT_DELETED   0
-#define ELT_UNREFERENCED 1
-#define ELT_DELETED      2
-
   uint32_t key= hash->ops.hash_compute(item, hash->size);
-  SPtrArray * aHashElt;
-  int result= NO_ELT_DELETED;
+  ptr_array_t * aHashElt;
+  int result= HASH_ERROR_NO_MATCH;
   unsigned int index;
   
   aHashElt= hash->items[key];
   if (aHashElt != NULL) {
     if (_hash_element_search(aHashElt, item, &index) != -1) {
-      result= ELT_UNREFERENCED;
+      result= HASH_SUCCESS_UNREF;
       if (_hash_element_unref((hash_elt_t *) aHashElt->data[index]) <= 0){
-	result= ELT_DELETED;
+	result= HASH_SUCCESS;
 	hash->num_elts--;
 	ptr_array_remove_at(aHashElt, index);
       }
@@ -418,7 +433,7 @@ int hash_del(hash_t * hash, void * item)
   return result;
 }
 
-// -----[ hash_get_refcnt ]------------------------------------------
+// -----[ hash_set_get_refcnt ]--------------------------------------
 /**
  * Return number of references on the given item.
  *
@@ -426,26 +441,26 @@ int hash_del(hash_t * hash, void * item)
  *   0 if the element does not exist
  *   reference counter otherwise
  */
-unsigned int hash_get_refcnt(const hash_t * hash, void * item)
+unsigned int hash_set_get_refcnt(const gds_hash_set_t * hash, void * item)
 {
   unsigned int index;
-  SPtrArray * pHashItems;
+  ptr_array_t * hash_items;
   hash_elt_t * searched_elt= NULL;
   uint32_t key;
 
   key= hash->ops.hash_compute(item, hash->size);
-  pHashItems= hash->items[key];
-  if (pHashItems == NULL)
+  hash_items= hash->items[key];
+  if (hash_items == NULL)
     return 0;
 
-  if (_hash_element_search(pHashItems, item, &index) == -1)
+  if (_hash_element_search(hash_items, item, &index) == -1)
     return 0;
 
-  searched_elt= pHashItems->data[index];
+  searched_elt= hash_items->data[index];
   return searched_elt->refcnt;
 }
 
-// -----[ hash_for_each_key ]----------------------------------------
+// -----[ hash_set_for_each_key ]------------------------------------
 /**
  * Call the given callback function foreach key in the hash table. The
  * item which is passed to the callback function is the array at the
@@ -455,33 +470,35 @@ unsigned int hash_get_refcnt(const hash_t * hash, void * item)
  *
  * Note: the callback can be called with an item which is NULL.
  */
-int hash_for_each_key(const hash_t * hash, FHashForEach for_each, 
-		      void * ctx)
+int hash_set_for_each_key(const gds_hash_set_t * hash,
+			  FHashForEach foreach, 
+			  void * ctx)
 {
   int result;
   uint32_t key;
-  SPtrArray * pHashItems;
+  ptr_array_t * pHashItems;
 
   for (key= 0; key < hash->size; key++) {
     pHashItems= hash->items[key];
-    result= for_each(pHashItems, ctx);
+    result= foreach(pHashItems, ctx);
     if (result < 0)
       return result;
   }
   return 0;
 }
 
-// -----[ hash_for_each ]--------------------------------------------
+// -----[ hash_set_for_each ]----------------------------------------
 /**
  * Call the given callback function foreach item in the hash table.
  */
-int hash_for_each(const hash_t * hash, FHashForEach for_each, 
-		  void * ctx)
+int hash_set_for_each(const gds_hash_set_t * hash,
+		      FHashForEach foreach, 
+		      void * ctx)
 {
   int result;
   uint32_t key;
   unsigned int index;
-  SPtrArray * pHashItems;
+  ptr_array_t * pHashItems;
   void * item;
 
   for (key= 0; key < hash->size; key++) {
@@ -489,7 +506,7 @@ int hash_for_each(const hash_t * hash, FHashForEach for_each,
     if (pHashItems != NULL) {
       for (index= 0; index < ptr_array_length(pHashItems); index++) {
 	item= ((hash_elt_t *) pHashItems->data[index])->item;
-	result= for_each(item, ctx);
+	result= foreach(item, ctx);
 	if (result < 0)
 	  return result;
       }
@@ -498,12 +515,12 @@ int hash_for_each(const hash_t * hash, FHashForEach for_each,
   return 0;
 }
 
-// -----[ hash_dump ]------------------------------------------------
-void hash_dump(const hash_t * hash)
+// -----[ hash_set_dump ]--------------------------------------------
+void hash_set_dump(const gds_hash_set_t * hash)
 {
   uint32_t key;
   unsigned int index;
-  SPtrArray * pHashItems;
+  ptr_array_t * pHashItems;
   hash_elt_t * elt;
 
   fprintf(stderr, "**********************************\n");
@@ -522,25 +539,6 @@ void hash_dump(const hash_t * hash)
   fprintf(stderr, "**********************************\n");
 }
 
-// ----- hash_destroy ------------------------------------------------
-/**
- *
- *
- */
-void hash_destroy(hash_t ** hash_ref)
-{
-  unsigned int index;
-
-  if (*hash_ref != NULL) {
-    for (index= 0; index < (*hash_ref)->size; index++) {
-      if ((*hash_ref)->items[index] != NULL)
-	ptr_array_destroy(&((*hash_ref)->items[index]));
-    }
-    FREE((*hash_ref)->items);
-    FREE((*hash_ref) );
-    (*hash_ref)= NULL;
-  } 
-}
 
 /////////////////////////////////////////////////////////////////////
 //
@@ -549,16 +547,16 @@ void hash_destroy(hash_t ** hash_ref)
 /////////////////////////////////////////////////////////////////////
 
 typedef struct {
-  unsigned int   index1;
-  unsigned int   index2;
-  hash_t       * hash;
+  unsigned int     index1;
+  unsigned int     index2;
+  gds_hash_set_t * hash;
 } _enum_ctx_t;
 
 // -----[ _enum_has_next ]-------------------------------------------
 int _enum_has_next(void * ctx)
 {
   _enum_ctx_t * enum_ctx= (_enum_ctx_t *) ctx;
-  SPtrArray * pHashItems;
+  ptr_array_t * pHashItems;
   unsigned int index1;
 
 
@@ -591,7 +589,7 @@ int _enum_has_next(void * ctx)
 void * _enum_get_next(void * ctx)
 {
   _enum_ctx_t * enum_ctx= (_enum_ctx_t *) ctx;
-  SPtrArray * pHashItems= NULL;
+  ptr_array_t * pHashItems= NULL;
   void * item= NULL;
 
   /* Have we already get all the items? */
@@ -626,8 +624,8 @@ void _enum_destroy(void * ctx)
   FREE(enum_ctx);
 }
 
-// -----[ hash_get_enum ]--------------------------------------------
-enum_t * hash_get_enum(hash_t * hash)
+// -----[ hash_set_get_enum ]----------------------------------------
+gds_enum_t * hash_set_get_enum(gds_hash_set_t * hash)
 {
   _enum_ctx_t * ctx=
     (_enum_ctx_t *) MALLOC(sizeof(_enum_ctx_t));

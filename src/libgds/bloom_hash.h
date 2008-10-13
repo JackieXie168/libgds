@@ -3,7 +3,7 @@
 //
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // @date 15/03/2007
-// @lastdate 15/03/2007
+// $Id$
 // ==================================================================
 
 #ifndef __BLOOM_HASH_H__
@@ -22,8 +22,8 @@ void bloom_hash_destroy(SBloomFilterHash ** pBloomHash);
 // ----- bloom_hash_reset --------------------------------------------
 void bloom_hash_reset(SBloomFilterHash * pBloomHash);
 // ----- bloom_hash_get ----------------------------------------------
-SUInt32Array * bloom_hash_get(SBloomFilterHash * pBloomHash, 
-			    uint8_t * pKey, 
-			    uint32_t uLen);
+uint32_array_t * bloom_hash_get(SBloomFilterHash * pBloomHash, 
+				uint8_t * pKey, 
+				uint32_t uLen);
 
 #endif /* __BLOOM_HASH_H__ */
