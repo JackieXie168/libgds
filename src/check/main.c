@@ -3096,178 +3096,196 @@ static int test_hash_set_strings()
 #include <libgds/bit_vector.h>
 int test_bit_vector_creation_destruction()
 {
-  SBitVector *pBitVector;
+  gds_bit_vector_t * bv;
 
-  pBitVector = bit_vector_create(1);
-  ASSERT_RETURN(pBitVector != NULL, "creation failed");
-  bit_vector_destroy(&pBitVector);
+  bv= bit_vector_create(1);
+  ASSERT_RETURN(bv != NULL, "creation failed");
+  bit_vector_destroy(&bv);
 
   return UTEST_SUCCESS;
 }
 
 int test_bit_vector_manipulations()
 {
-  SBitVector * pBitVector;
+  gds_bit_vector_t * bv;
 
-  pBitVector = bit_vector_create(32);
-  ASSERT_RETURN(!bit_vector_get(pBitVector, 0), "bit 0 is inaccurate");
-  ASSERT_RETURN(!bit_vector_set(pBitVector, 0), "bit 0 not set");
-  ASSERT_RETURN(bit_vector_get(pBitVector, 0), "bit 0 is inaccurate");
-  ASSERT_RETURN(!bit_vector_set(pBitVector, 1), "bit 1 not set");
-  ASSERT_RETURN(!bit_vector_set(pBitVector, 31), "bit 32 not set");
-  ASSERT_RETURN(bit_vector_set(pBitVector, 32) == -1, "bit couldn't be set");
-  ASSERT_RETURN(bit_vector_get(pBitVector, 1), "bit 1 is inaccurate");
+  bv= bit_vector_create(32);
+  ASSERT_RETURN(!bit_vector_get(bv, 0), "bit 0 is inaccurate");
+  ASSERT_RETURN(!bit_vector_set(bv, 0), "bit 0 not set");
+  ASSERT_RETURN(bit_vector_get(bv, 0), "bit 0 is inaccurate");
+  ASSERT_RETURN(!bit_vector_set(bv, 1), "bit 1 not set");
+  ASSERT_RETURN(!bit_vector_set(bv, 31), "bit 32 not set");
+  ASSERT_RETURN(bit_vector_set(bv, 32) == -1, "bit couldn't be set");
+  ASSERT_RETURN(bit_vector_get(bv, 1), "bit 1 is inaccurate");
 
-  ASSERT_RETURN(!bit_vector_get(pBitVector, 2), "bit 2 is inaccurate");
-  ASSERT_RETURN(!bit_vector_get(pBitVector, 30), "bit 30 is inaccurate");
-  ASSERT_RETURN(bit_vector_get(pBitVector, 32) == -1, "bit 32 should be inaccessible");
+  ASSERT_RETURN(!bit_vector_get(bv, 2), "bit 2 is inaccurate");
+  ASSERT_RETURN(!bit_vector_get(bv, 30), "bit 30 is inaccurate");
+  ASSERT_RETURN(bit_vector_get(bv, 32) == -1, "bit 32 should be inaccessible");
 
-  ASSERT_RETURN(!bit_vector_unset(pBitVector, 0), "can't unset bit 0");
-  ASSERT_RETURN(!bit_vector_get(pBitVector, 0), "bit 0 should be unset");
-  ASSERT_RETURN(bit_vector_unset(pBitVector, 32) == -1, "bit should be inaccessible");
-  ASSERT_RETURN(!bit_vector_unset(pBitVector, 31), "can't unset bit 31");
-  ASSERT_RETURN(!bit_vector_get(pBitVector, 31), "bit 31 should be unset");
+  ASSERT_RETURN(!bit_vector_clear(bv, 0), "can't unset bit 0");
+  ASSERT_RETURN(!bit_vector_get(bv, 0), "bit 0 should be unset");
+  ASSERT_RETURN(bit_vector_clear(bv, 32) == -1, "bit should be inaccessible");
+  ASSERT_RETURN(!bit_vector_clear(bv, 31), "can't unset bit 31");
+  ASSERT_RETURN(!bit_vector_get(bv, 31), "bit 31 should be unset");
 
-  bit_vector_destroy(&pBitVector);
+  bit_vector_destroy(&bv);
   return UTEST_SUCCESS;
 }
 
-void _test_bit_vector_set(SBitVector * pBitVector)
+void _test_bit_vector_set(gds_bit_vector_t * bv)
 {
-  bit_vector_set(pBitVector, 0);
-  bit_vector_set(pBitVector, 1);
-  bit_vector_set(pBitVector, 3);
-  bit_vector_set(pBitVector, 10);
-  bit_vector_set(pBitVector, 15);
-  bit_vector_set(pBitVector, 23);
-  bit_vector_set(pBitVector, 32);
-  bit_vector_set(pBitVector, 33);
-  bit_vector_set(pBitVector, 34);
-  bit_vector_set(pBitVector, 64);
+  bit_vector_set(bv, 0);
+  bit_vector_set(bv, 1);
+  bit_vector_set(bv, 3);
+  bit_vector_set(bv, 10);
+  bit_vector_set(bv, 15);
+  bit_vector_set(bv, 23);
+  bit_vector_set(bv, 32);
+  bit_vector_set(bv, 33);
+  bit_vector_set(bv, 34);
+  bit_vector_set(bv, 64);
 }
 
-void _test_bit_vector_set_xor(SBitVector * pBitVector)
+void _test_bit_vector_set_xor(gds_bit_vector_t * bv)
 {
-  bit_vector_set(pBitVector, 0);
-  bit_vector_set(pBitVector, 3);
-  bit_vector_set(pBitVector, 10);
-  bit_vector_set(pBitVector, 15);
-  bit_vector_set(pBitVector, 23);
-  bit_vector_set(pBitVector, 27);
-  bit_vector_set(pBitVector, 32);
-  bit_vector_set(pBitVector, 34);
+  bit_vector_set(bv, 0);
+  bit_vector_set(bv, 3);
+  bit_vector_set(bv, 10);
+  bit_vector_set(bv, 15);
+  bit_vector_set(bv, 23);
+  bit_vector_set(bv, 27);
+  bit_vector_set(bv, 32);
+  bit_vector_set(bv, 34);
 }
 
-char sBitVector0[] =	      "00000000000000000000000000000000000000000000000000000000000000000";
-char sBitVectorInit[] =	      "11010000001000010000000100000000111000000000000000000000000000001";
-char sBitVectorXor[] =	      "10010000001000010000000100010000101000000000000000000000000000000";
-char sBitVectorXorResult[] =  "01000000000000000000000000010000010000000000000000000000000000001";
+static const char * BIT_VECTOR_0=
+  "00000000000000000000000000000000000000000000000000000000000000000";
+static const char *BIT_VECTOR_INIT=
+  "11010000001000010000000100000000111000000000000000000000000000001";
+static const char * BIT_VECTOR_XOR=
+  "10010000001000010000000100010000101000000000000000000000000000000";
+static const char * BIT_VECTOR_XOR_RESULT=
+  "01000000000000000000000000010000010000000000000000000000000000001";
 
 int test_bit_vector_binary_operations()
 {
-  SBitVector * pBitVector1;
-  SBitVector * pBitVector2;
-  char * sBitVector1;
+  gds_bit_vector_t * bv1;
+  gds_bit_vector_t * bv2;
+  char * str;
 
   /* Legal Operations done on bit vectors of same length */
   /* AND */
-  pBitVector1 = bit_vector_create(65);
-  pBitVector2 = bit_vector_create(65);
-  _test_bit_vector_set(pBitVector1);
-  ASSERT_RETURN(bit_vector_and(pBitVector1, pBitVector2) == 0, "'and' operation failed");
-  sBitVector1 = bit_vector_to_string(pBitVector1);
-  ASSERT_RETURN(strcmp(sBitVector1, sBitVector0) == 0, "'and' operation not conform");
-  FREE(sBitVector1);
-  bit_vector_destroy(&pBitVector1);
-  bit_vector_destroy(&pBitVector2);
+  bv1= bit_vector_create(65);
+  bv2= bit_vector_create(65);
+  _test_bit_vector_set(bv1);
+  ASSERT_RETURN(bit_vector_and(bv1, bv2) == 0, "'and' operation failed");
+  str= bit_vector_to_string(bv1);
+  ASSERT_RETURN(strcmp(str, BIT_VECTOR_0) == 0,
+		"'and' operation not conform");
+  FREE(str);
+  bit_vector_destroy(&bv1);
+  bit_vector_destroy(&bv2);
 
   /* OR */
-  pBitVector1 = bit_vector_create(65);
-  pBitVector2 = bit_vector_create(65);
-  _test_bit_vector_set(pBitVector1);
-  ASSERT_RETURN(bit_vector_or(pBitVector1, pBitVector2) == 0, "'or' operation failed");
-  sBitVector1 = bit_vector_to_string(pBitVector1);
-  ASSERT_RETURN(strcmp(sBitVector1, sBitVectorInit) == 0, "'or' operation not conform");
-  FREE(sBitVector1);
-  bit_vector_destroy(&pBitVector1);
-  bit_vector_destroy(&pBitVector2);
+  bv1= bit_vector_create(65);
+  bv2= bit_vector_create(65);
+  _test_bit_vector_set(bv1);
+  ASSERT_RETURN(bit_vector_or(bv1, bv2) == 0, "'or' operation failed");
+  str= bit_vector_to_string(bv1);
+  ASSERT_RETURN(strcmp(str, BIT_VECTOR_INIT) == 0,
+		"'or' operation not conform");
+  FREE(str);
+  bit_vector_destroy(&bv1);
+  bit_vector_destroy(&bv2);
 
   /* XOR */
-  pBitVector1 = bit_vector_create(65);
-  pBitVector2 = bit_vector_create(65);
-  _test_bit_vector_set(pBitVector1);
-  _test_bit_vector_set_xor(pBitVector2);
-  ASSERT_RETURN(bit_vector_xor(pBitVector1, pBitVector2) == 0, "'xor' operation failed");
-  sBitVector1 = bit_vector_to_string(pBitVector1);
-  ASSERT_RETURN(strcmp(bit_vector_to_string(pBitVector2), sBitVectorXor) == 0, "'xor' string is inaccurate");
-  ASSERT_RETURN(strcmp(sBitVector1, sBitVectorXorResult) == 0, "'xor' operation not conform");
-  FREE(sBitVector1);
-  bit_vector_destroy(&pBitVector1);
-  bit_vector_destroy(&pBitVector2);
+  bv1= bit_vector_create(65);
+  bv2= bit_vector_create(65);
+  _test_bit_vector_set(bv1);
+  _test_bit_vector_set_xor(bv2);
+  ASSERT_RETURN(bit_vector_xor(bv1, bv2) == 0, "'xor' operation failed");
+  str= bit_vector_to_string(bv1);
+  ASSERT_RETURN(strcmp(bit_vector_to_string(bv2), BIT_VECTOR_XOR) == 0,
+		"'xor' string is inexact");
+  ASSERT_RETURN(strcmp(str, BIT_VECTOR_XOR_RESULT) == 0,
+		"'xor' operation not conform");
+  FREE(str);
+  bit_vector_destroy(&bv1);
+  bit_vector_destroy(&bv2);
 
   /* Operation done on bit vectors of different lengths */
-  pBitVector1 = bit_vector_create(65);
-  pBitVector2 = bit_vector_create(3);
-  ASSERT_RETURN(bit_vector_and(pBitVector1, pBitVector2) == -1, "'and' operation should have failed (len1 > len2)");
-  ASSERT_RETURN(bit_vector_and(pBitVector2, pBitVector1) == -1, "'and' operation should have failed (len1 > len2)");
-  ASSERT_RETURN(bit_vector_and(NULL, NULL) == -1, "'and' operation should have failed (NULL, NULL)");
-  ASSERT_RETURN(bit_vector_and(pBitVector1, NULL) == -1, "'and' operation should have failed (pBitVector, NULL)");
-  ASSERT_RETURN(bit_vector_and(NULL, pBitVector1) == -1, "'and' operation should have failed (NULL, pBitVector)");
-  bit_vector_destroy(&pBitVector1);
-  bit_vector_destroy(&pBitVector2);
+  bv1= bit_vector_create(65);
+  bv2= bit_vector_create(3);
+  ASSERT_RETURN(bit_vector_and(bv1, bv2) == -1,
+		"'and' operation should have failed (len1 > len2)");
+  ASSERT_RETURN(bit_vector_and(bv2, bv1) == -1,
+		"'and' operation should have failed (len1 > len2)");
+  ASSERT_RETURN(bit_vector_and(NULL, NULL) == -1,
+		"'and' operation should have failed (NULL, NULL)");
+  ASSERT_RETURN(bit_vector_and(bv1, NULL) == -1,
+		"'and' operation should have failed (pBitVector, NULL)");
+  ASSERT_RETURN(bit_vector_and(NULL, bv1) == -1,
+		"'and' operation should have failed (NULL, pBitVector)");
+  bit_vector_destroy(&bv1);
+  bit_vector_destroy(&bv2);
 
   return UTEST_SUCCESS;
 }
 
 int test_bit_vector_representation()
 {
-  SBitVector * pBitVector1;
-  char * sBitVector;
+  gds_bit_vector_t * bv;
+  char * str;
 
   /* String representation */
-  pBitVector1 = bit_vector_create(65);
-  _test_bit_vector_set(pBitVector1);
-  sBitVector = bit_vector_to_string(pBitVector1);
-  ASSERT_RETURN(strcmp(sBitVector, sBitVectorInit) == 0, "to_string failed");
-  FREE(sBitVector);
+  bv= bit_vector_create(65);
+  _test_bit_vector_set(bv);
+  str= bit_vector_to_string(bv);
+  ASSERT_RETURN(strcmp(str, BIT_VECTOR_INIT) == 0, "to_string failed");
+  FREE(str);
 
-  pBitVector1 = bit_vector_create_from_string(sBitVectorInit);
-  sBitVector = bit_vector_to_string(pBitVector1);
-  ASSERT_RETURN(strcmp(sBitVector, sBitVectorInit) == 0, "from_string failed");
-  FREE(sBitVector);
+  bv= bit_vector_from_string(BIT_VECTOR_INIT);
+  str= bit_vector_to_string(bv);
+  ASSERT_RETURN(strcmp(str, BIT_VECTOR_INIT) == 0, "from_string failed");
+  FREE(str);
 
-  bit_vector_destroy(&pBitVector1);
+  bit_vector_destroy(&bv);
   return UTEST_SUCCESS;
 }
 
 int test_bit_vector_equality()
 {
-  SBitVector * pBitVector1;
-  SBitVector * pBitVector2;
+  gds_bit_vector_t * bv1;
+  gds_bit_vector_t * bv2;
 
-  pBitVector1 = bit_vector_create(65);
-  pBitVector2 = bit_vector_create(65);
+  bv1= bit_vector_create(65);
+  bv2= bit_vector_create(65);
 
-  /* Same lengths */
-  _test_bit_vector_set(pBitVector1);
-    /* same value */
-    _test_bit_vector_set(pBitVector2);
-    ASSERT_RETURN(bit_vector_comp(pBitVector1, pBitVector2) == 0, "bit vectors should be equals");
-    ASSERT_RETURN(bit_vector_equals(pBitVector1, pBitVector2) == 1, "bit vector should be equals");
-    /* greater value */
-    _test_bit_vector_set_xor(pBitVector2);
-    ASSERT_RETURN(bit_vector_comp(pBitVector2, pBitVector1) == 1, "equality result should be greater");
-    ASSERT_RETURN(bit_vector_equals(pBitVector1, pBitVector2) == 0, "bit vector should be equals");
-    /* smaller value */
-    ASSERT_RETURN(bit_vector_comp(pBitVector1, pBitVector2) == -1, "equality result should be smaller");
+  // Same lengths
+  _test_bit_vector_set(bv1);
+  // same value
+  _test_bit_vector_set(bv2);
+  ASSERT_RETURN(bit_vector_cmp(bv1, bv2) == 0,
+		"bit vectors should be equals");
+  ASSERT_RETURN(bit_vector_equals(bv1, bv2) == 1,
+		"bit vector should be equals");
+  // greater value
+  _test_bit_vector_set_xor(bv2);
+  ASSERT_RETURN(bit_vector_cmp(bv2, bv1) == 1,
+		"equality result should be greater");
+  ASSERT_RETURN(bit_vector_equals(bv1, bv2) == 0,
+		"bit vector should be equals");
+  // smaller value
+  ASSERT_RETURN(bit_vector_cmp(bv1, bv2) == -1,
+		"equality result should be smaller");
 
-  /* Different lengths */
-  bit_vector_destroy(&pBitVector2);
-  pBitVector2 = bit_vector_create(3);
+  // Different lengths
+  bit_vector_destroy(&bv2);
+  bv2= bit_vector_create(3);
   
 
-  bit_vector_destroy(&pBitVector1);
-  bit_vector_destroy(&pBitVector2);
+  bit_vector_destroy(&bv1);
+  bit_vector_destroy(&bv2);
 
   return UTEST_SUCCESS;
 }

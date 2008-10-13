@@ -23,10 +23,10 @@
 
 struct _BloomFilter {
   /* TODO STA : get rid of bloom_hash! */
-  uint32_t uSize;
-  uint32_t uNbrHashFn;
+  uint32_t           uSize;
+  uint32_t           uNbrHashFn;
 
-  SBitVector * pBitVector;
+  gds_bit_vector_t * pBitVector;
   SBloomFilterHash * pBloomHash;
 };
 
