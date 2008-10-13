@@ -1,9 +1,9 @@
 // =================================================================
 // @(#)tokens.h
 //
-// @author Bruno Quoitin (bqu@infonet.fundp.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 20/08/2003
-// @lastdate 16/01/2007
+// $Id$
 // =================================================================
 
 #ifndef __GDS_TOKENS_H__
@@ -12,40 +12,40 @@
 #include <libgds/array.h>
 #include <libgds/types.h>
 
-typedef SPtrArray STokens;
+typedef SPtrArray gds_tokens_t;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
   // ----- tokens_create --------------------------------------------
-  STokens * tokens_create();
+  gds_tokens_t * tokens_create();
   // ----- tokens_destroy -------------------------------------------
-  void tokens_destroy(STokens ** pTokens);
+  void tokens_destroy(gds_tokens_t ** tokens_ref);
   // ----- tokens_add -----------------------------------------------
-  int tokens_add(STokens * pTokens, char * pcToken);
+  int tokens_add(const gds_tokens_t * tokens, char * token);
   // ----- tokens_add_copy ------------------------------------------
-  int tokens_add_copy(STokens * pTokens, char * pcToken);
+  int tokens_add_copy(const gds_tokens_t * tokens, char * token);
   // ----- tokens_get_num -------------------------------------------
-  unsigned int tokens_get_num(STokens * pTokens);
+  unsigned int tokens_get_num(const gds_tokens_t * tokens);
   // ----- tokens_get_at --------------------------------------------
-  char * tokens_get_string_at(STokens * pTokens,
-				     unsigned int uIndex);
+  char * tokens_get_string_at(const gds_tokens_t * tokens,
+			      unsigned int index);
   // ----- tokens_get_long_at ---------------------------------------
-  int tokens_get_long_at(STokens * pTokens, uint16_t uIndex,
-				long int * plValue);
+  int tokens_get_long_at(const gds_tokens_t * tokens, unsigned int index,
+			 long int * value);
   // ----- tokens_get_int_at ----------------------------------------
-  int tokens_get_int_at(STokens * pTokens, uint16_t uIndex,
-			       int * piValue);
+  int tokens_get_int_at(const gds_tokens_t * tokens, unsigned int index,
+			int * value);
   // ----- tokens_get_ulong_at --------------------------------------
-  int tokens_get_ulong_at(STokens * pTokens, uint16_t uIndex,
-				 unsigned long int * plValue);
+  int tokens_get_ulong_at(const gds_tokens_t * tokens, unsigned int index,
+			  unsigned long int * value);
   // ----- tokens_get_uint_at ---------------------------------------
-  int tokens_get_uint_at(STokens * pTokens, uint16_t uIndex,
-				unsigned int * puValue);
+  int tokens_get_uint_at(const gds_tokens_t * tokens, unsigned int index,
+			 unsigned int * value);
   // ----- tokens_get_double_at -------------------------------------
-  int tokens_get_double_at(STokens * pTokens, uint16_t uIndex,
-			   double * pdValue);
+  int tokens_get_double_at(const gds_tokens_t * tokens, unsigned int index,
+			   double * value);
 
 #ifdef __cplusplus
 }

@@ -3,7 +3,7 @@
 //
 // @author Sebastien Tandel <sebastien [AT] tandel (dot) be>
 // @date 15/03/2007
-// @lastdate 15/03/2007
+// $Id$
 // ==================================================================
 #ifdef HAVE_CONFIG_H
 # include <config.h>
@@ -78,7 +78,7 @@ void bloom_filter_destroy(SBloomFilter ** ppBloomFilter)
   }
 }
 
-static int _bloom_filter_add_for_each(void * pItem, void * pCtx)
+static int _bloom_filter_add_for_each(const void * pItem, const void * pCtx)
 {
   uint32_t uItem = *(uint32_t *)pItem;
   SBloomFilter * pBloomFilter = (SBloomFilter *)pCtx;
@@ -89,7 +89,7 @@ static int _bloom_filter_add_for_each(void * pItem, void * pCtx)
   return 0;
 }
 
-static SUInt32Array * _bloom_filter_hash_get(SBloomFilter * pBloomFilter, uint8_t * uKey, uint32_t uKeyLen)
+static uint32_array_t * _bloom_filter_hash_get(SBloomFilter * pBloomFilter, uint8_t * uKey, uint32_t uKeyLen)
 {
   if (!uKey || !pBloomFilter)
     return NULL;
@@ -114,14 +114,14 @@ static SUInt32Array * _bloom_filter_hash_get(SBloomFilter * pBloomFilter, uint8_
  */
 int8_t bloom_filter_add(SBloomFilter * pBloomFilter, uint8_t *uKey, uint32_t uKeyLen)
 {
-  SUInt32Array * puArray;
+  uint32_array_t * puArray;
 
   if (!uKey || !pBloomFilter)
     return -1;
 
   puArray = _bloom_filter_hash_get(pBloomFilter, uKey, uKeyLen);
 //  printf("bloom filter> add %s:|", uKey);
-  _array_for_each( (SArray *)puArray, _bloom_filter_add_for_each, pBloomFilter);
+  uint32_array_for_each(puArray, _bloom_filter_add_for_each, pBloomFilter);
 // printf("\n");
   uint32_array_destroy( &puArray );
   return 0;
@@ -171,7 +171,8 @@ char * bloom_filter_to_string(SBloomFilter * pBloomFilter)
   return bit_vector_to_string(pBloomFilter->pBitVector);
 }
 
-static int _bloom_filter_is_member_for_each(void * pItem, void * pCtx)
+static int _bloom_filter_is_member_for_each(const void * pItem,
+					    const void * pCtx)
 {
   uint32_t uItem = *(uint32_t*) pItem;
   SBloomFilter * pBloomFilter = (SBloomFilter*)pCtx;
@@ -191,7 +192,7 @@ static int _bloom_filter_is_member_for_each(void * pItem, void * pCtx)
  */
 uint8_t bloom_filter_is_member(SBloomFilter * pBloomFilter, uint8_t * uKey, uint32_t uKeyLen)
 {
-  SUInt32Array * puArray;
+  uint32_array_t * puArray;
   int iRet;
 
   if (!uKey || !pBloomFilter)
@@ -199,7 +200,7 @@ uint8_t bloom_filter_is_member(SBloomFilter * pBloomFilter, uint8_t * uKey, uint
 
   puArray = _bloom_filter_hash_get(pBloomFilter, uKey, uKeyLen);
  // printf("bloom filter> search %s:|", (char*)uKey);
-  iRet = _array_for_each( (SArray *)puArray, _bloom_filter_is_member_for_each, pBloomFilter);
+  iRet = uint32_array_for_each(puArray, _bloom_filter_is_member_for_each, pBloomFilter);
  // printf("\n");
   uint32_array_destroy( &puArray );
 

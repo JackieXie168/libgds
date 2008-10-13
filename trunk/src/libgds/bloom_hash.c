@@ -3,7 +3,7 @@
 //
 // @author Sebastien Tandel <sebastien [AT] tandel (dot) be>
 // @date 15/03/2007
-// @lastdate 15/03/2007
+// $Id$
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -88,9 +88,9 @@ static uint32_t _byte_array_to_int(uint8_t uArray[], uint8_t uLen)
 /**
  *
  */
-static SUInt32Array * _bloom_hash_get_int_array(SBloomFilterHash * pBloomHash, uint8_t shaSum[])
+static uint32_array_t * _bloom_hash_get_int_array(SBloomFilterHash * pBloomHash, uint8_t shaSum[])
 {
-  SUInt32Array * uArray;
+  uint32_array_t * uArray;
   uint32_t uNbrBytePerInt;
   uint32_t uOffset = 0;
   uint32_t uCpt;
@@ -100,12 +100,12 @@ static SUInt32Array * _bloom_hash_get_int_array(SBloomFilterHash * pBloomHash, u
     return NULL;
 
   uArray = uint32_array_create(0);
-  _array_set_length((SArray*)uArray, pBloomHash->uNbrHash);
+  uint32_array_set_size(uArray, pBloomHash->uNbrHash);
 
   uNbrBytePerInt= SHA1_HASH_LENGTH / pBloomHash->uNbrHash;
   for (uCpt = 0; uCpt < pBloomHash->uNbrHash; uCpt++) {
     result = _byte_array_to_int(shaSum+uOffset, uNbrBytePerInt) % pBloomHash->uMaxValue;
-    _array_set_at((SArray*)uArray, uCpt, &result);
+    uArray->data[uCpt]= result;
     uOffset += uNbrBytePerInt;
   }
   return uArray;
@@ -114,7 +114,7 @@ static SUInt32Array * _bloom_hash_get_int_array(SBloomFilterHash * pBloomHash, u
 /**
  *
  */
-SUInt32Array * bloom_hash_get(SBloomFilterHash * pBloomHash, uint8_t * pKey, uint32_t uLen)
+uint32_array_t * bloom_hash_get(SBloomFilterHash * pBloomHash, uint8_t * pKey, uint32_t uLen)
 {
   uint8_t shaSum[SHA1_HASH_LENGTH];
   sha1_update(&pBloomHash->pSHA1Ctx, pKey, uLen);

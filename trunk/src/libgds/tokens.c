@@ -1,9 +1,9 @@
 // =================================================================
 // @(#)tokens.c
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 20/08/2003
-// @lastdate 15/01/2007
+// $Id$
 // =================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -18,66 +18,67 @@
 #include <str_util.h>
 #include <tokens.h>
 
-// ----- tokens_item_destroy ----------------------------------------
-void tokens_item_destroy(void * pItem)
+// -----[ _tokens_item_destroy ]-------------------------------------
+static void _tokens_item_destroy(void * item, const void * ctx)
 {
-  str_destroy((char **) pItem);
+  str_destroy((char **) item);
 }
 
 // ----- tokens_create ----------------------------------------------
 /**
  *
  */
-STokens * tokens_create()
+gds_tokens_t * tokens_create()
 {
-  return (STokens *) ptr_array_create(0, NULL, tokens_item_destroy);
+  return (gds_tokens_t *) ptr_array_create(0, NULL,
+					   _tokens_item_destroy, NULL);
 }
 
 // ----- tokens_destroy ---------------------------------------------
 /**
  *
  */
-void tokens_destroy(STokens ** ppTokens)
+void tokens_destroy(gds_tokens_t ** tokens_ref)
 {
-  ptr_array_destroy((SPtrArray **) ppTokens);
+  ptr_array_destroy((SPtrArray **) tokens_ref);
 }
 
 // ----- tokens_add -------------------------------------------------
 /**
  *
  */
-int tokens_add(STokens * pTokens, char * pcToken)
+int tokens_add(const gds_tokens_t * tokens, char * token)
 {
-  return ptr_array_add((SPtrArray *) pTokens, &pcToken);
+  return ptr_array_add((SPtrArray *) tokens, &token);
 }
 
 // ----- tokens_add_copy --------------------------------------------
 /**
  *
  */
-int tokens_add_copy(STokens * pTokens, char * pcToken)
+int tokens_add_copy(const gds_tokens_t * tokens, char * token)
 {
-  char * pcTokenCopy= str_create(pcToken);
-  return ptr_array_add((SPtrArray *) pTokens, &pcTokenCopy);
+  char * token_copy= str_create(token);
+  return ptr_array_add((SPtrArray *) tokens, &token_copy);
 }
 
 // ----- tokens_get_num ---------------------------------------------
 /**
  *
  */
-unsigned int tokens_get_num(STokens * pTokens)
+unsigned int tokens_get_num(const gds_tokens_t * tokens)
 {
-  return ptr_array_length((SPtrArray *) pTokens);
+  return ptr_array_length((SPtrArray *) tokens);
 }
 
 // ----- tokens_get_string_at ---------------------------------------
 /**
  *
  */
-char * tokens_get_string_at(STokens * pTokens, unsigned int uIndex)
+char * tokens_get_string_at(const gds_tokens_t * tokens, unsigned int index)
 {
-  if (uIndex < tokens_get_num(pTokens))
-    return (char *) pTokens->data[uIndex];
+  if (index < tokens_get_num(tokens))
+    return (char *) tokens->data[index];
   return NULL;
 }
 
@@ -85,12 +86,12 @@ char * tokens_get_string_at(STokens * pTokens, unsigned int uIndex)
 /**
  *
  */
-int tokens_get_long_at(STokens * pTokens, uint16_t uIndex,
-		       long int * plValue)
+int tokens_get_long_at(const gds_tokens_t * tokens, unsigned int index,
+		       long int * value)
 {
-  if (uIndex >= tokens_get_num(pTokens))
+  if (index >= tokens_get_num(tokens))
     return -1;
-  if (str_as_long(pTokens->data[uIndex], plValue) < 0)
+  if (str_as_long(tokens->data[index], value) < 0)
     return -1;
   return 0;
 }
@@ -99,12 +100,12 @@ int tokens_get_long_at(STokens * pTokens, uint16_t uIndex,
 /**
  *
  */
-int tokens_get_int_at(STokens * pTokens, uint16_t uIndex,
-		      int * piValue)
+int tokens_get_int_at(const gds_tokens_t * tokens, unsigned int index,
+		      int * value)
 {
-  if (uIndex >= tokens_get_num(pTokens))
+  if (index >= tokens_get_num(tokens))
     return -1;
-  if (str_as_int(pTokens->data[uIndex], piValue) < 0)
+  if (str_as_int(tokens->data[index], value) < 0)
     return -1;
   return 0;
 }
@@ -119,12 +120,12 @@ int tokens_get_int_at(STokens * pTokens, uint16_t uIndex,
  * 'strtoul()' since it will convert a negative number to a positive
  * number.
  */
-int tokens_get_ulong_at(STokens * pTokens, uint16_t uIndex,
-			unsigned long int * pulValue)
+int tokens_get_ulong_at(const gds_tokens_t * tokens, unsigned int index,
+			unsigned long int * value)
 {
-  if (uIndex >= tokens_get_num(pTokens))
+  if (index >= tokens_get_num(tokens))
     return -1;
-  if (str_as_ulong(pTokens->data[uIndex], pulValue) < 0)
+  if (str_as_ulong(tokens->data[index], value) < 0)
     return -1;
   return 0;
 }
@@ -133,12 +134,12 @@ int tokens_get_ulong_at(STokens * pTokens, uint16_t uIndex,
 /**
  *
  */
-int tokens_get_uint_at(STokens * pTokens, uint16_t uIndex,
-		       unsigned int * puValue)
+int tokens_get_uint_at(const gds_tokens_t * tokens, unsigned int index,
+		       unsigned int * value)
 {
-  if (uIndex >= tokens_get_num(pTokens))
+  if (index >= tokens_get_num(tokens))
     return -1;
-  if (str_as_uint(pTokens->data[uIndex], puValue) < 0)
+  if (str_as_uint(tokens->data[index], value) < 0)
     return -1;
   return 0;
 }
@@ -147,12 +148,12 @@ int tokens_get_uint_at(STokens * pTokens, uint16_t uIndex,
 /**
  *
  */
-int tokens_get_double_at(STokens * pTokens, uint16_t uIndex,
-			 double * pdValue)
+int tokens_get_double_at(const gds_tokens_t * tokens, unsigned int index,
+			 double * value)
 {
-  if (uIndex >= tokens_get_num(pTokens))
+  if (index >= tokens_get_num(tokens))
     return -1;
-  if (str_as_double(pTokens->data[uIndex], pdValue) < 0)
+  if (str_as_double(tokens->data[index], value) < 0)
     return -1;
   return 0;
 }

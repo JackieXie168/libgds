@@ -4,7 +4,7 @@
 // @author Bruno Quoitin (bqu@info.ucl.ac.be)
 // @author Damien Saucez (damien.saucez@uclouvain.be)
 // @date 28/11/2002
-// @lastdate 05/11/2007
+// $Id$
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -20,36 +20,36 @@
 /**
  *
  */
-SFIFO * fifo_create(uint32_t uMaxDepth, FFIFODestroy fDestroy)
+gds_fifo_t * fifo_create(uint32_t max_depth, FFIFODestroy destroy)
 {
-  SFIFO * pFIFO= (SFIFO *) MALLOC(sizeof(SFIFO));
-  pFIFO->uOptions= 0;
-  pFIFO->uMaxDepth= uMaxDepth;
-  pFIFO->uStartIndex= 0;
-  pFIFO->uCurrentDepth= 0;
-  pFIFO->fDestroy= fDestroy;
-  pFIFO->ppItems= (void **) MALLOC(sizeof(void *)*uMaxDepth);
-  return pFIFO;
+  gds_fifo_t * fifo= (gds_fifo_t *) MALLOC(sizeof(gds_fifo_t));
+  fifo->options= 0;
+  fifo->max_depth= max_depth;
+  fifo->start_index= 0;
+  fifo->current_depth= 0;
+  fifo->fDestroy= destroy;
+  fifo->items= (void **) MALLOC(sizeof(void *)*max_depth);
+  return fifo;
 }
 
 // ----- fifo_destroy -----------------------------------------------
 /**
  *
  */
-void fifo_destroy(SFIFO ** ppFIFO)
+void fifo_destroy(gds_fifo_t ** fifo_ref)
 {
-  int iIndex;
+  gds_fifo_t * fifo= *fifo_ref;
+  unsigned int index;
 
-  if (*ppFIFO != NULL) {
-    if ((*ppFIFO)->fDestroy != NULL)
-      for (iIndex= 0; iIndex < (*ppFIFO)->uCurrentDepth; iIndex++)
-	(*ppFIFO)->fDestroy(&(*ppFIFO)->ppItems[((*ppFIFO)->uStartIndex+
-						 iIndex) %
-					       (*ppFIFO)->uMaxDepth]);
-    FREE((*ppFIFO)->ppItems);
-    (*ppFIFO)->ppItems= NULL;
-    FREE(*ppFIFO);
-    *ppFIFO= NULL;
+  if (fifo != NULL) {
+    if (fifo->fDestroy != NULL)
+      for (index= 0; index < fifo->current_depth; index++)
+	fifo->fDestroy(&fifo->items[(fifo->start_index+index) %
+				      fifo->max_depth]);
+    FREE(fifo->items);
+    fifo->items= NULL;
+    FREE(fifo);
+    *fifo_ref= NULL;
   }
 }
 
@@ -57,44 +57,44 @@ void fifo_destroy(SFIFO ** ppFIFO)
 /**
  *
  */
-void fifo_set_option(SFIFO * pFIFO, uint8_t uOption, int iState)
+void fifo_set_option(gds_fifo_t * fifo, uint8_t option, int state)
 {
-  if (iState)
-    pFIFO->uOptions|= uOption;
+  if (state)
+    fifo->options|= option;
   else
-    pFIFO->uOptions&= ~uOption;
+    fifo->options&= ~option;
 }
 
 // ----- _fifo_grow -----------------------------------------------
 /**
  *
  */
-static int _fifo_grow(SFIFO * pFIFO)
+static int _fifo_grow(gds_fifo_t * fifo)
 {
-  uint32_t uNewDepth= 0;
+  uint32_t new_depth= 0;
 
   // Note: currently, whatever exponential or linear is selected,
   // _fifo_grow will lead to exponential growth
-  if (pFIFO->uOptions & FIFO_OPTION_GROW_EXPONENTIAL)
-    uNewDepth= pFIFO->uMaxDepth * 2;
-  else if (pFIFO->uOptions & FIFO_OPTION_GROW_LINEAR)
-    uNewDepth= pFIFO->uMaxDepth * 2;
+  if (fifo->options & FIFO_OPTION_GROW_EXPONENTIAL)
+    new_depth= fifo->max_depth * 2;
+  else if (fifo->options & FIFO_OPTION_GROW_LINEAR)
+    new_depth= fifo->max_depth * 2;
   else
     return -1;
 
-  if (uNewDepth > pFIFO->uMaxDepth) {
+  if (new_depth > fifo->max_depth) {
 
     // Re-allocate FIFO space
-    pFIFO->ppItems= REALLOC(pFIFO->ppItems,
-			    (sizeof(void *)*uNewDepth));
+    fifo->items= REALLOC(fifo->items,
+			   (sizeof(void *)*new_depth));
 
     // Move exiting items
-    if (pFIFO->uCurrentDepth > pFIFO->uMaxDepth-pFIFO->uStartIndex)
-      memcpy(&pFIFO->ppItems[pFIFO->uMaxDepth], &pFIFO->ppItems[0],
-	     (pFIFO->uCurrentDepth-(pFIFO->uMaxDepth-pFIFO->uStartIndex))*
+    if (fifo->current_depth > fifo->max_depth-fifo->start_index)
+      memcpy(&fifo->items[fifo->max_depth], &fifo->items[0],
+	     (fifo->current_depth-(fifo->max_depth-fifo->start_index))*
 	     sizeof(void *));
     
-    pFIFO->uMaxDepth= uNewDepth;
+    fifo->max_depth= new_depth;
     
   }
   return 0;
@@ -104,17 +104,17 @@ static int _fifo_grow(SFIFO * pFIFO)
 /**
  *
  */
-int fifo_push(SFIFO * pFIFO, void * pItem)
+int fifo_push(gds_fifo_t * fifo, void * item)
 {
 
   // If there is not enough space in the queue, try to grow it
-  if (pFIFO->uCurrentDepth >= pFIFO->uMaxDepth)
-    if (_fifo_grow(pFIFO) != 0)
+  if (fifo->current_depth >= fifo->max_depth)
+    if (_fifo_grow(fifo) != 0)
       return -1;
 
-  pFIFO->ppItems[(pFIFO->uStartIndex+
-		  pFIFO->uCurrentDepth) % pFIFO->uMaxDepth]= pItem;
-  pFIFO->uCurrentDepth++;
+  fifo->items[(fifo->start_index+
+		  fifo->current_depth) % fifo->max_depth]= item;
+  fifo->current_depth++;
   return 0;
 }
 
@@ -122,42 +122,41 @@ int fifo_push(SFIFO * pFIFO, void * pItem)
 /**
  *
  */
-void * fifo_pop(SFIFO * pFIFO)
+void * fifo_pop(gds_fifo_t * fifo)
 {
-  void * pItem= NULL;
+  void * item= NULL;
 
-  if (pFIFO->uCurrentDepth > 0) {
-    pItem= pFIFO->ppItems[pFIFO->uStartIndex];
-    pFIFO->uStartIndex= (pFIFO->uStartIndex+1) % pFIFO->uMaxDepth;
-    pFIFO->uCurrentDepth--;
+  if (fifo->current_depth > 0) {
+    item= fifo->items[fifo->start_index];
+    fifo->start_index= (fifo->start_index+1) % fifo->max_depth;
+    fifo->current_depth--;
   }
-  return pItem;
+  return item;
 }
 
 // -----[ fifo_depth ]---------------------------------------------
 /**
  *
  */
-uint32_t fifo_depth(SFIFO * pFIFO)
+uint32_t fifo_depth(gds_fifo_t * fifo)
 {
-  return pFIFO->uCurrentDepth;
+  return fifo->current_depth;
 }
 
 // ----- fifo_get_at ------------------------------------------------
 /**
- * Get the iPos'th element in the queue pFIFO.
+ * Get the iPos'th element in the queue fifo.
  * Return the element at the iPos position in the queue. If iPos
  * is out of the bounds of the queue, a NULL is returned.
- * PARAM:  pFIFO: the queue
+ * PARAM:  fifo: the queue
  * 	   iPos:  position in the queue (0 is the head of the queue)
- * RETURN: If iPos valid, element at position iPos in pFIFO is returned.
+ * RETURN: If iPos valid, element at position iPos in fifo is returned.
  *	   Otherwise a NULL is returned.
  */
-void * fifo_get_at(SFIFO * pFIFO, unsigned int iPos)
+void * fifo_get_at(gds_fifo_t * fifo, unsigned int pos)
 {
-	if (pFIFO && iPos < pFIFO->uCurrentDepth){
-		return pFIFO->ppItems[(pFIFO->uStartIndex + iPos) %\
-			pFIFO->uMaxDepth];
-	}
-	return NULL;
+  if (fifo && (pos < fifo->current_depth))
+    return fifo->items[(fifo->start_index + pos) %
+			 fifo->max_depth];
+  return NULL;
 }

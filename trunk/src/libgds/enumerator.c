@@ -19,12 +19,12 @@
 
 // ----- enum_create ------------------------------------------------
 GDS_EXP_DECL 
-enum_t * enum_create(void * ctx,
-		     FEnumeratorHasNext has_next,
-		     FEnumeratorGetNext get_next,
-		     FEnumeratorDestroy destroy)
+gds_enum_t * enum_create(void * ctx,
+			 FEnumeratorHasNext has_next,
+			 FEnumeratorGetNext get_next,
+			 FEnumeratorDestroy destroy)
 {
-  enum_t * enu= (enum_t *) MALLOC(sizeof(enum_t));
+  gds_enum_t * enu= (gds_enum_t *) MALLOC(sizeof(gds_enum_t));
   enu->ctx= ctx;
   enu->ops.has_next= has_next;
   enu->ops.get_next= get_next;
@@ -34,7 +34,7 @@ enum_t * enum_create(void * ctx,
 
 // ----- enum_destroy -----------------------------------------------
 GDS_EXP_DECL 
-void enum_destroy(enum_t ** enum_ref)
+void enum_destroy(gds_enum_t ** enum_ref)
 {
   if (*enum_ref != NULL) {
     if ((*enum_ref)->ops.destroy != NULL)

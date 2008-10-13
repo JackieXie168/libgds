@@ -3,9 +3,9 @@
 //
 // Generic Data Structures library.
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 17/05/2005
-// @lastdate 04/01/2007
+// $Id$
 // ==================================================================
 
 #ifndef __GDS_H__
@@ -15,11 +15,19 @@
 
 #define GDS_OPTION_MEMORY_DEBUG 0x01
 
-// -----[ gds_init ]-------------------------------------------------
-extern void gds_init(uint8_t uOptions);
-// -----[ gds_destroy ]-------------------------------------------------
-extern void gds_destroy();
-// -----[ gds_version ]----------------------------------------------
-extern const char * gds_version();
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+  // -----[ gds_init ]-------------------------------------------------
+  void gds_init(uint8_t options);
+  // -----[ gds_destroy ]-------------------------------------------------
+  void gds_destroy();
+  // -----[ gds_version ]----------------------------------------------
+  const char * gds_version();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __GDS_H__ */

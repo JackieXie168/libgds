@@ -3,9 +3,9 @@
 //
 // Generic Data Structures library.
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 17/05/2005
-// @lastdate 04/01/2007
+// $Id$
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -13,7 +13,7 @@
 #endif
 
 #include <libgds/gds.h>
-#include <libgds/log.h>
+#include <libgds/stream.h>
 #include <libgds/memory.h>
 #include <libgds/memory_debug.h>
 #include <libgds/patricia-tree.h>
@@ -25,11 +25,11 @@
  * should fix a number of linking problems encountered under the
  * Solaris environment.
  */
-void gds_init(uint8_t uOptions)
+void gds_init(uint8_t options)
 {
-  mem_flag_set(MEM_FLAG_TRACK_LEAK, (uOptions & GDS_OPTION_MEMORY_DEBUG));
+  mem_flag_set(MEM_FLAG_TRACK_LEAK, (options & GDS_OPTION_MEMORY_DEBUG));
   _memory_init();
-  _log_init();
+  _stream_init();
   _patricia_tree_init();
 }
 
@@ -39,7 +39,7 @@ void gds_init(uint8_t uOptions)
  */
 void gds_destroy()
 {
-  _log_destroy();
+  _stream_destroy();
   _memory_destroy();
 }
 

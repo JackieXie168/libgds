@@ -3,9 +3,9 @@
 //
 // Generic Data Structures (libgds): unit testing framework.
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
-// @lastdate 26/10/2007
+// $Id$
 // ==================================================================
 
 #include <utest.h>
@@ -25,40 +25,40 @@
 #include <unistd.h>
 
 #define UTEST_FILE_MAX 1024
-static char acTmpFile[UTEST_FILE_MAX];
-static int iTmpLine;
+static char _filename[UTEST_FILE_MAX];
+static int _line;
 #define UTEST_MESSAGE_MAX 1024
-static char acTmpMessage[UTEST_MESSAGE_MAX];
-static FILE * pXMLStream= NULL;
+static char _msg[UTEST_MESSAGE_MAX];
+static FILE * xml_stream= NULL;
 
 static struct {
-  char * pcUser;
-  char * pcProject;
-  char * pcVersion;
-  int iNumFailures;
-  int iNumSkipped;
-  int iNumTests;
-  int iMaxFailures;
+  char * user;
+  char * project;
+  char * version;
+  int    num_failures;
+  int    num_skipped;
+  int    num_tests;
+  int    max_failures;
   struct timeval tp;
-  int iWithFork;
-} sUTest;
+  int    with_fork;
+} utest;
 
 static void _utest_time_start();
 static double _utest_time_stop();
 
 // -----[ utest_init ]-----------------------------------------------
-void utest_init(int iMaxFail)
+void utest_init(int max_failures)
 {
-  sUTest.pcUser= NULL;
-  sUTest.pcProject= NULL;
-  sUTest.pcVersion= NULL;
-  sUTest.iNumFailures= 0;
-  sUTest.iNumSkipped= 0;
-  sUTest.iNumTests= 0;
-  sUTest.iMaxFailures= iMaxFail;
-  sUTest.iWithFork= 0;
+  utest.user= NULL;
+  utest.project= NULL;
+  utest.version= NULL;
+  utest.num_failures= 0;
+  utest.num_skipped= 0;
+  utest.num_tests= 0;
+  utest.max_failures= max_failures;
+  utest.with_fork= 0;
 
-  pXMLStream= NULL;
+  xml_stream= NULL;
 }
 
 // -----[ utest_done ]-----------------------------------------------
@@ -66,138 +66,159 @@ void utest_done()
 {
   printf("\n==Summary==\n");
   printf("  FAILURES=%d / SKIPPED=%d / TESTS=%d\n",
-	 sUTest.iNumFailures, sUTest.iNumSkipped, sUTest.iNumTests);
+	 utest.num_failures, utest.num_skipped, utest.num_tests);
   printf("\n");
   
-  if (pXMLStream != NULL) {
-    fprintf(pXMLStream, "  <failures>%i</failures>\n",
-	    sUTest.iNumFailures);
-    fprintf(pXMLStream, "  <tests>%i</tests>\n",
-	    sUTest.iNumTests);
-    fprintf(pXMLStream, "</utest>\n");
-    fclose(pXMLStream);
-    pXMLStream= NULL;
+  if (xml_stream != NULL) {
+    fprintf(xml_stream, "  <failures>%i</failures>\n",
+	    utest.num_failures);
+    fprintf(xml_stream, "  <tests>%i</tests>\n",
+	    utest.num_tests);
+    fprintf(xml_stream, "</utest>\n");
+    fclose(xml_stream);
+    xml_stream= NULL;
   }
 
-  if (sUTest.pcUser != NULL)
-    free(sUTest.pcUser);
-  if (sUTest.pcProject != NULL)
-    free(sUTest.pcProject);
-  if (sUTest.pcVersion != NULL)
-    free(sUTest.pcVersion);
+  if (utest.user != NULL)
+    free(utest.user);
+  if (utest.project != NULL)
+    free(utest.project);
+  if (utest.version != NULL)
+    free(utest.version);
 }
 
-// -----[ utest_perror ]---------------------------------------------
-void utest_perror(FILE * pStream, int iError, int iColor)
+// -----[ _utest_strerror ]------------------------------------------
+static inline const char * _utest_strerror(int error)
 {
-  if (iColor) {
-    switch (iError) {
-    case UTEST_SUCCESS:
-      fprintf(pStream, ""TXT_COL_GREEN"SUCCESS"TXT_DEFAULT); break;
-    case UTEST_SKIPPED:
-      fprintf(pStream, ""TXT_COL_RED"NOT-TESTED"TXT_DEFAULT); break;
-    case UTEST_FAILURE:
-      fprintf(pStream, ""TXT_COL_RED"FAILURE"TXT_DEFAULT); break;
-    case UTEST_CRASHED:
-      fprintf(pStream, ""TXT_COL_RED"!CRASH!"TXT_DEFAULT); break;
-    default:
-      fprintf(pStream, ""TXT_COL_RED"UNKNOWN"TXT_DEFAULT); break;
-    }
-
-  } else {
-    switch (iError) {
-    case UTEST_SUCCESS: fprintf(pStream, "Success"); break;
-    case UTEST_SKIPPED: fprintf(pStream, "Skipped"); break;
-    case UTEST_FAILURE: fprintf(pStream, "Failure"); break;
-    case UTEST_CRASHED: fprintf(pStream, "Crashed"); break;
-    default: fprintf(pStream, "Unknown"); break;
-    }
-
+  switch (error) {
+  case UTEST_SUCCESS:
+    return "SUCCESS";
+  case UTEST_SKIPPED:
+    return "SKIPPED";
+  case UTEST_FAILURE:
+    return "FAILURE";
+  case UTEST_CRASHED:
+    return "CRASHED";
+  default:
+    return NULL;
   }
+}
+
+// -----[ _utest_color ]---------------------------------------------
+static inline const char * _utest_color(int error)
+{
+  switch (error) {
+  case UTEST_SUCCESS:
+    return TXT_COL_GREEN;
+  case UTEST_SKIPPED:
+    return TXT_COL_RED;
+  case UTEST_FAILURE:
+  case UTEST_CRASHED:
+    return TXT_COL_RED;
+  default:
+    return "";
+  }
+}
+
+// -----[ _utest_perror ]--------------------------------------------
+static inline void _utest_perror(FILE * stream, int error, int color)
+{
+  const char * msg= _utest_strerror(error);
+
+  if (color)
+    fprintf(stream, _utest_color(error));
+
+  if (msg != NULL)
+    fprintf(stream, msg);
+  else
+    fprintf(stream, "unknown(%d)", error);
+
+  if (color)
+    fprintf(stream, TXT_DEFAULT);
 }
 
 // -----[ utest_set_fork ]-------------------------------------------
 void utest_set_fork()
 {
-  sUTest.iWithFork= 1;
+  utest.with_fork= 1;
 }
 
 // -----[ utest_set_user ]-------------------------------------------
-void utest_set_user(const char * pcUser)
+void utest_set_user(const char * user)
 {
-  if (sUTest.pcUser != NULL)
-    free(sUTest.pcUser);
+  if (utest.user != NULL)
+    free(utest.user);
 
-  sUTest.pcUser= NULL;
+  utest.user= NULL;
 
-  if (pcUser != NULL) {
-    sUTest.pcUser= strdup(pcUser);
-    assert(sUTest.pcUser != NULL);
+  if (user != NULL) {
+    utest.user= strdup(user);
+    assert(utest.user != NULL);
   }
 }
 
 // -----[ utest_set_project ]----------------------------------------
-void utest_set_project(const char * pcProject, const char * pcVersion)
+void utest_set_project(const char * project, const char * version)
 {
-  if (sUTest.pcProject != NULL)
-    free(sUTest.pcProject);
-  if (sUTest.pcVersion != NULL)
-    free(sUTest.pcVersion);
+  if (utest.project != NULL)
+    free(utest.project);
+  if (utest.version != NULL)
+    free(utest.version);
 
-  sUTest.pcProject= NULL;
-  sUTest.pcVersion= NULL;
+  utest.project= NULL;
+  utest.version= NULL;
 
-  if (pcProject != NULL) {
-    sUTest.pcProject= strdup(pcProject);
-    assert(sUTest.pcProject != NULL);
+  if (project != NULL) {
+    utest.project= strdup(project);
+    assert(utest.project != NULL);
   }
-  if (pcVersion != NULL) {
-    sUTest.pcVersion= strdup(pcVersion);
-    assert(sUTest.pcVersion != NULL);
+  if (version != NULL) {
+    utest.version= strdup(version);
+    assert(utest.version != NULL);
   }
 }
 
 // -----[ utest_set_xml_logging ]------------------------------------
-void utest_set_xml_logging(const char * pcFileName)
+void utest_set_xml_logging(const char * filename)
 {
   struct utsname name;
   time_t tTime;
 
-  pXMLStream= fopen(pcFileName, "w");
-  if (pXMLStream == NULL) {
-    fprintf(stderr, "ERROR: unable to create \"%s\"\n", pcFileName);
+  xml_stream= fopen(filename, "w");
+  if (xml_stream == NULL) {
+    fprintf(stderr, "ERROR: unable to create \"%s\"\n", filename);
     exit(EXIT_FAILURE);
   } else {
-    fprintf(pXMLStream, "<?xml version=\"1.0\"?>\n");
-    fprintf(pXMLStream, "<utest>\n");
-    //fprintf(pXMLStream, "<utest xmlns=\"http://libgds.info.ucl.ac.be\">\n");
+    fprintf(xml_stream, "<?xml version=\"1.0\"?>\n");
+    fprintf(xml_stream, "<utest>\n");
+    //fprintf(xml_stream, "<utest xmlns=\"http://libgds.info.ucl.ac.be\">\n");
     if (uname(&name) >= 0) {
-      fprintf(pXMLStream, "  <uname>\n");
-      fprintf(pXMLStream, "    <sysname>%s</sysname>\n", name.sysname);
-      fprintf(pXMLStream, "    <nodename>%s</nodename>\n", name.nodename);
-      fprintf(pXMLStream, "    <release>%s</release>\n", name.release);
-      fprintf(pXMLStream, "    <version>%s</version>\n", name.version);
-      fprintf(pXMLStream, "    <machine>%s</machine>\n", name.machine);
-      fprintf(pXMLStream, "  </uname>\n");
+      fprintf(xml_stream, "  <uname>\n");
+      fprintf(xml_stream, "    <sysname>%s</sysname>\n", name.sysname);
+      fprintf(xml_stream, "    <nodename>%s</nodename>\n", name.nodename);
+      fprintf(xml_stream, "    <release>%s</release>\n", name.release);
+      fprintf(xml_stream, "    <version>%s</version>\n", name.version);
+      fprintf(xml_stream, "    <machine>%s</machine>\n", name.machine);
+      fprintf(xml_stream, "  </uname>\n");
     }
-    fprintf(pXMLStream, "  <info>\n");
-    if ((sUTest.pcProject != NULL) && (sUTest.pcVersion != NULL)) {
-      fprintf(pXMLStream, "    <project>%s</project>\n", sUTest.pcProject);
-      fprintf(pXMLStream, "    <version>%s</version>\n", sUTest.pcVersion);
+    fprintf(xml_stream, "  <info>\n");
+    if ((utest.project != NULL) && (utest.version != NULL)) {
+      fprintf(xml_stream, "    <project>%s</project>\n", utest.project);
+      fprintf(xml_stream, "    <version>%s</version>\n", utest.version);
     }
-    if (sUTest.pcUser != NULL) {
-      fprintf(pXMLStream, "    <user>%s</user>\n", sUTest.pcUser);
+    if (utest.user != NULL) {
+      fprintf(xml_stream, "    <user>%s</user>\n", utest.user);
     }
-    if (sUTest.iWithFork) {
-      fprintf(pXMLStream, "    <option>fork</option>\n");
+    if (utest.with_fork) {
+      fprintf(xml_stream, "    <option>fork</option>\n");
     }
-    fprintf(pXMLStream, "  </info>\n");
+    fprintf(xml_stream, "  </info>\n");
     tTime= time(NULL);
-    fprintf(pXMLStream, "<datetime>%s</datetime>\n", ctime(&tTime));
+    fprintf(xml_stream, "<datetime>%s</datetime>\n", ctime(&tTime));
   }
 }
 
-// -----[ utest_write_suite_open ]-----------------------------------
+// -----[ _utest_write_suite_open ]----------------------------------
 /**
  * <suite name="abc">
  *   <tests>
@@ -208,93 +229,96 @@ void utest_set_xml_logging(const char * pcFileName)
  *   </tests>
  * </suite>
 */
-void utest_write_suite_open(const char * pcName)
+static inline void _utest_write_suite_open(const char * name)
 {
-  if (pXMLStream != NULL) {
-    fprintf(pXMLStream, "  <suite>\n");
-    fprintf(pXMLStream, "    <name>%s</name>\n", pcName);
+  if (xml_stream != NULL) {
+    fprintf(xml_stream, "  <suite>\n");
+    fprintf(xml_stream, "    <name>%s</name>\n", name);
   }
 }
 
-// -----[ utest_write_suite_close ]----------------------------------
-void utest_write_suite_close()
+// -----[ _utest_write_suite_close ]---------------------------------
+static inline void _utest_write_suite_close()
 {
-  if (pXMLStream != NULL) {
-    fprintf(pXMLStream, "  </suite>\n");
+  if (xml_stream != NULL) {
+    fprintf(xml_stream, "  </suite>\n");
   }
 }
 
 // ----[ utest_write_test ]------------------------------------------
-void utest_write_test(unit_test_t * pTest)
+void utest_write_test(unit_test_t * test)
 {
   printf(""TXT_POS);
-  utest_perror(stdout, pTest->iResult, 1);    
-  if (pTest->iResult == UTEST_SUCCESS) {
-    printf(" (%1.1fs)", pTest->dDuration);
-  } else if (pTest->iResult != UTEST_SKIPPED) {
-    printf("\n\t-> %s (%s, %d)", pTest->pcMessage, pTest->pcFile,
-	   pTest->iLine);
+  _utest_perror(stdout, test->result, 1);    
+  switch(test->result) {
+  case UTEST_SUCCESS:
+    printf(" (%1.1fs)", test->duration);
+    break;
+  case UTEST_FAILURE:
+    printf("\n\t-> %s (%s, %d)", test->msg, test->filename, test->line);
+    break;
   }
   printf("\n");
 
-  if (pXMLStream != NULL) {
-    fprintf(pXMLStream, "    <test>\n");
-    fprintf(pXMLStream, "      <name>%s</name>\n", pTest->pcName);
-    fprintf(pXMLStream, "      <code>%d</code>\n", pTest->iResult);
-    fprintf(pXMLStream, "      <result>");
-    utest_perror(pXMLStream, pTest->iResult, 0);
-    fprintf(pXMLStream, "</result>\n");
-    fprintf(pXMLStream, "      <description></description>\n");
-    if ((pTest->iResult != UTEST_SUCCESS) &&
-	(pTest->iResult != UTEST_SKIPPED)) {
-      fprintf(pXMLStream, "      <reason>%s</reason>\n", pTest->pcMessage);
-      fprintf(pXMLStream, "      <file>%s</file>\n", pTest->pcFile);
-      fprintf(pXMLStream, "      <line>%d</line>\n", pTest->iLine);
-      fprintf(pXMLStream, "      <function></function>\n");
+  if (xml_stream != NULL) {
+    fprintf(xml_stream, "    <test>\n");
+    fprintf(xml_stream, "      <name>%s</name>\n", test->name);
+    fprintf(xml_stream, "      <code>%d</code>\n", test->result);
+    fprintf(xml_stream, "      <result>");
+    _utest_perror(xml_stream, test->result, 0);
+    fprintf(xml_stream, "</result>\n");
+    fprintf(xml_stream, "      <description></description>\n");
+    if ((test->result != UTEST_SUCCESS) &&
+	(test->result != UTEST_SKIPPED)) {
+      fprintf(xml_stream, "      <reason>%s</reason>\n", test->msg);
+      fprintf(xml_stream, "      <file>%s</file>\n", test->filename);
+      fprintf(xml_stream, "      <line>%d</line>\n", test->line);
+      fprintf(xml_stream, "      <function></function>\n");
     } 
-    fprintf(pXMLStream, "      <duration>%f</duration>\n",
-	    pTest->dDuration);
-    fprintf(pXMLStream, "    </test>\n");
+    fprintf(xml_stream, "      <duration>%f</duration>\n",
+	    test->duration);
+    fprintf(xml_stream, "    </test>\n");
   }
 }
 
 // -----[ utest_set_message ]----------------------------------------
-void utest_set_message(const char * pcFile,
-		       int iLine,
-		       const char * pcFormat, ...)
+void utest_set_message(const char * filename,
+		       int line,
+		       const char * format, ...)
 {
   va_list ap;
 
-  snprintf(acTmpFile, UTEST_FILE_MAX, pcFile);
-  iTmpLine= iLine;
+  snprintf(_filename, UTEST_FILE_MAX, filename);
+  _line= line;
 
-  va_start(ap, pcFormat);
-  vsnprintf(acTmpMessage, UTEST_MESSAGE_MAX, pcFormat, ap);
+  va_start(ap, format);
+  vsnprintf(_msg, UTEST_MESSAGE_MAX, format, ap);
+  va_end(ap);
 }
 
 // -----[ _utest_time_start ]----------------------------------------
-static void _utest_time_start()
+static inline void _utest_time_start()
 {
-  assert(gettimeofday(&sUTest.tp, NULL) >= 0);
+  assert(gettimeofday(&utest.tp, NULL) >= 0);
 }
 
 // -----[ _utest_time_stop ]-----------------------------------------
-static double _utest_time_stop()
+static inline double _utest_time_stop()
 {
   struct timeval tp;
-  double dDuration;
+  double duration;
 
   assert(gettimeofday(&tp, NULL) >= 0);
   
   /* Note that gettimeofday() is not monotonic, that is it can go
      back in time. In this case, the test duration will eventually
      be reported as negative. */
-  dDuration= tp.tv_sec-sUTest.tp.tv_sec;
-  dDuration+= (((double) tp.tv_usec)-sUTest.tp.tv_usec)/1000000;
-  return dDuration;
+  duration= tp.tv_sec-utest.tp.tv_sec;
+  duration+= (((double) tp.tv_usec)-utest.tp.tv_usec)/1000000;
+  return duration;
 }
 
-// -----[ utest_run_test ]-------------------------------------------
+// -----[ _utest_run_test ]------------------------------------------
 /**
  * Runs a single test.
  *
@@ -306,50 +330,113 @@ static double _utest_time_stop()
  *    0 on success
  *   -1 on failure
  */
-int utest_run_test(const char * suite_name, unit_test_t * test,
-		   FUnitTest before, FUnitTest after)
+static inline
+int _utest_run_test(const char * suite_name, unit_test_t * test,
+		    unit_test_func before, unit_test_func after)
 {
-  int result;
+  int result= UTEST_SUCCESS;
 
   _utest_time_start();
   
   if (before != NULL)
     result= before();
   if (result == UTEST_SUCCESS)
-    result= test->fTest();
+    result= test->test();
   if (result == UTEST_SUCCESS)
     if (after != NULL)
       result= after();
 
-  test->dDuration= _utest_time_stop();
-  test->iResult= result;
+  test->duration= _utest_time_stop();
+  test->result= result;
 
-  test->pcMessage= acTmpMessage;
-  test->pcFile= acTmpFile;
-  test->iLine= iTmpLine;
+  test->msg= _msg;
+  test->filename= _filename;
+  test->line= _line;
 
-  return test->iResult;
+  return test->result;
 }
 
+// -----[ _proc_msg_t ]----------------------------------------------
+/** Used to send message from forked unit test to main process.
+ *  This data structure should be self-contained (no pointers). */
 typedef struct {
-  int iResult;
-  char acMessage[UTEST_MESSAGE_MAX];
-  char acFile[UTEST_FILE_MAX];
-  int iLine;
-  double dDuration;
-} unit_test_msg_t;
+  int    result;
+  char   msg[UTEST_MESSAGE_MAX];
+  char   filename[UTEST_FILE_MAX];
+  int    line;
+  double duration;
+} _proc_msg_t;
 
-// -----[ utest_run_forked_test ]------------------------------------
-int utest_run_forked_test(const char * suite_name, unit_test_t * test,
-			  FUnitTest before, FUnitTest after)
+// -----[ _proc_msg_send ]-------------------------------------------
+/**
+ * Write results from forked test to main process.
+ */
+static inline void _proc_msg_send(int pipe_desc[2], unit_test_t * test)
 {
-  pid_t tPID;
-  int iPipeDes[2]; // 0:read, 1:write
-  int iStatus;
-  unit_test_msg_t msg;
+  _proc_msg_t proc_msg;
+
+  proc_msg.result= test->result;
+  if (test->msg != NULL)
+    strncpy(proc_msg.msg, test->msg, UTEST_MESSAGE_MAX);
+  else
+    proc_msg.msg[0]= '\0';
+  if (test->filename != NULL)
+    strncpy(proc_msg.filename, test->filename, UTEST_FILE_MAX);
+  else
+    proc_msg.filename[0]= '\0';
+  proc_msg.line= test->line;
+  proc_msg.duration= test->duration;
+  
+  if (write(pipe_desc[1], &proc_msg, sizeof(proc_msg)) < 0) {
+    perror("write");
+    exit(EXIT_FAILURE);
+  }
+}
+
+// -----[ _proc_msg_recv ]-------------------------------------------
+/**
+ * Read test results from forked test in main process.
+ */
+static inline void _proc_msg_recv(int pipe_desc[2], unit_test_t * test,
+				  pid_t pid)
+{
+  _proc_msg_t proc_msg;
+  int status;
+
+  while (waitpid(pid, &status, 0) != pid) {
+    perror("waitpid");
+    exit(EXIT_FAILURE);
+  }
+
+  if (status == 0) {
+    if (read(pipe_desc[0], &proc_msg, sizeof(proc_msg)) != sizeof(proc_msg)) {
+      perror("read");
+      exit(EXIT_FAILURE);
+    }
+    test->result= proc_msg.result;
+    test->msg= strdup(proc_msg.msg);
+    test->filename= strdup(proc_msg.filename);
+    test->line= proc_msg.line;
+    test->duration= proc_msg.duration;
+  } else {
+    test->result= UTEST_CRASHED;
+    test->msg= strdup("Test crashed");
+    test->filename= NULL;
+    test->line= 0;
+    test->duration= 0;
+  }
+}
+
+// -----[ _utest_run_forked_test ]-----------------------------------
+static inline
+int _utest_run_forked_test(const char * suite_name, unit_test_t * test,
+			   unit_test_func before, unit_test_func after)
+{
+  pid_t pid;
+  int pipe_desc[2]; // 0:read, 1:write
 
   // Create pipe
-  if (pipe(iPipeDes) != 0) {
+  if (pipe(pipe_desc) != 0) {
     perror("pipe");
     exit(EXIT_FAILURE);
   }
@@ -357,72 +444,37 @@ int utest_run_forked_test(const char * suite_name, unit_test_t * test,
   // Flush output streams
   fflush(stdout);
   fflush(stderr);
-  if (pXMLStream != NULL)
-    fflush(pXMLStream);
+  if (xml_stream != NULL)
+    fflush(xml_stream);
 
   // Fork
-  tPID= fork();
-  if (tPID < 0) {
+  pid= fork();
+  if (pid < 0) {
     perror("fork");
-    close(iPipeDes[0]);
-    close(iPipeDes[1]);
+    close(pipe_desc[0]);
+    close(pipe_desc[1]);
     exit(EXIT_FAILURE);
+  }
 
-  } else if (tPID == 0) {
-    // *** CHILD  CODE ***
-    close(iPipeDes[0]); // Close read direction
-    
-    msg.iResult= utest_run_test(suite_name, test, before, after);
+  if (pid == 0) {
 
-    if (test->pcMessage != NULL)
-      strncpy(msg.acMessage, test->pcMessage, UTEST_MESSAGE_MAX);
-    else
-      msg.acMessage[0]= '\0';
-    if (test->pcFile != NULL)
-      strncpy(msg.acFile, test->pcFile, UTEST_FILE_MAX);
-    else
-      msg.acFile[0]= '\0';
-    msg.iLine= test->iLine;
-    msg.dDuration= test->dDuration;
-      
-    if (write(iPipeDes[1], &msg, sizeof(msg)) < 0) {
-      perror("write");
-      exit(EXIT_FAILURE);
-    }
-    close(iPipeDes[1]);
-
+  // CHILD CODE (where test is executed)
+    close(pipe_desc[0]); // Close read direction
+    _utest_run_test(suite_name, test, before, after);
+    _proc_msg_send(pipe_desc, test);
+    close(pipe_desc[1]); // Close write direction
     exit(EXIT_SUCCESS);
-  }
 
-  // *** FATHER CODE ***
-  close(iPipeDes[1]); // Close write direction
-
-  while (waitpid(tPID, &iStatus, 0) != tPID) {
-    perror("waitpid");
-  }
-
-  if (iStatus == 0) {
-    if (read(iPipeDes[0], &msg, sizeof(msg)) != sizeof(msg)) {
-      perror("read");
-      exit(EXIT_FAILURE);
-    }
-    test->iResult= msg.iResult;
-    test->pcMessage= NULL;
-    test->pcFile= NULL;
-    test->pcMessage= strdup(msg.acMessage);
-    test->pcFile= strdup(msg.acFile);
-    test->iLine= msg.iLine;
-    test->dDuration= msg.dDuration;
   } else {
-    test->iResult= UTEST_CRASHED;
-    test->pcMessage= strdup("Test crashed");
-    test->pcFile= NULL;
-    test->iLine= 0;
+
+    // FATHER CODE
+    close(pipe_desc[1]); // Close write direction
+    _proc_msg_recv(pipe_desc, test, pid);
+    close(pipe_desc[0]); // Close read direction
+
   }
 
-  close(iPipeDes[0]);
-
-  return test->iResult;
+  return test->result;
 }
 
 // -----[ utest_run_suite ]------------------------------------------
@@ -440,45 +492,45 @@ int utest_run_forked_test(const char * suite_name, unit_test_t * test,
  */
 int utest_run_suite(const char * suite_name, unit_test_t * tests,
 		    unsigned int num_tests,
-		    FUnitTest before, FUnitTest after)
+		    unit_test_func before, unit_test_func after)
 {
   int result= 0, test_result;
   unsigned int index;
   unit_test_t * test;
 
-  utest_write_suite_open(suite_name);
+  _utest_write_suite_open(suite_name);
 
   for (index= 0; index < num_tests; index++) {
 
-    sUTest.iNumTests++;
+    utest.num_tests++;
 
     test= &tests[index];
-    printf("Testing: "TXT_BOLD"%s:%s"TXT_DEFAULT, suite_name, test->pcName);
+    printf("Testing: "TXT_BOLD"%s:%s"TXT_DEFAULT, suite_name, test->name);
 
     // Run the test
-    if (sUTest.iWithFork) {
-      test_result= utest_run_forked_test(suite_name, test, before, after);
+    if (utest.with_fork) {
+      test_result= _utest_run_forked_test(suite_name, test, before, after);
     } else {
-      test_result= utest_run_test(suite_name, test, before, after);
+      test_result= _utest_run_test(suite_name, test, before, after);
     }
 
     utest_write_test(test);
 
     if (test_result != UTEST_SUCCESS) {
       if (test_result == UTEST_SKIPPED) {
-	sUTest.iNumSkipped++;
+	utest.num_skipped++;
       } else {
 	result= -1;
-	sUTest.iNumFailures++;
-	if ((sUTest.iMaxFailures != 0) &&
-	    (sUTest.iNumFailures > sUTest.iMaxFailures)) {
+	utest.num_failures++;
+	if ((utest.max_failures != 0) &&
+	    (utest.num_failures > utest.max_failures)) {
 	  break;
 	}
       }
     }
   }
 
-  utest_write_suite_close();
+  _utest_write_suite_close();
 
   return result;
 }
@@ -490,13 +542,13 @@ int utest_run_suites(unit_test_suite_t * suites, unsigned int num_suites)
   int result= 0;
 
   for (index= 0; index < num_suites; index++) {
-    result= utest_run_suite(suites[index].pcName,
-			    suites[index].acTests,
-			    suites[index].uNumTests,
+    result= utest_run_suite(suites[index].name,
+			    suites[index].tests,
+			    suites[index].num_tests,
 			    suites[index].before,
 			    suites[index].after);
-    if ((sUTest.iMaxFailures != 0) &&
-	(sUTest.iNumFailures > sUTest.iMaxFailures)) {
+    if ((utest.max_failures != 0) &&
+	(utest.num_failures > utest.max_failures)) {
       break;
     }
   }

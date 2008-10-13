@@ -3,9 +3,9 @@
 //
 // Stack
 //
-// @author Bruno Quoitin
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 21/03/2003
-// @lastdate 27/01/2005
+// $Id$
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -19,24 +19,24 @@
 /**
  *
  */
-SStack * stack_create(int iMaxDepth)
+gds_stack_t * stack_create(int max_depth)
 {
-  SStack * pStack= (SStack *) MALLOC(sizeof(SStack)+
-				      iMaxDepth*sizeof(void *));
-  pStack->iMaxDepth= iMaxDepth;
-  pStack->iDepth= 0;
-  return pStack;
+  gds_stack_t * stack= (gds_stack_t *) MALLOC(sizeof(gds_stack_t)+
+				      max_depth*sizeof(void *));
+  stack->max_depth= max_depth;
+  stack->depth= 0;
+  return stack;
 }
 
 // ----- stack_destroy ----------------------------------------------
 /**
  *
  */
-void stack_destroy(SStack ** ppStack)
+void stack_destroy(gds_stack_t ** stack_ref)
 {
-  if (*ppStack != NULL) {
-    FREE(*ppStack);
-    *ppStack= NULL;
+  if (*stack_ref != NULL) {
+    FREE(*stack_ref);
+    *stack_ref= NULL;
   }
 }
 
@@ -46,11 +46,11 @@ void stack_destroy(SStack ** ppStack)
  *    0 in case of success
  *   -1 in case of failure
  */
-int stack_push(SStack * pStack, void * pItem)
+int stack_push(gds_stack_t * stack, void * pItem)
 {
-  if (pStack->iDepth < pStack->iMaxDepth) {
-    pStack->apItems[pStack->iDepth]= pItem;
-    pStack->iDepth++;
+  if (stack->depth < stack->max_depth) {
+    stack->items[stack->depth]= pItem;
+    stack->depth++;
     return 0;
   }
   return -1;
@@ -60,11 +60,11 @@ int stack_push(SStack * pStack, void * pItem)
 /**
  *
  */
-void * stack_pop(SStack * pStack)
+void * stack_pop(gds_stack_t * stack)
 {
-  if (pStack->iDepth > 0) {
-    pStack->iDepth--;
-    return pStack->apItems[pStack->iDepth];
+  if (stack->depth > 0) {
+    stack->depth--;
+    return stack->items[stack->depth];
   }
   return NULL;
 }
@@ -73,10 +73,10 @@ void * stack_pop(SStack * pStack)
 /**
  *
  */
-void * stack_top(SStack * pStack)
+void * stack_top(gds_stack_t * stack)
 {
-  if (pStack->iDepth > 0)
-    return pStack->apItems[pStack->iDepth-1];
+  if (stack->depth > 0)
+    return stack->items[stack->depth-1];
   return NULL;
 }
 
@@ -84,10 +84,10 @@ void * stack_top(SStack * pStack)
 /**
  *
  */
-void * stack_get_at(SStack * pStack, unsigned int iIndex)
+void * stack_get_at(gds_stack_t * stack, unsigned int iIndex)
 {
-  if (iIndex < pStack->iDepth)
-    return pStack->apItems[iIndex];
+  if (iIndex < stack->depth)
+    return stack->items[iIndex];
   return NULL;
 }
 
@@ -95,9 +95,9 @@ void * stack_get_at(SStack * pStack, unsigned int iIndex)
 /**
  *
  */
-int stack_depth(SStack * pStack)
+int stack_depth(gds_stack_t * stack)
 {
-  return pStack->iDepth;
+  return stack->depth;
 }
 
 // ----- stack_is_empty ---------------------------------------------
@@ -106,9 +106,9 @@ int stack_depth(SStack * pStack)
  *   0 if the stack is not empty
  *   1 if the stack is empty
  */
-int stack_is_empty(SStack * pStack)
+int stack_is_empty(gds_stack_t * stack)
 {
-  if (pStack->iDepth > 0)
+  if (stack->depth > 0)
     return 0;
   return 1;
 }
@@ -117,30 +117,30 @@ int stack_is_empty(SStack * pStack)
 /**
  *
  */
-SStack * stack_copy(SStack * pStack)
+gds_stack_t * stack_copy(gds_stack_t * stack)
 {
-  SStack * pNewStack;
-  int iIndex;
+  gds_stack_t * new_stack;
+  unsigned int index;
 
-  pNewStack= stack_create(pStack->iMaxDepth);
-  pNewStack->iDepth= pStack->iDepth;
-  for (iIndex= 0; iIndex < pNewStack->iDepth; iIndex++)
-    pNewStack->apItems[iIndex]= pStack->apItems[iIndex];
-  return pNewStack;
+  new_stack= stack_create(stack->max_depth);
+  new_stack->depth= stack->depth;
+  for (index= 0; index < new_stack->depth; index++)
+    new_stack->items[index]= stack->items[index];
+  return new_stack;
 }
 
 // ----- stack_equal ------------------------------------------------
 /**
  *
  */
-int stack_equal(SStack * pStack1, SStack * pStack2)
+int stack_equal(gds_stack_t * stack1, gds_stack_t * stack2)
 {
-  int iIndex;
+  unsigned int index;
 
-  if (pStack1->iDepth != pStack2->iDepth)
+  if (stack1->depth != stack2->depth)
     return 0;
-  for (iIndex= 0; iIndex < pStack1->iDepth; iIndex++)
-    if (pStack1->apItems[iIndex] != pStack2->apItems[iIndex])
+  for (index= 0; index < stack1->depth; index++)
+    if (stack1->items[index] != stack2->items[index])
       return 0;
   return 1;
 }

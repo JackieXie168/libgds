@@ -1,9 +1,9 @@
 // ==================================================================
 // @(#)cli_params.c
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 25/06/2003
-// @lastdate 25/06/2007
+// $Id$
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -28,30 +28,30 @@
 /**
  * Create a parameter with default attributes.
  */
-SCliParam * cli_param_create(char * pcName,
+cli_param_t * cli_param_create(char * name,
 			     FCliCheckParam fCheck)
 {
-  SCliParam * pParam= (SCliParam *) MALLOC(sizeof(SCliParam));
+  cli_param_t * param= (cli_param_t *) MALLOC(sizeof(cli_param_t));
 
-  pParam->pcName= str_create(pcName);
-  pParam->fCheck= fCheck;
-  pParam->fEnum= NULL;
-  pParam->tType= CLI_PARAM_TYPE_STD;
-  pParam->pcInfo= NULL;
-  return pParam;
+  param->name= str_create(name);
+  param->fCheck= fCheck;
+  param->fEnum= NULL;
+  param->type= CLI_PARAM_TYPE_STD;
+  param->info= NULL;
+  return param;
 }
 
 // ----- cli_param_destroy ------------------------------------------
 /**
  * Destroy a parameter.
  */
-void cli_param_destroy(SCliParam ** ppParam)
+void cli_param_destroy(cli_param_t ** param_ref)
 {
-  if (*ppParam != NULL) {
-    str_destroy(&(*ppParam)->pcName);
-    str_destroy(&(*ppParam)->pcInfo);
-    FREE(*ppParam);
-    *ppParam= NULL;
+  if (*param_ref != NULL) {
+    str_destroy(&(*param_ref)->name);
+    str_destroy(&(*param_ref)->info);
+    FREE(*param_ref);
+    *param_ref= NULL;
   }
 }
 
@@ -59,22 +59,23 @@ void cli_param_destroy(SCliParam ** ppParam)
 /**
  * Private helper function used to compare 2 parameters in a list.
  */
-static int _cli_params_item_compare(void * pItem1, void * pItem2,
-				    unsigned int uEltSize)
+static int _cli_params_item_compare(const void * item1,
+				    const void * item2,
+				    unsigned int elt_size)
 {
-  SCliParam * pParam1= *((SCliParam **) pItem1);
-  SCliParam * pParam2= *((SCliParam **) pItem2);
+  cli_param_t * param1= *((cli_param_t **) item1);
+  cli_param_t * param2= *((cli_param_t **) item2);
 
-  return strcmp(pParam1->pcName, pParam2->pcName);
+  return strcmp(param1->name, param2->name);
 }
 
 // -----[ _cli_params_item_destroy ]---------------------------------
 /**
  * Private helper function used to destroy each parameter in a list.
  */
-static void _cli_params_item_destroy(void * pItem)
+static void _cli_params_item_destroy(void * item, const void * ctx)
 {
-  cli_param_destroy((SCliParam **) pItem);
+  cli_param_destroy((cli_param_t **) item);
 }
 
 // ----- cli_params_create ------------------------------------------
@@ -83,11 +84,12 @@ static void _cli_params_item_destroy(void * pItem)
  * i.e. the ordering of parameters is the ordering of their insertion
  * in the list.
  */
-SCliParams * cli_params_create()
+cli_params_t * cli_params_create()
 {
-  return (SCliParams *) ptr_array_create(0,
-					 _cli_params_item_compare,
-					 _cli_params_item_destroy);
+  return (cli_params_t *) ptr_array_create(0,
+					   _cli_params_item_compare,
+					   _cli_params_item_destroy,
+					   NULL);
 }
 
 // -----[ _cli_params_check_latest ]---------------------------------
@@ -96,11 +98,11 @@ SCliParams * cli_params_create()
  * CLI_PARAM_TYPE_VARARG. This function should be called before adding
  * any new parameter.
  */
-static void _cli_params_check_latest(SCliParams * pParams)
+static void _cli_params_check_latest(cli_params_t * params)
 {
-  int iLength= ptr_array_length(pParams);
+  int iLength= ptr_array_length(params);
   if ((iLength > 0) &&
-      (((SCliParam *) pParams->data[iLength-1])->tType == CLI_PARAM_TYPE_VARARG)) {
+      (((cli_param_t *) params->data[iLength-1])->type == CLI_PARAM_TYPE_VARARG)) {
     fprintf(stderr, "Error: can not add a parameter after a vararg parameter.\n");
     abort();
   }
@@ -110,9 +112,9 @@ static void _cli_params_check_latest(SCliParams * pParams)
 /**
  * Destroy a list of parameters.
  */
-void cli_params_destroy(SCliParams ** ppParams)
+void cli_params_destroy(cli_params_t ** params_ref)
 {
-  ptr_array_destroy((SPtrArray **) ppParams);
+  ptr_array_destroy((SPtrArray **) params_ref);
 }
 
 // ----- cli_params_add ---------------------------------------------
@@ -121,12 +123,12 @@ void cli_params_destroy(SCliParams ** ppParams)
  *
  * Parameter type: CLI_PARAM_TYPE_STD
  */
-int cli_params_add(SCliParams * pParams, char * pcName,
+int cli_params_add(cli_params_t * params, char * name,
 		   FCliCheckParam fCheck)
 {
-  SCliParam * pParam= cli_param_create(pcName, fCheck);
-  _cli_params_check_latest(pParams);
-  return ptr_array_add((SPtrArray *) pParams, &pParam);
+  cli_param_t * param= cli_param_create(name, fCheck);
+  _cli_params_check_latest(params);
+  return ptr_array_add((SPtrArray *) params, &param);
 }
 
 // ----- cli_params_add2 --------------------------------------------
@@ -137,14 +139,14 @@ int cli_params_add(SCliParams * pParams, char * pcName,
  *
  * Parameter type: CLI_PARAM_TYPE_STD
  */
-int cli_params_add2(SCliParams * pParams, char * pcName,
+int cli_params_add2(cli_params_t * params, char * name,
 		    FCliCheckParam fCheck,
 		    FCliEnumParam fEnum)
 {
-  SCliParam * pParam= cli_param_create(pcName, fCheck);
-  _cli_params_check_latest(pParams);
-  pParam->fEnum= fEnum;
-  return ptr_array_add((SPtrArray *) pParams, &pParam);
+  cli_param_t * param= cli_param_create(name, fCheck);
+  _cli_params_check_latest(params);
+  param->fEnum= fEnum;
+  return ptr_array_add((SPtrArray *) params, &param);
 }
 
 // ----- cli_params_add_vararg --------------------------------------
@@ -154,24 +156,24 @@ int cli_params_add2(SCliParams * pParams, char * pcName,
  *
  * Parameter type: CLI_PARAM_TYPE_VARARG
  */
-int cli_params_add_vararg(SCliParams * pParams, char * pcName,
-			  uint8_t uMaxArgs,
+int cli_params_add_vararg(cli_params_t * params, char * name,
+			  uint8_t max_args,
 			  FCliCheckParam fCheck)
 {
-  SCliParam * pParam= cli_param_create(pcName, fCheck);
-  _cli_params_check_latest(pParams);
-  pParam->tType= CLI_PARAM_TYPE_VARARG;
-  pParam->uMaxArgs= uMaxArgs;
-  return ptr_array_add((SPtrArray *) pParams, &pParam);
+  cli_param_t * param= cli_param_create(name, fCheck);
+  _cli_params_check_latest(params);
+  param->type= CLI_PARAM_TYPE_VARARG;
+  param->max_args= max_args;
+  return ptr_array_add((SPtrArray *) params, &param);
 }
 
 // ----- cli_params_num ---------------------------------------------
 /**
  * Return the number of parameters.
  */
-unsigned int cli_params_num(SCliParams * pParams)
+unsigned int cli_params_num(cli_params_t * params)
 {
-  return ptr_array_length((SPtrArray *) pParams);
+  return ptr_array_length((SPtrArray *) params);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -184,30 +186,30 @@ unsigned int cli_params_num(SCliParams * pParams)
 /**
  * Create an option.
  */
-SCliOption * cli_option_create(char * pcName,
+cli_option_t * cli_option_create(char * name,
 			       FCliCheckParam fCheck)
 {
-  SCliOption * pOption= (SCliOption *) MALLOC(sizeof(SCliOption));
-  pOption->pcName= str_create(pcName);
-  pOption->pcValue= NULL;
-  pOption->uPresent= 0;
-  pOption->fCheck= fCheck;
-  pOption->pcInfo= NULL;
-  return pOption;
+  cli_option_t * option= (cli_option_t *) MALLOC(sizeof(cli_option_t));
+  option->name= str_create(name);
+  option->value= NULL;
+  option->present= 0;
+  option->fCheck= fCheck;
+  option->info= NULL;
+  return option;
 }
 
 // ----- cli_option_destroy -----------------------------------------
 /**
  * Destroy an option.
  */
-void cli_option_destroy(SCliOption ** ppOption)
+void cli_option_destroy(cli_option_t ** option_ref)
 {
-  if (*ppOption != NULL) {
-    str_destroy(&(*ppOption)->pcName);
-    str_destroy(&(*ppOption)->pcValue);
-    str_destroy(&(*ppOption)->pcInfo);
-    FREE(*ppOption);
-    *ppOption= NULL;
+  if (*option_ref != NULL) {
+    str_destroy(&(*option_ref)->name);
+    str_destroy(&(*option_ref)->value);
+    str_destroy(&(*option_ref)->info);
+    FREE(*option_ref);
+    *option_ref= NULL;
   }
 }
 
@@ -215,70 +217,72 @@ void cli_option_destroy(SCliOption ** ppOption)
 /**
  * Private helper function used to compare 2 options in a list.
  */
-static int _cli_options_item_compare(void * pItem1, void * pItem2,
-				     unsigned int uEltSize)
+static int _cli_options_item_compare(const void * item1,
+				     const void * item2,
+				     unsigned int elt_size)
 {
-  SCliOption * pOption1= *((SCliOption **) pItem1);
-  SCliOption * pOption2= *((SCliOption **) pItem2);
+  cli_option_t * option1= *((cli_option_t **) item1);
+  cli_option_t * option2= *((cli_option_t **) item2);
 
-  return strcmp(pOption1->pcName, pOption2->pcName);
+  return strcmp(option1->name, option2->name);
 }
 
 // -----[ _cli_options_item_destroy ]--------------------------------
 /**
  * Private helper function used to destroy each parameter in a list.
  */
-static void _cli_options_item_destroy(void * pItem)
+static void _cli_options_item_destroy(void * item, const void * ctx)
 {
-  cli_option_destroy((SCliOption **) pItem);
+  cli_option_destroy((cli_option_t **) item);
 }
 
 // ----- cli_options_create -----------------------------------------
 /**
  *
  */
-SCliOptions * cli_options_create()
+cli_options_t * cli_options_create()
 {
-  return (SCliOptions *) ptr_array_create(ARRAY_OPTION_SORTED,
-					  _cli_options_item_compare,
-					  _cli_options_item_destroy);
+  return (cli_options_t *) ptr_array_create(ARRAY_OPTION_SORTED,
+					    _cli_options_item_compare,
+					    _cli_options_item_destroy,
+					    NULL);
 }
 
 // ----- cli_options_destroy ----------------------------------------
 /**
  *
  */
-void cli_options_destroy(SCliOptions ** ppOptions)
+void cli_options_destroy(cli_options_t ** options_ref)
 {
-  ptr_array_destroy((SPtrArray **) ppOptions);
+  ptr_array_destroy((SPtrArray **) options_ref);
 }
 
 // ----- cli_options_find -------------------------------------------
 /**
  *
  */
-SCliOption * cli_options_find(SCliOptions * pOptions, const char * pcName)
+cli_option_t * cli_options_find(cli_options_t * options, const char * name)
 {
-  SCliOption sTmp;
-  SCliOption * pOption= &sTmp;
-  unsigned int uIndex;
+  cli_option_t sTmp;
+  cli_option_t * option= &sTmp;
+  unsigned int index;
 
-  sTmp.pcName= (char *) pcName;
-  if (ptr_array_sorted_find_index(pOptions, &pOption, &uIndex))
+  sTmp.name= (char *) name;
+  if (ptr_array_sorted_find_index(options, &option, &index))
     return NULL;
 
-  return (SCliOption*) pOptions->data[uIndex];
+  return (cli_option_t*) options->data[index];
 }
 
 // ----- cli_options_add --------------------------------------------
 /**
  * Add an option to the list of options.
  */
-int cli_options_add(SCliOptions * pOptions, char * pcName,
+int cli_options_add(cli_options_t * options, char * name,
 		    FCliCheckParam fCheck)
 {
-  SCliOption * pOption= cli_option_create(pcName, fCheck);
-  return ptr_array_add((SPtrArray *) pOptions, &pOption);
+  cli_option_t * option= cli_option_create(name, fCheck);
+  return ptr_array_add((SPtrArray *) options, &option);
 }
 
 // ----- cli_options_has_value --------------------------------------
@@ -289,19 +293,19 @@ int cli_options_add(SCliOptions * pOptions, char * pcName,
  *   1 option has a value
  *   0 option does not exist or has no value
  */
-int cli_options_has_value(SCliOptions * pOptions, char * pcName)
+int cli_options_has_value(cli_options_t * options, char * name)
 {
-  SCliOption sTmp;
-  SCliOption * pOption= &sTmp;
-  unsigned int uIndex;
+  cli_option_t sTmp;
+  cli_option_t * option= &sTmp;
+  unsigned int index;
 
-  sTmp.pcName= pcName;
-  if (ptr_array_sorted_find_index(pOptions, &pOption, &uIndex))
+  sTmp.name= name;
+  if (ptr_array_sorted_find_index(options, &option, &index))
     return 0;
 
-  pOption= (SCliOption*) pOptions->data[uIndex];
+  option= (cli_option_t*) options->data[index];
 
-  return (pOption->uPresent);
+  return (option->present);
 }
 
 // ----- cli_options_get_value --------------------------------------
@@ -311,18 +315,18 @@ int cli_options_has_value(SCliOptions * pOptions, char * pcName)
  * Return value:
  *   NULL if the option does not exist or has no value.
  */
-char * cli_options_get_value(SCliOptions * pOptions, char * pcName)
+char * cli_options_get_value(cli_options_t * options, char * name)
 {
-  SCliOption sTmp;
-  SCliOption * pOption= &sTmp;
-  unsigned int uIndex;
+  cli_option_t sTmp;
+  cli_option_t * option= &sTmp;
+  unsigned int index;
 
-  sTmp.pcName= pcName;
-  if (ptr_array_sorted_find_index(pOptions, &pOption, &uIndex))
+  sTmp.name= name;
+  if (ptr_array_sorted_find_index(options, &option, &index))
     return NULL;
 
-  pOption= (SCliOption*) pOptions->data[uIndex];
-  return pOption->pcValue;
+  option= (cli_option_t*) options->data[index];
+  return option->value;
 }
 
 // ----- cli_options_set_value --------------------------------------
@@ -334,54 +338,54 @@ char * cli_options_get_value(SCliOptions * pOptions, char * pcName)
  *   CLI_ERROR_UNKNOWN_OPTION  option does not exist
  *   CLI_ERROR_BAD_OPTION      option value is not valid
  */
-int cli_options_set_value(SCliOptions * pOptions, char * pcName,
-			  char * pcValue)
+int cli_options_set_value(cli_options_t * options, char * name,
+			  char * value)
 {
-  SCliOption sTmp;
-  SCliOption * pOption= &sTmp;
-  unsigned int uIndex;
-  int iResult;
+  cli_option_t sTmp;
+  cli_option_t * option= &sTmp;
+  unsigned int index;
+  int result;
 
-  sTmp.pcName= pcName;
-  if (ptr_array_sorted_find_index(pOptions, &pOption, &uIndex))
+  sTmp.name= name;
+  if (ptr_array_sorted_find_index(options, &option, &index))
     return CLI_ERROR_UNKNOWN_OPTION;
 
-  pOption= (SCliOption*) pOptions->data[uIndex];
+  option= (cli_option_t*) options->data[index];
     
   // Check value if required
-  if (pOption->fCheck != NULL) {
-    iResult= pOption->fCheck(pcValue);
-    if (iResult)
+  if (option->fCheck != NULL) {
+    result= option->fCheck(value);
+    if (result)
       return CLI_ERROR_BAD_OPTION;
   }
     
-  if (pcValue != NULL)
-    pOption->pcValue= str_create(pcValue);
+  if (value != NULL)
+    option->value= str_create(value);
   else
-    pOption->pcValue= NULL;
-  pOption->uPresent= 1;
+    option->value= NULL;
+  option->present= 1;
 
   return CLI_SUCCESS;
 }
 
 // ----- cli_options_num --------------------------------------------
-unsigned int cli_options_num(SCliOptions * pOptions)
+unsigned int cli_options_num(cli_options_t * options)
 {
-  return ptr_array_length((SArray *) pOptions);
+  return ptr_array_length(options);
 }
 
 // ----- cli_options_init -------------------------------------------
 /**
  * Initialize the options' values.
  */
-void cli_options_init(SCliOptions * pOptions)
+void cli_options_init(cli_options_t * options)
 {
-  unsigned int uIndex;
-  SCliOption * pOption;
+  unsigned int index;
+  cli_option_t * option;
 
-  for (uIndex= 0; uIndex < ptr_array_length((SArray *) pOptions); uIndex++) {
-    pOption= (SCliOption *) pOptions->data[uIndex];
-    pOption->uPresent= 0;
-    str_destroy(&pOption->pcValue);
+  for (index= 0; index < ptr_array_length(options); index++) {
+    option= (cli_option_t *) options->data[index];
+    option->present= 0;
+    str_destroy(&option->value);
   }
 }

@@ -1,9 +1,9 @@
 // ==================================================================
 // @(#)cli_ctx.h
 //
-// @author Bruno Quoitin (bqu@infonet.fundp.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 25/06/2003
-// @lastdate 15/01/2007
+// $Id$
 // ==================================================================
 
 #ifndef __GDS_CLI_CTX_H__
@@ -16,43 +16,43 @@ extern "C" {
 #endif
 
   // ----- cli_context_create ---------------------------------------
-  SCliContext * cli_context_create();
+  cli_ctx_t * cli_context_create();
   // ----- cli_context_create ---------------------------------------
-  void cli_context_destroy(SCliContext ** ppContext);
+  void cli_context_destroy(cli_ctx_t ** pctx);
   // ----- cli_context_depth ----------------------------------------
-  int cli_context_depth(SCliContext * pContext);
+  int cli_context_depth(cli_ctx_t * ctx);
   // ----- cli_context_is_empty -------------------------------------
-  int cli_context_is_empty(SCliContext * pContext);
+  int cli_context_is_empty(cli_ctx_t * ctx);
   // ----- cli_context_push -----------------------------------------
-  void cli_context_push(SCliContext * pContext);
+  void cli_context_push(cli_ctx_t * ctx);
   // ----- cli_context_pop ------------------------------------------
-  void cli_context_pop(SCliContext * pContext);
+  void cli_context_pop(cli_ctx_t * ctx);
   // ----- cli_context_top ------------------------------------------
-  SCliCtxItem * cli_context_top(SCliContext * pContext);
+  _cli_ctx_item_t * cli_context_top(cli_ctx_t * ctx);
   // ----- cli_context_get ------------------------------------------
-  void * cli_context_get(SCliContext * pContext);
+  void * cli_context_get(cli_ctx_t * ctx);
   // ----- cli_context_set ------------------------------------------
-  void cli_context_set(SCliContext * pContext, void * pCtx);
+  void cli_context_set(cli_ctx_t * ctx, void * pCtx);
   // ----- cli_context_get_at ---------------------------------------
-  SCliCtxItem * cli_context_get_at(SCliContext * pContext,
-				   uint32_t uIndex);
+  _cli_ctx_item_t * cli_context_get_at(cli_ctx_t * ctx,
+				       uint32_t index);
   // ----- cli_context_get_item_at ----------------------------------
-  void * cli_context_get_item_at(SCliContext * pContext,
-				 uint32_t uIndex);
+  void * cli_context_get_item_at(cli_ctx_t * ctx,
+				 uint32_t index);
   // ----- cli_context_get_item_from_top ----------------------------
-  void * cli_context_get_item_from_top(SCliContext * pContext,
-				       int uOffset);
+  void * cli_context_get_item_from_top(cli_ctx_t * ctx,
+				       int offset);
   // ----- cli_context_get_item_at_top ------------------------------
-  void * cli_context_get_item_at_top(SCliContext * pContext);
+  void * cli_context_get_item_at_top(cli_ctx_t * ctx);
   // ----- cli_context_clear ----------------------------------------
-  void cli_context_clear(SCliContext * pContext);
+  void cli_context_clear(cli_ctx_t * ctx);
   // ----- cli_context_save_depth -----------------------------------
-  void cli_context_save_depth(SCliContext * pContext);
+  void cli_context_save_depth(cli_ctx_t * ctx);
   // ----- cli_context_restore_depth --------------------------------
-  void cli_context_restore_depth(SCliContext * pContext);
+  void cli_context_restore_depth(cli_ctx_t * ctx);
   // ----- cli_context_to_string ------------------------------------
-  char * cli_context_to_string(SCliContext * pContext,
-			       char * pcPrefix);
+  char * cli_context_to_string(cli_ctx_t * ctx,
+			       char * prefix);
 
 #ifdef __cplusplus
 }

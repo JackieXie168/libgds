@@ -1,9 +1,9 @@
 // ==================================================================
 // @(#)cli_ctx.h
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 25/06/2003
-// @lastdate 16/01/2007
+// $Id$
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
@@ -18,24 +18,25 @@
 #define CLI_MAX_CONTEXT 16
 
 // -----[ _cli_context_item_create ]---------------------------------
-static SCliCtxItem * _cli_context_item_create(SCliCmd * pCmd,
-					      void * pUserData)
+static inline
+_cli_ctx_item_t * _cli_context_item_create(cli_cmd_t * cmd,
+					   void * user_data)
 {
-  SCliCtxItem * pCtxItem=
-    (SCliCtxItem *) MALLOC(sizeof(SCliCtxItem));
-  pCtxItem->pUserData= pUserData;
-  pCtxItem->pCmd= pCmd;
-  return pCtxItem;
+  _cli_ctx_item_t * item=
+    (_cli_ctx_item_t *) MALLOC(sizeof(_cli_ctx_item_t));
+  item->user_data= user_data;
+  item->cmd= cmd;
+  return item;
 }
 
 // -----[ _cli_context_item_destroy ]--------------------------------
-static void _cli_context_item_destroy(SCliCtxItem ** ppCtxItem)
+static inline void _cli_context_item_destroy(_cli_ctx_item_t ** item_ref)
 {
-  if (*ppCtxItem != NULL) {
-    if ((*ppCtxItem)->pCmd->fCtxDestroy != NULL)
-      (*ppCtxItem)->pCmd->fCtxDestroy(&(*ppCtxItem)->pUserData);
-    FREE(*ppCtxItem);
-    *ppCtxItem= NULL;
+  if (*item_ref != NULL) {
+    if ((*item_ref)->cmd->fCtxDestroy != NULL)
+      (*item_ref)->cmd->fCtxDestroy(&(*item_ref)->user_data);
+    FREE(*item_ref);
+    *item_ref= NULL;
   }
 }
 
@@ -43,34 +44,34 @@ static void _cli_context_item_destroy(SCliCtxItem ** ppCtxItem)
 /**
  *
  */
-SCliContext * cli_context_create()
+cli_ctx_t * cli_context_create()
 {
-  SCliContext * pContext=
-    (SCliContext *) MALLOC(sizeof(SCliContext));
-  pContext->pCmdStack= stack_create(CLI_MAX_CONTEXT);
-  pContext->uSavedDepth= 0;
-  pContext->pString= NULL;
-  return pContext;
+  cli_ctx_t * ctx=
+    (cli_ctx_t *) MALLOC(sizeof(cli_ctx_t));
+  ctx->cmd_stack= stack_create(CLI_MAX_CONTEXT);
+  ctx->saved_depth= 0;
+  ctx->string= NULL;
+  return ctx;
 }
 
 // ----- cli_context_destroy ----------------------------------------
 /**
  *
  */
-void cli_context_destroy(SCliContext ** ppContext)
+void cli_context_destroy(cli_ctx_t ** ctx_ref)
 {
-  unsigned int uIndex;
+  unsigned int index;
 
-  if (*ppContext != NULL) {
-    for (uIndex= 0; uIndex < stack_depth((*ppContext)->pCmdStack); uIndex++) {
-      SCliCtxItem * pItem=
-	(SCliCtxItem *) stack_get_at((*ppContext)->pCmdStack, uIndex);
-      _cli_context_item_destroy(&pItem);
+  if (*ctx_ref != NULL) {
+    for (index= 0; index < stack_depth((*ctx_ref)->cmd_stack); index++) {
+      _cli_ctx_item_t * item=
+	(_cli_ctx_item_t *) stack_get_at((*ctx_ref)->cmd_stack, index);
+      _cli_context_item_destroy(&item);
     }
-    stack_destroy(&(*ppContext)->pCmdStack);
-    str_destroy(&(*ppContext)->pString);
-    FREE(*ppContext);
-    *ppContext= NULL;
+    stack_destroy(&(*ctx_ref)->cmd_stack);
+    str_destroy(&(*ctx_ref)->string);
+    FREE(*ctx_ref);
+    *ctx_ref= NULL;
   }
 }
 
@@ -78,18 +79,18 @@ void cli_context_destroy(SCliContext ** ppContext)
 /**
  *
  */
-int cli_context_depth(SCliContext * pContext)
+int cli_context_depth(cli_ctx_t * ctx)
 {
-  return stack_depth(pContext->pCmdStack);
+  return stack_depth(ctx->cmd_stack);
 }
 
 // ----- cli_context_is_empty ---------------------------------------
 /**
  *
  */
-int cli_context_is_empty(SCliContext * pContext)
+int cli_context_is_empty(cli_ctx_t * ctx)
 {
-  return stack_is_empty(pContext->pCmdStack);
+  return stack_is_empty(ctx->cmd_stack);
 }
 
 // ----- cli_context_push -------------------------------------------
@@ -97,25 +98,25 @@ int cli_context_is_empty(SCliContext * pContext)
  * Push a command with parameters and context (user-data) on the
  * stack.
  */
-void cli_context_push(SCliContext * pContext)
+void cli_context_push(cli_ctx_t * ctx)
 {
-  SCliCtxItem * pItem= _cli_context_item_create(pContext->pCmd,
-						pContext->pUserData);
-  stack_push(pContext->pCmdStack, pItem);
+  _cli_ctx_item_t * item= _cli_context_item_create(ctx->cmd,
+						   ctx->user_data);
+  stack_push(ctx->cmd_stack, item);
 }
 
 // ----- cli_context_pop --------------------------------------------
 /**
  *
  */
-void cli_context_pop(SCliContext * pContext)
+void cli_context_pop(cli_ctx_t * ctx)
 {
-  SCliCtxItem * pItem;
-  if (!stack_is_empty(pContext->pCmdStack)) {
-    pItem= (SCliCtxItem *) stack_pop(pContext->pCmdStack);
-    pContext->pCmd= pItem->pCmd;
-    pContext->pUserData= pItem->pUserData;
-    _cli_context_item_destroy(&pItem);
+  _cli_ctx_item_t * item;
+  if (!stack_is_empty(ctx->cmd_stack)) {
+    item= (_cli_ctx_item_t *) stack_pop(ctx->cmd_stack);
+    ctx->cmd= item->cmd;
+    ctx->user_data= item->user_data;
+    _cli_context_item_destroy(&item);
   }
 }
 
@@ -123,39 +124,39 @@ void cli_context_pop(SCliContext * pContext)
 /**
  *
  */
-SCliCtxItem * cli_context_top(SCliContext * pContext)
+_cli_ctx_item_t * cli_context_top(cli_ctx_t * ctx)
 {
-  return (SCliCtxItem *) stack_top(pContext->pCmdStack);
+  return (_cli_ctx_item_t *) stack_top(ctx->cmd_stack);
 }
 
 // ----- cli_context_get --------------------------------------------
 /**
  * Get current context (user-data).
  */
-void * cli_context_get(SCliContext * pContext)
+void * cli_context_get(cli_ctx_t * ctx)
 {
-  return pContext->pUserData;
+  return ctx->user_data;
 }
 
 // ----- cli_context_get_at ------------------------------------------
 /**
  *
  */
-SCliCtxItem * cli_context_get_at(SCliContext * pContext, uint32_t uIndex)
+_cli_ctx_item_t * cli_context_get_at(cli_ctx_t * ctx, uint32_t index)
 {
-  return (SCliCtxItem *) stack_get_at(pContext->pCmdStack, uIndex);
+  return (_cli_ctx_item_t *) stack_get_at(ctx->cmd_stack, index);
 }
 
 // ----- cli_context_get_item_at ------------------------------------
 /**
  *
  */
-void * cli_context_get_item_at(SCliContext * pContext, uint32_t uIndex)
+void * cli_context_get_item_at(cli_ctx_t * ctx, uint32_t index)
 {
-  SCliCtxItem * pCtxItem=
-    (SCliCtxItem *) stack_get_at(pContext->pCmdStack, uIndex);
-  if (pCtxItem != NULL)
-    return pCtxItem->pUserData;
+  _cli_ctx_item_t * item=
+    (_cli_ctx_item_t *) stack_get_at(ctx->cmd_stack, index);
+  if (item != NULL)
+    return item->user_data;
   return NULL;
 }
 
@@ -163,12 +164,12 @@ void * cli_context_get_item_at(SCliContext * pContext, uint32_t uIndex)
 /**
  *
  */
-void * cli_context_get_item_from_top(SCliContext * pContext,
-				     int uOffset)
+void * cli_context_get_item_from_top(cli_ctx_t * ctx,
+				     int offset)
 {
-  if (!cli_context_is_empty(pContext))
-    return cli_context_get_item_at(pContext,
-				   cli_context_depth(pContext)-uOffset-1);
+  if (!cli_context_is_empty(ctx))
+    return cli_context_get_item_at(ctx,
+				   cli_context_depth(ctx)-offset-1);
   return NULL;
 }
 
@@ -177,10 +178,10 @@ void * cli_context_get_item_from_top(SCliContext * pContext,
 /**
  *
  */
-void * cli_context_get_item_at_top(SCliContext * pContext)
+void * cli_context_get_item_at_top(cli_ctx_t * ctx)
 {
-  if (!cli_context_is_empty(pContext))
-    return cli_context_get_item_at(pContext, cli_context_depth(pContext)-1);
+  if (!cli_context_is_empty(ctx))
+    return cli_context_get_item_at(ctx, cli_context_depth(ctx)-1);
   return NULL;
 }
 
@@ -188,30 +189,30 @@ void * cli_context_get_item_at_top(SCliContext * pContext)
 /**
  * Clear context-stack and params
  */
-void cli_context_clear(SCliContext * pContext)
+void cli_context_clear(cli_ctx_t * ctx)
 {
-  while (cli_context_depth(pContext) > 0)
-    cli_context_pop(pContext);
-  pContext->uSavedDepth= 0;
+  while (cli_context_depth(ctx) > 0)
+    cli_context_pop(ctx);
+  ctx->saved_depth= 0;
 }
 
 // ----- cli_context_save_depth -------------------------------------
 /**
  *
  */
-void cli_context_save_depth(SCliContext * pContext)
+void cli_context_save_depth(cli_ctx_t * ctx)
 {
-  pContext->uSavedDepth= stack_depth(pContext->pCmdStack);
+  ctx->saved_depth= stack_depth(ctx->cmd_stack);
 }
 
 // ----- cli_context_restore_depth ----------------------------------
 /**
  *
  */
-void cli_context_restore_depth(SCliContext * pContext)
+void cli_context_restore_depth(cli_ctx_t * ctx)
 {
-  while (cli_context_depth(pContext) > pContext->uSavedDepth)
-    cli_context_pop(pContext);
+  while (cli_context_depth(ctx) > ctx->saved_depth)
+    cli_context_pop(ctx);
 }
 
 // ----- cli_context_to_string --------------------------------------
@@ -220,41 +221,41 @@ void cli_context_restore_depth(SCliContext * pContext)
  * order. This string can be used as a prompt in a user-interface or
  * error messages.
  */
-char * cli_context_to_string(SCliContext * pContext, char * pcPrefix)
+char * cli_context_to_string(cli_ctx_t * ctx, char * prefix)
 {
-  int iIndex;//, iTokenOffset, iParamIndex;
-  SCliCtxItem * pCtxItem;
+  int index;//, iTokenOffset, iParamIndex;
+  _cli_ctx_item_t * item;
 
   // Free previous context-string
-  str_destroy(&pContext->pString);
+  str_destroy(&ctx->string);
 
   // Build new string
-  pContext->pString= str_create(pcPrefix);
+  ctx->string= str_create(prefix);
 
   //iTokenOffset= 0;
   // Add context commands
-  for (iIndex= 0; iIndex < cli_context_depth(pContext); iIndex++) {
-    pCtxItem= cli_context_get_at(pContext, iIndex);
-    if ((pCtxItem != NULL) && (pCtxItem->pCmd != NULL)) {
-      str_append(&pContext->pString, "-");
-      str_append(&pContext->pString, pCtxItem->pCmd->pcName);
+  for (index= 0; index < cli_context_depth(ctx); index++) {
+    item= cli_context_get_at(ctx, index);
+    if ((item != NULL) && (item->cmd != NULL)) {
+      str_append(&ctx->string, "-");
+      str_append(&ctx->string, item->cmd->name);
 
       // Add token values
       /*
       for (iParamIndex= 0;
-	   iParamIndex < cli_cmd_get_num_params(pCtxItem->pCmd);
+	   iParamIndex < cli_cmd_get_num_params(pCtxItem->cmd);
 	   iParamIndex++) {
-	str_append(&pContext->pString, " ");
-	str_append(&pContext->pString,
-		   tokens_get_string_at(pContext->pTokens, iTokenOffset));
+	str_append(&ctx->string, " ");
+	str_append(&ctx->string,
+		   tokens_get_string_at(ctx->pTokens, iTokenOffset));
 	iTokenOffset++;
       }
       */
 
     }
   }
-  str_append(&pContext->pString, "> ");
+  str_append(&ctx->string, "> ");
 
-  return pContext->pString;
+  return ctx->string;
 }
 
