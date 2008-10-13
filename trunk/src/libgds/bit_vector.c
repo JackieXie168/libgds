@@ -18,10 +18,10 @@
 #include <libgds/array.h>
 #include <libgds/memory.h>
 
-typedef struct gds_bit_vector_t {
+struct gds_bit_vector_t {
   unsigned int     size;
   uint32_array_t * array;
-} gds_bit_vector_t;
+};
 #define BIT_VECTOR_SEGMENT_LEN 32
 
 /** 
@@ -37,7 +37,7 @@ typedef struct gds_bit_vector_t {
  *
  * @return a bit vector of size size
  */
-gds_bit_vector_t * bit_vector_create(const uint32_t size)
+gds_bit_vector_t * bit_vector_create(unsigned int size)
 {
   gds_bit_vector_t * vector= MALLOC(sizeof(gds_bit_vector_t));
   unsigned int index;
@@ -55,7 +55,7 @@ gds_bit_vector_t * bit_vector_create(const uint32_t size)
   return vector;
 }
 
-// ----- bit_vector_destroy ------------------------------------------
+// -----[ bit_vector_destroy ]---------------------------------------
 /**
  * \brief destroys the bit vector vector
  *
@@ -73,7 +73,7 @@ void bit_vector_destroy(gds_bit_vector_t ** vector)
   }
 }
 
-// ----- bit_vector_set ----------------------------------------------
+// -----[ bit_vector_set ]-------------------------------------------
 /**
  * \brief set to 1 a specific bit of a bit vector.
  *
@@ -83,29 +83,29 @@ void bit_vector_destroy(gds_bit_vector_t ** vector)
  * @return 0 if the bit is set. -1 if vector is NULL or if uNumBit is
  * greater than the size of the bit vector.
  */
-int8_t bit_vector_set(gds_bit_vector_t * vector, const uint32_t uNumBit)
+int8_t bit_vector_set(gds_bit_vector_t * vector, unsigned int index)
 {
-  uint32_t uNumVector;
-  uint32_t uFilterSegment;
-  uint8_t uBit;
+  unsigned int segment_index;
+  unsigned char bit_index;
+  uint32_t segment;
 
   if ((vector == NULL) ||
-      (vector->size <= uNumBit))
+      (vector->size <= index))
     return -1;
+  
+  // Retrieve the segment which contains the bit to change
+  segment_index= index/BIT_VECTOR_SEGMENT_LEN;
+  segment= vector->array->data[segment_index];
 
-  /* Retrieve the segment which contains the bit to change */
-  uNumVector = uNumBit/BIT_VECTOR_SEGMENT_LEN;
-  uFilterSegment= vector->array->data[uNumVector];
-
-  /* Change the value of the concerned bit */
-  uBit = uNumBit%BIT_VECTOR_SEGMENT_LEN;
-  uFilterSegment |= (1 << (BIT_VECTOR_SEGMENT_LEN - uBit - 1));
-  vector->array->data[uNumVector]= uFilterSegment;
+  // Change the value of the concerned bit
+  bit_index= index % BIT_VECTOR_SEGMENT_LEN;
+  segment|= (1 << (BIT_VECTOR_SEGMENT_LEN - bit_index - 1));
+  vector->array->data[segment_index]= segment;
 
   return 0;
 }
 
-// ----- bit_vector_unset --------------------------------------------
+// -----[ bit_vector_clear ]-----------------------------------------
 /**
  * \brief set to 0 a specific bit of a bit vector.
  *
@@ -115,32 +115,32 @@ int8_t bit_vector_set(gds_bit_vector_t * vector, const uint32_t uNumBit)
  * @return 0 if the bit is set to 0. -1 if vector is NULL or uNumVector is
  * greater than the size of the bit vector.
  */
-int8_t bit_vector_unset(gds_bit_vector_t * vector, const uint32_t uNumBit)
+int8_t bit_vector_clear(gds_bit_vector_t * vector, unsigned int index)
 {
-  uint32_t uNumVector;
-  uint32_t uFilterSegment;
-  uint32_t uCurrentBit;
-  uint8_t uBit;
+  unsigned int segment_index;
+  unsigned char bit_index;
+  uint32_t segment;
+  uint32_t bit;
 
 
   if ((vector == NULL) ||
-      (vector->size <= uNumBit))
+      (vector->size <= index))
     return -1;
 
-  /* Retrieve the segment which contains the bit to change */
-  uNumVector = uNumBit/BIT_VECTOR_SEGMENT_LEN;
-  uFilterSegment= vector->array->data[uNumVector];
+  // Retrieve the segment which contains the bit to change
+  segment_index= index/BIT_VECTOR_SEGMENT_LEN;
+  segment= vector->array->data[segment_index];
 
-  /* Change the value of the concerned bit */
-  uBit = uNumBit%BIT_VECTOR_SEGMENT_LEN;
-  uCurrentBit = ((uFilterSegment << uBit) >> (BIT_VECTOR_SEGMENT_LEN-1));
-  uFilterSegment ^= (uCurrentBit << (BIT_VECTOR_SEGMENT_LEN - uBit - 1));
-  vector->array->data[uNumVector]= uFilterSegment;
+  // Change the value of the concerned bit
+  bit_index= index % BIT_VECTOR_SEGMENT_LEN;
+  bit= ((segment << bit_index) >> (BIT_VECTOR_SEGMENT_LEN-1));
+  segment^= (bit << (BIT_VECTOR_SEGMENT_LEN - bit_index - 1));
+  vector->array->data[segment_index]= segment;
 
   return 0;
 }
 
-// ----- bit_vector_get ----------------------------------------------
+// -----[ bit_vector_get ]-------------------------------------------
 /**
  * \brief get the value of a specific bit of a bit vector
  *
@@ -150,23 +150,23 @@ int8_t bit_vector_unset(gds_bit_vector_t * vector, const uint32_t uNumBit)
  * @return -1 if vector is NULL or uNumVector is greater tha the size of
  * the bit vector else the value of the bit in the bit vector (0/1).
  */
-int8_t bit_vector_get(gds_bit_vector_t * vector, uint32_t uNumBit)
+int8_t bit_vector_get(gds_bit_vector_t * vector, unsigned int index)
 {
-  uint32_t uNumVector;
-  uint32_t uFilterSegment;
-  uint8_t uBit;
+  unsigned int segment_index;
+  unsigned char bit_index;
+  uint32_t segment;
     
   if ((vector == NULL) ||
-      (vector->size <= uNumBit))
+      (vector->size <= index))
     return -1;
 
-  /* Retrieve the segment which contains the bit to change */
-  uNumVector = uNumBit/BIT_VECTOR_SEGMENT_LEN;
-  uFilterSegment= vector->array->data[uNumVector];
+  // Retrieve the segment which contains the bit to change
+  segment_index= index/BIT_VECTOR_SEGMENT_LEN;
+  segment= vector->array->data[segment_index];
 
-  /* Change the value of the concerned bit */
-  uBit = uNumBit%BIT_VECTOR_SEGMENT_LEN;
-  return ((uFilterSegment << uBit) >> (BIT_VECTOR_SEGMENT_LEN-1));
+  // Change the value of the concerned bit
+  bit_index= index%BIT_VECTOR_SEGMENT_LEN;
+  return ((segment << bit_index) >> (BIT_VECTOR_SEGMENT_LEN-1));
 }
 
 static int _bit_vector_segment_to_string(char ** ppStr, uint32_t segment, uint32_t * uCptBits)
@@ -183,7 +183,7 @@ static int _bit_vector_segment_to_string(char ** ppStr, uint32_t segment, uint32
   return 0;
 }
 
-// ----- bit_vector_to_string ----------------------------------------
+// -----[ bit_vector_to_string ]-------------------------------------
 /**
  * \brief Creates a string representation of a bit vector
  *
@@ -216,6 +216,7 @@ char * bit_vector_to_string(gds_bit_vector_t * vector)
   return pStrToRet;
 }
 
+// -----[ bit_vector_equals ]----------------------------------------
 /**
  * @brief Tests the equality of two bit vectors
  *
@@ -223,7 +224,8 @@ char * bit_vector_to_string(gds_bit_vector_t * vector)
  * @param vector2 the second bit vector of the equality test
  *
  */
-int8_t bit_vector_equals(gds_bit_vector_t * vector1, gds_bit_vector_t * vector2)
+int8_t bit_vector_equals(gds_bit_vector_t * vector1,
+			 gds_bit_vector_t * vector2)
 {
   uint32_t segment1;
   uint32_t segment2;
@@ -248,6 +250,7 @@ int8_t bit_vector_equals(gds_bit_vector_t * vector1, gds_bit_vector_t * vector2)
   return 1;
 }
 
+// -----[ bit_vector_cmp ]-------------------------------------------
 /**
  * @brief Compare two bit vectors
  *
@@ -262,7 +265,8 @@ int8_t bit_vector_equals(gds_bit_vector_t * vector1, gds_bit_vector_t * vector2)
  * @return 0 if both bit vectors are the same, 1 if the first vector is greater
  * than the second, -1 if the first vector is smaller than the second.
  */
-int8_t bit_vector_comp(gds_bit_vector_t * vector1, gds_bit_vector_t * vector2)
+int8_t bit_vector_cmp(gds_bit_vector_t * vector1,
+		      gds_bit_vector_t * vector2)
 {
   uint32_t segment1;
   uint32_t segment2;
@@ -420,6 +424,7 @@ int8_t bit_vector_xor(gds_bit_vector_t * vector1, gds_bit_vector_t * vector2)
   return _bit_vector_binary_op(BIT_VECTOR_XOR, vector1, vector2);
 }
 
+// -----[ bit_vector_from_string ]-----------------------------------
 /**
  * @brief Creates a bit vector from a string representation
  *
@@ -432,19 +437,18 @@ int8_t bit_vector_xor(gds_bit_vector_t * vector1, gds_bit_vector_t * vector2)
  * vector.
  *
  */
-gds_bit_vector_t * bit_vector_create_from_string(char * cBitVector)
+gds_bit_vector_t * bit_vector_from_string(const char * str)
 {
   gds_bit_vector_t * vector;
-  uint32_t uLen;
-  uint32_t uCptBits;
+  size_t len;
+  unsigned int index;
  
-  uLen = strlen(cBitVector);
-  vector = bit_vector_create(uLen);
+  len= strlen(str);
+  vector= bit_vector_create(len);
 
-  for (uCptBits = 0; uCptBits < uLen; uCptBits++) {
-    if (cBitVector[uCptBits] != '0')
-      bit_vector_set(vector, uCptBits);
-  }
+  for (index= 0; index < len; index++)
+    if (str[index] != '0')
+      bit_vector_set(vector, index);
   return vector;
 }
 
