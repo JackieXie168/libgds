@@ -285,13 +285,16 @@ int tokenizer_run(gds_tokenizer_t * tokenizer, const char * str)
 	state= _STATE_IN_PARAM_FIRST;
       } else if ((*str == TOKENIZER_CHAR_EOS) ||
 		 (*str == TOKENIZER_CHAR_EOL)) {
-	tokens_add_copy(tokenizer->tokens, _peek_buf(tokenizer));
+	if (!str_buf_empty(tokenizer->tk_buf) ||
+	    (tokenizer->flags & TOKENIZER_OPT_EMPTY_FINAL))
+	  tokens_add_copy(tokenizer->tokens, _peek_buf(tokenizer));
 	state= _STATE_FINAL;
       } else if (_is_delimiter(tokenizer, *str)) {
 	tokens_add_copy(tokenizer->tokens, _peek_buf(tokenizer));
 	state= _STATE_IN_DELIM;
       } else if (_is_opening_quote(tokenizer, *str, &closing_quote,
 				   &protecting)) {
+	str_buf_write_invisible(tokenizer->tk_buf);
 	state= _STATE_IN_BLOCK;
       } else if (_is_closing_quote(tokenizer, *str, NULL)) {
 	error= TOKENIZER_ERROR_MISSING_OPEN;
@@ -302,11 +305,8 @@ int tokenizer_run(gds_tokenizer_t * tokenizer, const char * str)
 
     case _STATE_IN_DELIM:
       if (*str == TOKENIZER_CHAR_EOS) {
-	if (tokenizer->flags & TOKENIZER_OPT_EMPTY_FINAL) {
-	  dont_eat= 1;
-	  state= _STATE_NORMAL;
-	} else
-	  state= _STATE_FINAL;
+	dont_eat= 1;
+	state= _STATE_NORMAL;
       } else if (_is_delimiter(tokenizer, *str)) {
 	// Stay in DELIM state:
 	//   If the SINGLE_DELIM option is set, each delimiter

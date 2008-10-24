@@ -390,11 +390,11 @@ int cli_cmd_match(cli_t * cli, cli_cmd_t * cmd, char * pcStartCmd,
 		  char * pcEndCmd, void ** pctx)
 {
   const gds_tokens_t * tokens;
-  int iTokenIndex= 0;
-  int iLastTokenIndex;
-  int iParamIndex;
-  char * pcToken;
-  char * pcValue, * name;
+  int token_index= 0;
+  int last_token_index;
+  int param_index;
+  char * token;
+  char * value, * name;
   cli_option_t * option;
   int result;
   
@@ -405,62 +405,62 @@ int cli_cmd_match(cli_t * cli, cli_cmd_t * cmd, char * pcStartCmd,
     return CLI_MATCH_NOTHING;
   
   tokens= tokenizer_get_tokens(cli->tokenizer);
-  iLastTokenIndex= tokens_get_num(tokens)-1;
+  last_token_index= tokens_get_num(tokens)-1;
   
   // Match all tokens...
-  while (iTokenIndex < tokens_get_num(tokens)) {
-    pcToken= tokens_get_string_at(tokens, iTokenIndex);
+  while (token_index < tokens_get_num(tokens)) {
+    token= tokens_get_string_at(tokens, token_index);
     
-    if ((iTokenIndex == iLastTokenIndex) &&
-	!strcmp(pcToken, "")) {
+    if ((token_index == last_token_index) &&
+	!strcmp(token, "")) {
       *pctx= cmd;
       return CLI_MATCH_COMMAND;
     }
     
     // Current token matches a sub-command ?
-    cmd= cli_cmd_find_subcmd(cmd, pcToken);
+    cmd= cli_cmd_find_subcmd(cmd, token);
     if (cmd == NULL) {
       *pctx= cmd;
       return CLI_MATCH_NOTHING;
     }
-    iTokenIndex++;
+    token_index++;
     
     // Match options (if supported)...
-    while (iTokenIndex < tokens_get_num(tokens)) {
-      pcToken= tokens_get_string_at(tokens, iTokenIndex);
+    while (token_index < tokens_get_num(tokens)) {
+      token= tokens_get_string_at(tokens, token_index);
       
       // Is this an option ?
-      if (strncmp(pcToken, "--", 2))
+      if (strncmp(token, "--", 2))
 	break;
-      pcToken+= 2;
+      token+= 2;
       
       // Does the command support options ?
       if (cmd->options == NULL)
 	return CLI_MATCH_NOTHING;
       
       // Locate option name/value
-      pcValue= pcToken;
-      name= strsep(&pcValue, "=");
-      option= cli_options_find(cmd->options, pcToken);
+      value= token;
+      name= strsep(&value, "=");
+      option= cli_options_find(cmd->options, token);
       if (option == NULL)
 	return CLI_MATCH_NOTHING;
       
-      if (pcValue != NULL) {
+      if (value != NULL) {
 	// If we have received the name, but no value and this is the
 	// last token, need to complete value
-	if (iTokenIndex == iLastTokenIndex) {
+	if (token_index == last_token_index) {
 	  *pctx= option;
 	  return CLI_MATCH_OPTION_VALUE;
 	}
       }
       
-      iTokenIndex++;
+      token_index++;
     }
     
     // Match params...
-    iParamIndex= 0;
-    while (iParamIndex < cli_cmd_get_num_params(cmd)) {
-      if (iTokenIndex == iLastTokenIndex) {
+    param_index= 0;
+    while (param_index < cli_cmd_get_num_params(cmd)) {
+      if (token_index == last_token_index) {
 	
 	// Try to match an option ?
 	if ((cmd->options != NULL) && (pcEndCmd != NULL) &&
@@ -469,12 +469,12 @@ int cli_cmd_match(cli_t * cli, cli_cmd_t * cmd, char * pcStartCmd,
 	  return CLI_MATCH_OPTION_NAMES;
 	}
 	
-	*pctx= cmd->params->data[iParamIndex];
+	*pctx= cmd->params->data[param_index];
 	return CLI_MATCH_PARAM_VALUE;
       }
       
-      iTokenIndex++;
-      iParamIndex++;
+      token_index++;
+      param_index++;
     }
     
   }
@@ -496,29 +496,29 @@ int cli_cmd_match(cli_t * cli, cli_cmd_t * cmd, char * pcStartCmd,
  */
 static int _cli_cmd_process_options(cli_t * cli)
 {
-  char * pcValue;
+  char * value;
   int result;
   cli_cmd_t * cmd= cli->ctx->cmd;
   const gds_tokens_t * tokens= tokenizer_get_tokens(cli->tokenizer);
-  char * pcToken;
+  char * token;
   char * name;
 
   while (cli->uExecTokenIndex < tokens_get_num(tokens)) {
-    pcToken= tokens_get_string_at(tokens, cli->uExecTokenIndex);
+    token= tokens_get_string_at(tokens, cli->uExecTokenIndex);
 
     // Is this an option ?
-    if (strncmp(pcToken, "--", 2))
+    if (strncmp(token, "--", 2))
       break;
-    pcToken+= 2;
+    token+= 2;
     
     // Does the command support options ?
     if (cmd->options == NULL)
       return CLI_ERROR_UNKNOWN_OPTION;
     
     // Locate option specification
-    pcValue= pcToken;
-    name= strsep(&pcValue, "=");
-    result= cli_options_set_value(cmd->options, name, pcValue);
+    value= token;
+    name= strsep(&value, "=");
+    result= cli_options_set_value(cmd->options, name, value);
     if (result)
       return result;
 
@@ -540,7 +540,7 @@ static int _cli_cmd_process_options(cli_t * cli)
 static int _cli_cmd_process_params(cli_t * cli)
 {
   const gds_tokens_t * tokens= tokenizer_get_tokens(cli->tokenizer);
-  char * pcToken;
+  char * token;
   unsigned int uParamIndex= 0;
   cli_param_t * param;
   int result;
@@ -570,11 +570,11 @@ static int _cli_cmd_process_params(cli_t * cli)
 
     // Parse each token for this parameter specification
     while (uNumTokens-- > 0) {
-      pcToken= tokens_get_string_at(tokens, cli->uExecTokenIndex);
+      token= tokens_get_string_at(tokens, cli->uExecTokenIndex);
 
       // Check the parameter's value (if supported)
       if (param->fCheck != NULL) {
-	result= param->fCheck(pcToken);
+	result= param->fCheck(token);
 	if (result)
 	  return result; // parameter error !!!
       }
@@ -582,7 +582,7 @@ static int _cli_cmd_process_params(cli_t * cli)
       // Add the token to the list of values
       if (cmd->param_values == NULL)
 	cmd->param_values= tokens_create();
-      tokens_add_copy(cmd->param_values, pcToken);
+      tokens_add_copy(cmd->param_values, token);
       
       cli->uExecTokenIndex++;
     }
@@ -635,16 +635,16 @@ void cli_destroy(cli_t ** pcli)
   }
 }
 
-// -----[ cli_set_exit_callback ]------------------------------------
+// -----[ cli_set_on_error ]-----------------------------------------
 /**
  * Set the exit callback function. The default behaviour of the CLI
  * is to exit as soon as an error occurs. If this callback is
  * defined, it will be called in order to check it the CLI must
  * exit or not.
  */
-void cli_set_exit_callback(cli_t * cli, FCliExitOnError fExitOnError)
+void cli_set_on_error(cli_t * cli, FCliOnError on_error)
 {
-  cli->fExitOnError= fExitOnError;
+  cli->ops.on_error= on_error;
 }
 
 // -----[ cli_set_param_lookup ]-------------------------------------
@@ -714,7 +714,7 @@ int cli_execute_ctx(cli_t * cli, const char * cmd, void * user_data)
   int result= CLI_SUCCESS;
   int result2;
   const gds_tokens_t * tokens;
-  char * pcToken;
+  char * token;
   cli_cmd_t * pNewCmd;
   _cli_ctx_item_t * ctx_item;
 
@@ -770,8 +770,8 @@ int cli_execute_ctx(cli_t * cli, const char * cmd, void * user_data)
   cli_context_save_depth(cli->ctx);
   while (cli->uExecTokenIndex < tokenizer_get_num_tokens(cli->tokenizer)) {
     if (cli->ctx->cmd != NULL) {
-      pcToken= tokens_get_string_at(tokens, cli->uExecTokenIndex);
-      pNewCmd= cli_cmd_find_subcmd(cli->ctx->cmd, pcToken);
+      token= tokens_get_string_at(tokens, cli->uExecTokenIndex);
+      pNewCmd= cli_cmd_find_subcmd(cli->ctx->cmd, token);
       if (pNewCmd == NULL) {
 	result= CLI_ERROR_UNKNOWN_COMMAND;
 	break;
@@ -815,7 +815,7 @@ int cli_register_cmd(cli_t * cli, cli_cmd_t * cmd)
   return cli_cmd_add_subcmd(cli->root_cmd, cmd);
 }
 
-// ----- cli_perror -------------------------------------------------
+// -----[ cli_perror ]-----------------------------------------------
 /**
  *
  */
@@ -828,7 +828,7 @@ void cli_perror(gds_stream_t * stream, int error)
     stream_printf(stream, "unknown error (%i)", error);
 }
 
-// ----- cli_strerror -----------------------------------------------
+// -----[ cli_strerror ]---------------------------------------------
 /**
  *
  */
@@ -867,7 +867,7 @@ const char * cli_strerror(int error)
   return NULL;
 }
 
-// ----- cli_perror_details -----------------------------------------
+// -----[ cli_perror_details ]---------------------------------------
 /**
  *
  */
@@ -877,7 +877,8 @@ void cli_perror_details(gds_stream_t * stream, int result, cli_t * cli,
   const gds_tokens_t * tokens;
   int index;
 
-  stream_printf(stream, "*** command: \"%s\"\n", line);
+  if (line != NULL)
+    stream_printf(stream, "*** command: \"%s\"\n", line);
   if ((result == CLI_ERROR_UNKNOWN_COMMAND) ||
       (result == CLI_ERROR_NOT_A_COMMAND) ||
       (result == CLI_ERROR_MISSING_PARAM) ||
@@ -923,7 +924,7 @@ void cli_perror_details(gds_stream_t * stream, int result, cli_t * cli,
   }
 }
 
-// ----- cli_execute_line -------------------------------------------
+// -----[ cli_execute_line ]-----------------------------------------
 /**
  *
  */
@@ -940,16 +941,7 @@ int cli_execute_line(cli_t * cli, const char * line)
     return result;
 
   // Parse and execute command
-  result= cli_execute(cli, (char *) line);
-  if (result < 0) {
-    if (cli->error.user_msg != NULL)
-      stream_printf(gdserr, "Error: %s\n", cli->error.user_msg);
-    stream_printf(gdserr, "\033[0;31;1mError: ");
-    cli_perror(gdserr, result);
-    stream_printf(gdserr, "\033[0m\n");
-    cli_perror_details(gdserr, result, cli, line);
-  }
-  return result;
+  return cli_execute(cli, (char *) line);
 }
 
 // ----- cli_execute_file -------------------------------------------
@@ -960,40 +952,50 @@ int cli_execute_line(cli_t * cli, const char * line)
  */
 int cli_execute_file(cli_t * cli, FILE * stream)
 {
-  int iLen;
-  char acLine[MAX_CLI_LINE_LENGTH];
+  /*int len;*/
+  char line[MAX_CLI_LINE_LENGTH];
   int result;
   cli->error.line_number= 1;
 
   /* Execute all lines in the input file... */
-  while (fgets(acLine, sizeof(acLine), stream) != NULL) {
-    /* Chop trailing '\n' */
-    iLen= strlen(acLine);
-    if ((iLen >= 1) && (acLine[iLen-1] == '\n'))
-      acLine[iLen-1]= '\0';
+  while (fgets(line, sizeof(line), stream) != NULL) {
 
-    result= cli_execute_line(cli, acLine);
+    /*
+    // Chop trailing '\n'
+    len= strlen(line);
+    if ((len >= 1) && (line[len-1] == '\n'))
+    line[len-1]= '\0';
+    */
+
+    result= cli_execute_line(cli, line);
     if (result < 0) {
-      stream_printf(gdserr, "*** in script file, line %d\n",
-		    cli->error.line_number);
-
-      // In case of error, we call the exit-on-error function (if
-      // it is defined). The decision to stop depends on the error
-      // code returned by this function. If the fExitOnError function
+      // In case of error, we call the on_error function (if defined).
+      // The decision to stop processing depends on the error code
+      // returned by this function. If the on_error function
       // is not defined, we just return the error code.
-      if (cli->fExitOnError != NULL)
-	result= cli->fExitOnError(result);
+      if (cli->ops.on_error != NULL)
+	result= cli->ops.on_error(cli, result);
       if (result)
 	return result;
-
     }
     cli->error.line_number++;
   }
 
-  /* Clear the context (if required) */
+  // Clear the context
   cli_context_clear(cli->ctx);
 
   return CLI_SUCCESS;
+}
+
+// -----[ cli_dump_error ]-------------------------------------------
+void cli_dump_error(gds_stream_t * stream, cli_t * cli)
+{
+  if (cli->error.user_msg != NULL)
+    stream_printf(stream, "Error: %s\n", cli->error.user_msg);
+  stream_printf(stream, "\033[0;31;1mError: ");
+  cli_perror(stream, cli->error.error);
+  stream_printf(stream, "\033[0m\n");
+  cli_perror_details(stream, cli->error.error, cli, NULL/*line*/);
 }
 
 // ----- cli_get_cmd_context --------------------------------------
