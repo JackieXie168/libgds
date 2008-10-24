@@ -362,6 +362,7 @@ void str_buf_destroy(str_buf_t ** buf)
 void str_buf_reset(str_buf_t * buf)
 {
   buf->index= 0;
+  buf->invisible_data= 0;
 }
 
 // -----[ str_buf_write_char ]---------------------------------------
@@ -399,4 +400,14 @@ void str_buf_write_string(str_buf_t * buf, const char * str)
   buf->index+= len;
 }
 
+// -----[ str_buf_write_invisible ]----------------------------------
+void str_buf_write_invisible(str_buf_t * buf)
+{
+  buf->invisible_data= 1;
+}
 
+// -----[ str_buf_empty ]--------------------------------------------
+int str_buf_empty(str_buf_t * buf)
+{
+  return (!buf->invisible_data) && (buf->index == 0);
+}

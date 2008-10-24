@@ -41,8 +41,8 @@
 #define CLI_MATCH_OPTION_VALUE 3
 #define CLI_MATCH_PARAM_VALUE  4
 
-typedef SPtrArray cli_cmds_t;
-
+typedef ptr_array_t cli_cmds_t;
+struct cli_t;
 struct cli_cmd_t;
 
 typedef struct {
@@ -56,8 +56,8 @@ typedef struct {
 typedef int (*FCliContextCreate)(cli_ctx_t * ctx, void ** item_ref);
 typedef void (*FCliContextDestroy)(void ** item_ref);
 typedef int (*FCliCommand)(cli_ctx_t * ctx, struct cli_cmd_t * cmd);
-typedef void (*FCliHelp)(struct cli_cmd_t * cmd, void * ctx);
-typedef int (*FCliExitOnError)(int result);
+typedef int (*FCliOnError)(struct cli_t * cli, int result);
+typedef void (*FCliOnHelp)(struct cli_cmd_t * cmd, void * ctx);
 
 typedef struct cli_cmd_t {
   char               * name;
@@ -87,11 +87,15 @@ typedef struct {
 } cli_error_t;
 
 typedef struct {
+  FCliOnError on_error; // called on error
+  FCliOnHelp  on_help;  // called when help invoked
+} cli_ops_t;
+
+typedef struct cli_t {
   gds_tokenizer_t * tokenizer;
   cli_cmd_t       * root_cmd;
   cli_ctx_t       * ctx;             // Current execution context (stack)
-  FCliExitOnError   fExitOnError;    // Exit callback function
-  FCliHelp          fHelp;           // Help callback function
+  cli_ops_t         ops;
   // --- Variables used for error reporting purpose ---
   int               uExecTokenIndex; // Index to current token in cli
   cli_param_t     * exec_param;      // Currently expected parameter
@@ -158,12 +162,12 @@ extern "C" {
   // CLI MANAGMENT FUNCTIONS
   ///////////////////////////////////////////////////////////////////
 
-  // ----- cli_create -----------------------------------------------
+  // -----[ cli_create ]---------------------------------------------
   cli_t * cli_create();
-  // ----- cli_destroy ----------------------------------------------
+  // -----[ cli_destroy ]--------------------------------------------
   void cli_destroy(cli_t ** cli_ref);
-  // ----- cli_set_exit_callback ------------------------------------
-  void cli_set_exit_callback(cli_t * cli, FCliExitOnError fExitOnError);
+  // -----[ cli_set_on_error ]---------------------------------------
+  void cli_set_on_error(cli_t * cli, FCliOnError on_error);
   // -----[ cli_set_param_lookup ]-----------------------------------
   void cli_set_param_lookup(cli_t * cli, param_lookup_t lookup);
   // ----- cli_execute_ctx ------------------------------------------
@@ -187,6 +191,9 @@ extern "C" {
   int cli_get_error_details(cli_t * cli, cli_error_t * error);
   // ----- cli_set_user_error -----------------------------------------
   void cli_set_user_error(cli_t * cli, const char * format, ...);
+
+  // -----[ cli_dump_error ]-------------------------------------------
+  void cli_dump_error(gds_stream_t * stream, cli_t * cli);
 
 
 #ifdef __cplusplus

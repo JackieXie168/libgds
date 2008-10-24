@@ -16,6 +16,7 @@ typedef struct str_buf_t {
   size_t         size;      // Current buffer size
   unsigned int   index;     // Current position in buffer
   size_t         min_size;  // Initial size (and increment)
+  int            invisible_data;
 } str_buf_t;
 
 #ifdef __cplusplus
@@ -79,6 +80,10 @@ extern "C" {
   void str_buf_write_char(str_buf_t * buf, char c);
   // -----[ str_buf_write_string ]-----------------------------------
   void str_buf_write_string(str_buf_t * buf, const char * str);
+  // -----[ str_buf_write_invisible ]--------------------------------
+  void str_buf_write_invisible(str_buf_t * buf);
+  // -----[ str_buf_empty ]------------------------------------------
+  int str_buf_empty(str_buf_t * buf);
 
 #ifdef __cplusplus
 }
