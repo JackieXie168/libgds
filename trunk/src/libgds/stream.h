@@ -7,6 +7,19 @@
 // $Id: log.h 273 2008-08-21 10:00:30Z bquoitin $
 // ==================================================================
 
+/**
+ * \file
+ * Provides a generic output stream framework. Can write to files,
+ * stdio streams, callbacks (and more), using the same API.
+ *
+ * Example:
+ * \verbatim
+   gds_stream_t * stream= stream_create_file("/tmp/mylog");
+   stream_printf(stream, "Writes a single number: %u\n", 123);
+   stream_destroy(&stream);
+   \endverbatim
+ */
+
 #ifndef __GDS_STREAM_H__
 #define __GDS_STREAM_H__
 
@@ -34,87 +47,187 @@ typedef enum {
   STREAM_TYPE_CMD,
 } stream_type_t ;
 
-// -----[ FLogStreamCallback ]---------------------------------------
+// -----[ gds_stream_cb_f ]------------------------------------------
 /**
- * The FLogStreamCallback function prototype is used to implement
- * arbitrary log streams. The main motivation for defining such a
- * callback is to send the log output to a Java application through
- * the Java Native Interface (JNI).
+ * The gds_stream_cb_f function prototype allows the user to
+ * implement arbitrary GDS streams that will be compatible with the
+ * GDS stream API.
+ *
+ * \internal
+ * NOTE: The main motivation for defining such a callback was to
+ * send the stream data to a Java application through the Java Native
+ * Interface (JNI).
  */
-typedef int (*FLogStreamCallback)(void * ctx, char * output);
+typedef int (*gds_stream_cb_f)(void * ctx, char * output);
 
-// -----[ stream_callback_t ]----------------------------------------
+// -----[ gds_stream_cb_t ]------------------------------------------
+/**
+ *
+ */
 typedef struct {
-  FLogStreamCallback callback;
+  gds_stream_cb_f callback;
   void * context;
-} stream_callback_t;
+} gds_stream_cb_t;
 
 struct gds_stream_t;
 
 // -----[ gds_stream_ops_t ]-----------------------------------------
+/**
+ * \internal
+ * Virtual methods (kind of) of the stream.
+ */
 typedef struct {
+  /** Method used to destroy the stream (destructor) */
   void (*destroy)(struct gds_stream_t * stream);
+  /** Method used to flush the stream */
   int  (*flush)  (struct gds_stream_t * stream);
+  /** Method used to print to the stream */
   int  (*vprintf)(struct gds_stream_t * stream, const char * format,
 		  va_list ap);
 } gds_stream_ops_t;
 
 // -----[ gds_stream_t ]---------------------------------------------
 /**
- * The gds_stream_t data structure hold all the data related to a log
- * stream.
+ * The gds_stream_t data structure holds all the data related to a
+ * GDS stream.
  */
 typedef struct gds_stream_t {
+  /** This is the stream type. */
   stream_type_t      type;
+  /** This is the current stream level. */
   stream_level_t     level;
+  /** \internal This is the set of "virtual" methods of the stream. */
   gds_stream_ops_t   ops;
+  /** \internal This it the callback context. */
   void             * ctx;
   union {
-    FILE              * stream;
-    stream_callback_t   callback;
+    FILE            * stream;
+    gds_stream_cb_t   callback;
   };
 } gds_stream_t;
 
 // -----[ standard log streams ]-------------------------------------
-/**
- * Definition of "standard" log streams. These log streams are
- * initialized to send all their output.
- *
- * - gdserr is initialized to send its output on stderr.
- * - gdsout is initialized to send its output on stdout.
- * - gdsdebug is initialized to send its output on stderr.
- */
-extern gds_stream_t * gdserr;
-extern gds_stream_t * gdsout;
+/** gdsdebug is initialized to send its output on stderr. */
 extern gds_stream_t * gdsdebug;
+
+/** gdserr is initialized to send its output on stderr. */
+extern gds_stream_t * gdserr;
+
+/** gdsout is initialized to send its output on stdout. */
+extern gds_stream_t * gdsout;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
   // -----[ stream_create ]------------------------------------------
+  /**
+   * Create a GDS stream that writes to an stdio stream.
+   *
+   * \param stream is the stdio stream.
+   */
   gds_stream_t * stream_create(FILE * stream);
+
   // -----[ stream_create_file ]-------------------------------------
+  /**
+   * Create a GDS stream that writes to a file.
+   *
+   * The file will be open for writing.
+   * \param filename is the name of the output file.
+   */
   gds_stream_t * stream_create_file(const char * filename);
+
   // -----[ stream_create_callback ]---------------------------------
-  gds_stream_t * stream_create_callback(FLogStreamCallback callback,
-					void * context);
+  /**
+   * Create a GDS stream that writes to a callback function.
+   *
+   * \param cb  is the callback function.
+   * \param ctx is the callback function's context pointer. It
+   *            will be passed to the callback each time it is
+   *            called.
+   */
+  gds_stream_t * stream_create_callback(gds_stream_cb_f cb,
+					void * ctx);
+
   // -----[ stream_destroy ]-----------------------------------------
+  /**
+   * Destroy an existing GDS stream.
+   *
+   * \param stream_ref is a pointer to the stream.
+   */
   void stream_destroy(gds_stream_t ** stream_ref);
-  // -----[ stream_set_level ]---------------------------------------
-  void stream_set_level(gds_stream_t * stream, stream_level_t level);
-  // -----[ stream_str2level ]---------------------------------------
-  stream_level_t stream_str2level(char * str);
-  // -----[ stream_enabled ]-----------------------------------------
-  int stream_enabled(gds_stream_t * stream, stream_level_t level);
+
   // -----[ stream_printf ]------------------------------------------
-  int stream_printf(gds_stream_t * log, const char * format, ...);
+  /**
+   * Write to a GDS stream.
+   *
+   * \param stream is the target stream.
+   * \param format is the format specifier (similar to stdio's
+   *               printf function)
+   * \param ...    is a variable list of arguments that will be
+   *               written to the stream according to the format
+   *               specifier.
+   */
+  int stream_printf(gds_stream_t * stream,
+		    const char * format,
+		    ...);
+
   // -----[ stream_vprintf ]-----------------------------------------
-  int stream_vprintf(gds_stream_t * log, const char * format, va_list ap);
-  // -----[ stream_flush ]-------------------------------------------
-  void stream_flush(gds_stream_t * stream);
+  /**
+   * Write to a GDS stream using a va_list.
+   *
+   * \param stream is the target stream.
+   * \param format is the format specifier.
+   * \param ap     is the va_list (variable argument list, see
+   *               stdarg.h)
+   */
+  int stream_vprintf(gds_stream_t * stream,
+		     const char * format,
+		     va_list ap);
+
   // -----[ stream_perror ]------------------------------------------
-  void stream_perror(gds_stream_t * stream, const char * format, ...);
+  /**
+   * Write a message followed by the current standard error to a GDS
+   * stream.
+   *
+   * \param stream is the target stream.
+   * \param format is a format specifier for the message.
+   * \param ...    is a variable list of arguments.
+   */
+  void stream_perror(gds_stream_t * stream,
+		     const char * format,
+		     ...);
+
+  // -----[ stream_flush ]-------------------------------------------
+  /**
+   * Flush a GDS stream.
+   *
+   * \param stream is the target stream.
+   */
+  void stream_flush(gds_stream_t * stream);
+
+  // -----[ stream_set_level ]---------------------------------------
+  /**
+   * Set the current level of a GDS stream.
+   *
+   * \param stream is the target stream.
+   * \param level  is the new level.
+   */
+  void stream_set_level(gds_stream_t * stream, stream_level_t level);
+
+  // -----[ stream_str2level ]---------------------------------------
+  /**
+   * Convert a textual description of a GDS stream level to a level.
+   * 
+   * \param str is the textual representation of the stream level.
+   */
+  stream_level_t stream_str2level(const char * str);
+
+  // -----[ stream_enabled ]-----------------------------------------
+  /**
+   * Test if a GDS stream is enabled for the given level.
+   */
+  int stream_enabled(gds_stream_t * stream, stream_level_t level);
 
   ///////////////////////////////////////////////////////////////////
   // INITIALIZATION AND FINALIZATION FUNCTIONS
@@ -167,7 +280,7 @@ extern "C" {
 #define STREAM_OUT(LEVEL, ...) \
   if (stream_enabled(logout, LEVEL)) stream_printf(gdsout, __VA_ARGS__)
 
-# else // __VARIADIC_ELLIPSIS__
+# else /* __VARIADIC_ELLIPSIS__ */
 
 #define STREAM_DEBUG(LEVEL, args...) \
   if (stream_enabled(gdsdebug, LEVEL)) stream_printf(gdsdebug, args)
@@ -176,6 +289,6 @@ extern "C" {
 #define STREAM_OUT(LEVEL, args...) \
   if (stream_enabled(gdsout, LEVEL)) stream_printf(gdsout, args)
 
-#endif
+#endif /* __VARIADIC_ELLIPSIS__ */
 
 #endif /* __GDS_STREAM_H__ */
