@@ -18,7 +18,7 @@
 #include <libgds/stream.h>
 #include <libgds/memory.h>
 #include <libgds/memory_debug.h>
-#include <libgds/patricia-tree.h>
+#include <libgds/trie.h>
 
 // -----[ gds_init ]-------------------------------------------------
 void gds_init(uint8_t options)
@@ -26,7 +26,7 @@ void gds_init(uint8_t options)
   mem_flag_set(MEM_FLAG_TRACK_LEAK, (options & GDS_OPTION_MEMORY_DEBUG));
   _memory_init();
   _stream_init();
-  _patricia_tree_init();
+  _trie_init();
 }
 
 // -----[ gds_destroy ]-------------------------------------------------
