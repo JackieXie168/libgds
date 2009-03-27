@@ -1,67 +1,107 @@
 // ==================================================================
 // @(#)list.h
 //
-// @author Bruno Quoitin (bqu@infonet.fundp.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @author Sebastien Tandel (sta@info.ucl.ac.be)
 // @date 23/11/2002
-// @lastdate 18/03/2007
+// $Id$
 // ==================================================================
 
-#ifndef __LIST_H__
-#define __LIST_H__
-
-// ----- FListCompare -----------------------------------------------
 /**
+ * \file
+ * Provide data structures and functions to manage a list.
+ */
+
+#ifndef __GDS_LIST_H__
+#define __GDS_LIST_H__
+
+// -----[ gd_list_cmp_f ]--------------------------------------------
+/** 
  * ITEM1 == ITEM2 => 0
  * ITEM1 > ITEM2 => +1
  * ITEM1 < ITEM2 => -1
  */
-typedef int (*FListCompare)(void * pItem1, void * pItem2);
+typedef int (*gds_list_cmp_f)(const void * item1, const void * item2);
 
-// ----- FListDestroy -----------------------------------------------
-typedef void (*FListDestroy)(void ** ppItem);
+// -----[ gds_list_destroy_f ]---------------------------------------
+typedef void (*gds_list_destroy_f)(void ** item_ref);
 
-// ----- FListForEach -----------------------------------------------
-typedef void (*FListForEach)(void * pItem, void * pContext);
+// -----[ gds_list_foreach_f ]---------------------------------------
+typedef int (*gds_list_foreach_f)(void * item, void * ctx);
 
-// ----- FListCopyItem ----------------------------------------------
-typedef void * (*FListCopyItem)(void * pItem);
+// -----[ gds_list_dup_f ]-------------------------------------------
+typedef void * (*gds_list_dup_f)(const void * item);
 
-// ----- SList ------------------------------------------------------
+// -----[ gds_list_ops_t ]-------------------------------------------
+/** Virtual methods of a list. */
 typedef struct {
-  int iSize;
-  unsigned int uNbrElt;
-  unsigned int uStepResize;
-  void ** ppItems;
-  FListCompare fCompare;
-  FListDestroy fDestroy;
-} SList;
+  gds_list_cmp_f     cmp;
+  gds_list_destroy_f destroy;
+} gds_list_ops_t;
 
-// ----- list_create ------------------------------------------------
-extern SList * list_create(FListCompare fCompare,
-			   FListDestroy fDestroy, unsigned int uStepResize);
-// ----- list_destroy -----------------------------------------------
-extern void list_destroy(SList ** ppList);
-// ----- list_find_index --------------------------------------------
-extern int list_find_index(SList * pList, void * pItem,
-			   int * piIndex);
-// ----- list_insert_index ------------------------------------------
-extern int list_insert_index(SList * pList, int iIndex,
-			     void * pItem);
-// ----- list_get_nbr_element ---------------------------------------
-int list_get_nbr_element(SList * pList);
-// ----- list_get_index ---------------------------------------------
-void * list_get_index(SList * pList, int iIndex);
-// ----- list_add ---------------------------------------------------
-extern int list_add(SList * pList, void * pItem);
-// ----- list_delete ------------------------------------------------
-int list_delete(SList * pList, int iIndex);
-// ----- list_replace -----------------------------------------------
-extern int list_replace(SList * pList, int iIndex, void * pItem);
-// ----- list_for_each ----------------------------------------------
-extern void list_for_each(SList * pList, FListForEach fForEach,
-			  void * pContext);
-// ----- list_copy --------------------------------------------------
-extern SList * list_copy(SList * pList, FListCopyItem fCopyItem);
+// -----[ gds_list_t ]-----------------------------------------------
+/** Definition of a list. */
+typedef struct {
+  /** Number of cells allocated. */
+  unsigned int      size;
+  /** Number of cells used. */
+  unsigned int      length;
+  unsigned int      resize_step;
+  /** Virtual methods of the list. */
+  gds_list_ops_t    ops;
+  /** List of items (cells). */
+  void           ** items;
+} gds_list_t;
 
+#ifdef _cplusplus
+extern "C" {
 #endif
+
+  // -----[ list_create ]--------------------------------------------
+  /**
+   * Create a list.
+   *
+   * \param cmp         is a compare callback function.
+   * \param destropy    is an item de-allocation callback function.
+   * \param resize_step is the size of the list increase.
+   * \retval a new list.
+   */
+  gds_list_t * list_create(gds_list_cmp_f cmp,
+			   gds_list_destroy_f destroy,
+			   unsigned int resize_step);
+
+  // -----[ list_destroy ]-------------------------------------------
+  /**
+   * Destroy a list.
+   *
+   * \param list_ref is a pointer to the list to be destroyed.
+   */
+  void list_destroy(gds_list_t ** list_ref);
+
+  // -----[ list_index_of ]------------------------------------------
+  int list_index_of(gds_list_t * list, void * item,
+		    unsigned int * index_ref);
+  // -----[ list_insert_at ]-----------------------------------------
+  int list_insert_at(gds_list_t * list, unsigned int index,
+		     void * item);
+  // -----[ list_length ]--------------------------------------------
+  unsigned int list_length(gds_list_t * list);
+  // -----[ list_get_at ]--------------------------------------------
+  void * list_get_at(gds_list_t * list, unsigned int index);
+  // -----[ list_add ]-----------------------------------------------
+  int list_add(gds_list_t * list, void * item);
+  // -----[ list_remove_at ]-----------------------------------------
+  int list_remove_at(gds_list_t * list, unsigned int index);
+  // -----[ list_replace_at ]----------------------------------------
+  int list_replace(gds_list_t * list, unsigned int index, void * item);
+  // -----[ list_for_each ]------------------------------------------
+  int list_for_each(gds_list_t * list, gds_list_foreach_f foreach,
+		    void * ctx);
+  // -----[ list_dup ]-----------------------------------------------
+   gds_list_t * list_dup(gds_list_t * list, gds_list_dup_f dup);
+
+#ifdef _cplusplus
+}
+#endif
+
+#endif /* __GDS_LIST_H__ */
