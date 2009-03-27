@@ -43,7 +43,7 @@ dnl Now arrange the build libtool
 AC_PROG_LIBTOOL
 AC_SUBST(LIBGDS_LT_RELEASE, [2.0.0])
 
-AC_CHECK_FUNCS(strcspn strsep strdup)
+AC_CHECK_FUNCS(strcspn strsep strdup vasprintf)
 
 dnl Test for POSIX thread
 #ACX_PTHREAD([pthread_ok=yes], [pthread_ok=no])
@@ -96,25 +96,19 @@ if test "x$gds_config_memory_debug" = "xyes"; then
 fi
 
 dnl Enable doxygen generation and inclusion in "make dist"
-AC_ARG_ENABLE(doxygen,
-    AC_HELP_STRING([--enable-doxygen],
-      [make doxygen generates the documentation and make dist includes doc repository]),
-      gds_config_doxygen="$enableval",
-)
-if test "x$gds_config_doxygen" = "xyes"; then
-  AC_PATH_PROG(DOXYGEN, doxygen, "no")
-  if test "x$DOXYGEN" = "xno"; then
-    AC_MSG_ERROR(["Doxygen is not installed on this system."])
-  fi
+AC_PATH_PROG(DOXYGEN, doxygen, "no")
+if test "x$DOXYGEN" != "xno"; then
   AC_CHECK_PROG(HAVE_DOXYGEN, doxygen, "yes", "no")
-#dnl we found a doxygen but it is not running correctly
+  #dnl we found a doxygen but it is not running correctly
   if test "x$HAVE_DOXYGEN" = "xno"; then
-    AC_MSG_ERROR(["Doxygen is not correctly installed on this system."])
+    AC_MSG_WARN(["Doxygen is not correctly installed on this system."])
   fi
+else
+  AC_MSG_WARN(["Doxygen is not installed on this system."])
 fi
 AM_CONDITIONAL(WITH_DOXYGEN, [test "x$HAVE_DOXYGEN" = "xyes"])
 
-AC_OUTPUT(Makefile src/Makefile src/libgds/Makefile src/check/Makefile doc/Makefile libgds.pc libgds.spec)
+AC_OUTPUT(Makefile src/Makefile src/libgds/Makefile src/check/Makefile doc/Makefile libgds.pc libgds.spec Doxyfile)
 
 if test "x$gds_config_xml" = "xyes"; then
   config_xml_msg="yes"
@@ -126,12 +120,6 @@ if test "x$gds_config_memory_debug" = "xyes"; then
   config_memory_debug_msg="yes"
 else
   config_memory_debug_msg="no"
-fi
-
-if test "x$gds_config_doxygen" = "xyes"; then
-  config_doxygen_msg="yes"
-else
-  config_doxygen_msg="no"
 fi
 
 case $host in
@@ -148,4 +136,3 @@ echo ""
 echo "Libgds package has been configured with the following optional capabilities :"
 echo "                              XML : $config_xml_msg"
 echo "                     Memory Debug : $config_memory_debug_msg"
-echo "               Doxygen Generation : $config_doxygen_msg"
