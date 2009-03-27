@@ -36,7 +36,7 @@ static int _open(gds_stream_t * stream)
   gds_tokenizer_t * tokenizer;
   const gds_tokens_t * tokens;
   unsigned int index;
-  char ** argv= NULL;
+  const char ** argv= NULL;
 
   if (pipe(pipe_desc) < 0) {
     perror("could not create pipe");
@@ -69,7 +69,7 @@ static int _open(gds_stream_t * stream)
       argv[index]= tokens_get_string_at(tokens, index);
     argv[tokens_get_num(tokens)]= NULL;
 
-    if (execvp(argv[0], argv) < 0)
+    if (execvp(argv[0], (char **) argv) < 0)
       perror("could not exec");
 
     free(argv);
