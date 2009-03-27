@@ -26,7 +26,7 @@ static inline void __debug(const char * fmt, ...)
     return;
 
   va_start(ap, fmt);
-  vfprintf(stdout, fmt, ap);
+  vfprintf(stderr, fmt, ap);
   va_end(ap);
 #endif /* DEBUG */
 }
