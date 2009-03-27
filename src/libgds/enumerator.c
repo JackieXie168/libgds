@@ -20,9 +20,9 @@
 // ----- enum_create ------------------------------------------------
 GDS_EXP_DECL 
 gds_enum_t * enum_create(void * ctx,
-			 FEnumeratorHasNext has_next,
-			 FEnumeratorGetNext get_next,
-			 FEnumeratorDestroy destroy)
+			 gds_enum_has_next_f has_next,
+			 gds_enum_get_next_f get_next,
+			 gds_enum_destroy_f destroy)
 {
   gds_enum_t * enu= (gds_enum_t *) MALLOC(sizeof(gds_enum_t));
   enu->ctx= ctx;

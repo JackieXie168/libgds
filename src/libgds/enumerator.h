@@ -8,19 +8,26 @@
 // $Id$
 // ==================================================================
 
+/**
+ * \file
+ * Provide a data structure and functions to manage enumerators.
+ * Enumerators are a generic way to traverse data structures. They
+ * are available for some of the data structures provided by libGDS.
+ */
+
 #ifndef __GDS_ENUMERATOR_H__
 #define __GDS_ENUMERATOR_H__
 
 #include <libgds/types.h>
 
-typedef int    (*FEnumeratorHasNext)(void * ctx);
-typedef void * (*FEnumeratorGetNext)(void * ctx);
-typedef void   (*FEnumeratorDestroy)(void * ctx);
+typedef int    (*gds_enum_has_next_f)(void * ctx);
+typedef void * (*gds_enum_get_next_f)(void * ctx);
+typedef void   (*gds_enum_destroy_f) (void * ctx);
 
 typedef struct {
-  FEnumeratorHasNext  has_next;
-  FEnumeratorGetNext  get_next;
-  FEnumeratorDestroy  destroy;
+  gds_enum_has_next_f  has_next;
+  gds_enum_get_next_f  get_next;
+  gds_enum_destroy_f   destroy;
 } enum_ops_t;
 
 typedef struct {
@@ -33,11 +40,29 @@ extern "C" {
 #endif
 
   // ----- enum_create ------------------------------------------------
+  /**
+   * Create an enumerator.
+   *
+   * \param ctx
+   *   is the enumerator context (typically another data structure)
+   * \param has_next
+   *   is a callback function that tests if there is a next element.
+   * \param get_next
+   *   is a callback function that returns the next element.
+   * \param destroy
+   *   is a callback function that frees the enumerator's  internal
+   *   state.
+   */
   GDS_EXP_DECL gds_enum_t * enum_create(void * ctx,
-					FEnumeratorHasNext has_next,
-					FEnumeratorGetNext get_next,
-					FEnumeratorDestroy destroy);
+					gds_enum_has_next_f has_next,
+					gds_enum_get_next_f get_next,
+					gds_enum_destroy_f destroy);
   // ----- enum_destroy -----------------------------------------------
+  /**
+   * Destroy an enumerator.
+   *
+   * \param enum_ref is a pointer to the enumerator.
+   */
   GDS_EXP_DECL void enum_destroy(gds_enum_t ** enum_ref);
   
 #ifdef __cplusplus
@@ -45,12 +70,25 @@ extern "C" {
 #endif
 
 // ----- enum_has_next ----------------------------------------------
+/**
+ * Test if there is a next element.
+ *
+ * \param enu is the target enumerator.
+ * \retval 0 if no more element is available,
+ *         or not 0 if more element(s) are available
+ */
 static inline int enum_has_next(gds_enum_t * enu)
 {
   return enu->ops.has_next(enu->ctx);
 }
 
 // ----- enum_get_next ----------------------------------------------
+/**
+ * Return the next element.
+ *
+ * \param enu is the target enumerator.
+ * \retval the next element.
+ */
 static inline void * enum_get_next(gds_enum_t * enu)
 {
   return enu->ops.get_next(enu->ctx);
@@ -62,11 +100,11 @@ static inline void * enum_get_next(gds_enum_t * enu)
 
 #define GDS_ENUM_TEMPLATE_OPS(N,T)					\
   static inline N##_t * N##_create(void * ctx,				\
-				   FEnumeratorHasNext has_next,		\
+				   gds_enum_has_next_f has_next,	\
 				   N##_get_next_func get_next,		\
-				   FEnumeratorDestroy destroy) {	\
+				   gds_enum_destroy_f destroy) {	\
     return enum_create(ctx, has_next,					\
-		       (FEnumeratorGetNext) get_next,			\
+		       (gds_enum_get_next_f) get_next,			\
 		       destroy);					\
   }									\
   static inline void N##_destroy(N##_t ** enu) {			\
