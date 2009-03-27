@@ -46,6 +46,94 @@ static struct {
 static void _utest_time_start();
 static double _utest_time_stop();
 
+
+/////////////////////////////////////////////////////////////////////
+//
+// UNIT TEST - MESSAGE PASSING BETWEEN CHILD PROCESS (UNIT TEST) AND
+//             PARENT PROCESS (UNIT TEST SYSTEM)
+//
+/////////////////////////////////////////////////////////////////////
+
+// -----[ _proc_msg_t ]----------------------------------------------
+/**
+ * Used to send message from forked unit test to main process.
+ * This data structure should be self-contained (no pointers).
+ */
+typedef struct {
+  int    result;
+  char   msg[UTEST_MESSAGE_MAX];
+  char   filename[UTEST_FILE_MAX];
+  int    line;
+  double duration;
+} _proc_msg_t;
+
+// -----[ _proc_msg_send ]-------------------------------------------
+/**
+ * Write results from forked test to main process.
+ */
+static inline void _proc_msg_send(int pipe_desc[2], unit_test_t * test)
+{
+  _proc_msg_t proc_msg;
+
+  proc_msg.result= test->result;
+  if (test->msg != NULL)
+    strncpy(proc_msg.msg, test->msg, UTEST_MESSAGE_MAX);
+  else
+    proc_msg.msg[0]= '\0';
+  if (test->filename != NULL)
+    strncpy(proc_msg.filename, test->filename, UTEST_FILE_MAX);
+  else
+    proc_msg.filename[0]= '\0';
+  proc_msg.line= test->line;
+  proc_msg.duration= test->duration;
+  
+  if (write(pipe_desc[1], &proc_msg, sizeof(proc_msg)) < 0) {
+    perror("write");
+    exit(EXIT_FAILURE);
+  }
+}
+
+// -----[ _proc_msg_recv ]-------------------------------------------
+/**
+ * Read test results from forked test in main process.
+ */
+static inline void _proc_msg_recv(int pipe_desc[2], unit_test_t * test,
+				  pid_t pid)
+{
+  _proc_msg_t proc_msg;
+  int status;
+
+  while (waitpid(pid, &status, 0) != pid) {
+    perror("waitpid");
+    exit(EXIT_FAILURE);
+  }
+
+  if (status == 0) {
+    if (read(pipe_desc[0], &proc_msg, sizeof(proc_msg)) != sizeof(proc_msg)) {
+      perror("read");
+      exit(EXIT_FAILURE);
+    }
+    test->result= proc_msg.result;
+    test->msg= strdup(proc_msg.msg);
+    test->filename= strdup(proc_msg.filename);
+    test->line= proc_msg.line;
+    test->duration= proc_msg.duration;
+  } else {
+    test->result= UTEST_CRASHED;
+    test->msg= strdup("Test crashed");
+    test->filename= NULL;
+    test->line= 0;
+    test->duration= 0;
+  }
+}
+
+
+/////////////////////////////////////////////////////////////////////
+//
+// UNIT TEST - SETUP
+//
+/////////////////////////////////////////////////////////////////////
+
 // -----[ utest_init ]-----------------------------------------------
 void utest_init(int max_failures)
 {
@@ -87,56 +175,6 @@ void utest_done()
     free(utest.version);
 }
 
-// -----[ _utest_strerror ]------------------------------------------
-static inline const char * _utest_strerror(int error)
-{
-  switch (error) {
-  case UTEST_SUCCESS:
-    return "SUCCESS";
-  case UTEST_SKIPPED:
-    return "SKIPPED";
-  case UTEST_FAILURE:
-    return "FAILURE";
-  case UTEST_CRASHED:
-    return "CRASHED";
-  default:
-    return NULL;
-  }
-}
-
-// -----[ _utest_color ]---------------------------------------------
-static inline const char * _utest_color(int error)
-{
-  switch (error) {
-  case UTEST_SUCCESS:
-    return TXT_COL_GREEN;
-  case UTEST_SKIPPED:
-    return TXT_COL_RED;
-  case UTEST_FAILURE:
-  case UTEST_CRASHED:
-    return TXT_COL_RED;
-  default:
-    return "";
-  }
-}
-
-// -----[ _utest_perror ]--------------------------------------------
-static inline void _utest_perror(FILE * stream, int error, int color)
-{
-  const char * msg= _utest_strerror(error);
-
-  if (color)
-    fprintf(stream, _utest_color(error));
-
-  if (msg != NULL)
-    fprintf(stream, msg);
-  else
-    fprintf(stream, "unknown(%d)", error);
-
-  if (color)
-    fprintf(stream, TXT_DEFAULT);
-}
-
 // -----[ utest_set_fork ]-------------------------------------------
 void utest_set_fork()
 {
@@ -176,6 +214,97 @@ void utest_set_project(const char * project, const char * version)
     utest.version= strdup(version);
     assert(utest.version != NULL);
   }
+}
+
+// -----[ _utest_strerror ]------------------------------------------
+static inline const char * _utest_strerror(int error)
+{
+  switch (error) {
+  case UTEST_SUCCESS:
+    return "SUCCESS";
+  case UTEST_SKIPPED:
+    return "SKIPPED";
+  case UTEST_FAILURE:
+    return "FAILURE";
+  case UTEST_CRASHED:
+    return "CRASHED";
+  default:
+    return NULL;
+  }
+}
+
+typedef enum {
+  COLOR_RED,
+  COLOR_GREEN,
+  COLOR_YELLOW,
+  COLOR_DEFAULT,
+  COLOR_BOLD,
+} color_t;
+
+// -----[ _strcolor ]------------------------------------------------
+static inline const char * _strcolor(color_t color)
+{
+  switch (color) {
+  case COLOR_RED:
+    return "\033[31;1m";
+  case COLOR_GREEN:
+    return "\033[32;1m";
+  case COLOR_YELLOW:
+    return "\033[33;1m";
+  case COLOR_DEFAULT:
+    return "\033[0m";
+  case COLOR_BOLD:
+    return "\033[1m";
+  default:
+    return "";
+  }
+}
+
+// -----[ _pcolor ]--------------------------------------------------
+static inline void _pcolor(FILE * stream, color_t color,
+			   const char * format, ...)
+{
+  va_list ap;
+
+  va_start(ap, format);
+  //if (isatty(0))
+    fprintf(stream, _strcolor(color));
+  vfprintf(stream, format, ap);
+  //if (isatty(0))
+    fprintf(stream, _strcolor(COLOR_DEFAULT));
+  va_end(ap);
+}
+
+// -----[ _pgotoy ]---------------------------------------------------
+static inline void _pgotoy(FILE * stream, int y)
+{
+  fprintf(stream, "\033[%uG", y);
+}
+
+// -----[ _utest_error_color ]---------------------------------------
+static inline color_t _utest_error_color(int error)
+{
+  switch (error) {
+  case UTEST_SUCCESS:
+    return COLOR_GREEN;
+  case UTEST_SKIPPED:
+    return COLOR_RED;
+  case UTEST_FAILURE:
+  case UTEST_CRASHED:
+    return COLOR_RED;
+  default:
+    return COLOR_DEFAULT;
+  }
+}
+
+// -----[ _utest_perror ]--------------------------------------------
+static inline void _utest_perror(FILE * stream, int error, int color)
+{
+  const char * msg= _utest_strerror(error);
+  if (msg != NULL)
+    _pcolor(stream, _utest_error_color(error), msg);
+  else
+    _pcolor(stream, _utest_error_color(error), "??? (%d)", error);
 }
 
 // -----[ utest_set_xml_logging ]------------------------------------
@@ -248,8 +377,8 @@ static inline void _utest_write_suite_close()
 // ----[ utest_write_test ]------------------------------------------
 void utest_write_test(unit_test_t * test)
 {
-  printf(""TXT_POS);
-  _utest_perror(stdout, test->result, 1);    
+  _pgotoy(stdout, 65);
+  _utest_perror(stdout, test->result, 1);
   switch(test->result) {
   case UTEST_SUCCESS:
     printf(" (%1.1fs)", test->duration);
@@ -299,7 +428,10 @@ void utest_set_message(const char * filename,
 // -----[ _utest_time_start ]----------------------------------------
 static inline void _utest_time_start()
 {
-  assert(gettimeofday(&utest.tp, NULL) >= 0);
+  if (gettimeofday(&utest.tp, NULL) < 0) {
+    perror("gettimeofday");
+    abort();
+  }
 }
 
 // -----[ _utest_time_stop ]-----------------------------------------
@@ -308,13 +440,22 @@ static inline double _utest_time_stop()
   struct timeval tp;
   double duration;
 
-  assert(gettimeofday(&tp, NULL) >= 0);
+  if (gettimeofday(&tp, NULL) < 0) {
+    perror("gettimeofday");
+    abort();
+  }
   
-  /* Note that gettimeofday() is not monotonic, that is it can go
-     back in time. In this case, the test duration will eventually
-     be reported as negative. */
   duration= tp.tv_sec-utest.tp.tv_sec;
   duration+= (((double) tp.tv_usec)-utest.tp.tv_usec)/1000000;
+
+  // NOTE:
+  //   The gettimeofday() function is not monotonic, that is it can
+  //   go back in time. In this case, the test duration could
+  //   eventually be reported as negative. In this case, we consider
+  //   that the duration is 0.
+  if (duration < 0)
+    duration= 0;
+
   return duration;
 }
 
@@ -331,7 +472,7 @@ static inline double _utest_time_stop()
  *   -1 on failure
  */
 static inline
-int _utest_run_test(const char * suite_name, unit_test_t * test,
+int _utest_run_test(const char * name, unit_test_t * test,
 		    unit_test_func before, unit_test_func after)
 {
   int result= UTEST_SUCCESS;
@@ -356,80 +497,9 @@ int _utest_run_test(const char * suite_name, unit_test_t * test,
   return test->result;
 }
 
-// -----[ _proc_msg_t ]----------------------------------------------
-/** Used to send message from forked unit test to main process.
- *  This data structure should be self-contained (no pointers). */
-typedef struct {
-  int    result;
-  char   msg[UTEST_MESSAGE_MAX];
-  char   filename[UTEST_FILE_MAX];
-  int    line;
-  double duration;
-} _proc_msg_t;
-
-// -----[ _proc_msg_send ]-------------------------------------------
-/**
- * Write results from forked test to main process.
- */
-static inline void _proc_msg_send(int pipe_desc[2], unit_test_t * test)
-{
-  _proc_msg_t proc_msg;
-
-  proc_msg.result= test->result;
-  if (test->msg != NULL)
-    strncpy(proc_msg.msg, test->msg, UTEST_MESSAGE_MAX);
-  else
-    proc_msg.msg[0]= '\0';
-  if (test->filename != NULL)
-    strncpy(proc_msg.filename, test->filename, UTEST_FILE_MAX);
-  else
-    proc_msg.filename[0]= '\0';
-  proc_msg.line= test->line;
-  proc_msg.duration= test->duration;
-  
-  if (write(pipe_desc[1], &proc_msg, sizeof(proc_msg)) < 0) {
-    perror("write");
-    exit(EXIT_FAILURE);
-  }
-}
-
-// -----[ _proc_msg_recv ]-------------------------------------------
-/**
- * Read test results from forked test in main process.
- */
-static inline void _proc_msg_recv(int pipe_desc[2], unit_test_t * test,
-				  pid_t pid)
-{
-  _proc_msg_t proc_msg;
-  int status;
-
-  while (waitpid(pid, &status, 0) != pid) {
-    perror("waitpid");
-    exit(EXIT_FAILURE);
-  }
-
-  if (status == 0) {
-    if (read(pipe_desc[0], &proc_msg, sizeof(proc_msg)) != sizeof(proc_msg)) {
-      perror("read");
-      exit(EXIT_FAILURE);
-    }
-    test->result= proc_msg.result;
-    test->msg= strdup(proc_msg.msg);
-    test->filename= strdup(proc_msg.filename);
-    test->line= proc_msg.line;
-    test->duration= proc_msg.duration;
-  } else {
-    test->result= UTEST_CRASHED;
-    test->msg= strdup("Test crashed");
-    test->filename= NULL;
-    test->line= 0;
-    test->duration= 0;
-  }
-}
-
 // -----[ _utest_run_forked_test ]-----------------------------------
 static inline
-int _utest_run_forked_test(const char * suite_name, unit_test_t * test,
+int _utest_run_forked_test(const char * name, unit_test_t * test,
 			   unit_test_func before, unit_test_func after)
 {
   pid_t pid;
@@ -460,7 +530,7 @@ int _utest_run_forked_test(const char * suite_name, unit_test_t * test,
 
   // CHILD CODE (where test is executed)
     close(pipe_desc[0]); // Close read direction
-    _utest_run_test(suite_name, test, before, after);
+    _utest_run_test(name, test, before, after);
     _proc_msg_send(pipe_desc, test);
     close(pipe_desc[1]); // Close write direction
     exit(EXIT_SUCCESS);
@@ -478,19 +548,7 @@ int _utest_run_forked_test(const char * suite_name, unit_test_t * test,
 }
 
 // -----[ utest_run_suite ]------------------------------------------
-/**
- * Runs a test suite.
- *
- * ARGUMENTS:
- *  suite's name
- *  suite's tests (array)
- *  number of tests
- *
- * RETURNS:
- *    0 on success
- *   -1 on failure (at least one test failed)
- */
-int utest_run_suite(const char * suite_name, unit_test_t * tests,
+int utest_run_suite(const char * name, unit_test_t * tests,
 		    unsigned int num_tests,
 		    unit_test_func before, unit_test_func after)
 {
@@ -498,20 +556,21 @@ int utest_run_suite(const char * suite_name, unit_test_t * tests,
   unsigned int index;
   unit_test_t * test;
 
-  _utest_write_suite_open(suite_name);
+  _utest_write_suite_open(name);
 
   for (index= 0; index < num_tests; index++) {
 
     utest.num_tests++;
 
     test= &tests[index];
-    printf("Testing: "TXT_BOLD"%s:%s"TXT_DEFAULT, suite_name, test->name);
+    printf("Testing: ");
+    _pcolor(stdout, COLOR_BOLD, "%s:%s", name, test->name);
 
     // Run the test
     if (utest.with_fork) {
-      test_result= _utest_run_forked_test(suite_name, test, before, after);
+      test_result= _utest_run_forked_test(name, test, before, after);
     } else {
-      test_result= _utest_run_test(suite_name, test, before, after);
+      test_result= _utest_run_test(name, test, before, after);
     }
 
     utest_write_test(test);
