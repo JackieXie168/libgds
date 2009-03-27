@@ -6,6 +6,11 @@
 // $Id$
 // ==================================================================
 
+/**
+ * \file
+ * Definition of data structures and error codes used by the CLI.
+ */
+
 #ifndef __GDS_CLI_TYPES_H__
 #define __GDS_CLI_TYPES_H__
 
@@ -13,23 +18,43 @@
 #include <libgds/stack.h>
 
 // -----[ Error codes ]----------------------------------------------
+/**
+ * These are the possible CLI error codes.
+ */
 typedef enum {
-  CLI_SUCCESS                = 0,   // Execution was successful
-  CLI_ERROR_GENERIC          = -1,   // Generic error (no details)
-  CLI_ERROR_UNEXPECTED       = -2,   // Error detected, cause unknown
-  CLI_ERROR_UNKNOWN_CMD      = -3,   // Command does not exist in context
-  CLI_ERROR_MISSING_ARG      = -4,   // Command needs more parameters
-  CLI_ERROR_NOT_A_CMD        = -5,   // Command cannot be executed
-  CLI_ERROR_CMD_FAILED       = -6,   // Command returned an error
-  CLI_ERROR_BAD_ARG_VALUE    = -7,   // Invalid parameter value
-  CLI_ERROR_CTX_CREATE       = -8,   // Context creation failed
-  CLI_ERROR_TOO_MANY_ARGS    = -9,   // Too many parameters provided
-  CLI_ERROR_UNKNOWN_OPT      = -10,  // Option does not exist in command
-  CLI_ERROR_MISSING_OPT_VALUE= -11,  // Option needs value
-  CLI_ERROR_OPT_NO_VALUE     = -12,  // Option does not need value
-  CLI_ERROR_SYNTAX           = -13,  // Syntax error
-  CLI_ERROR_COMPL_FAILED     = -14,  // Completion could not be performed
-  CLI_ERROR_LINE_TOO_LONG    = -15,  // Input line was too long
+  /** Execution was successful. */
+  CLI_SUCCESS                = 0,
+  /** Generic error (no details). */
+  CLI_ERROR_GENERIC          = -1,
+  /** Error detected, cause unknown. */
+  CLI_ERROR_UNEXPECTED       = -2,
+  /** Command does not exist in context. */
+  CLI_ERROR_UNKNOWN_CMD      = -3,
+  /** Command needs more parameters. */
+  CLI_ERROR_MISSING_ARG      = -4,
+  /** Command cannot be executed. */
+  CLI_ERROR_NOT_A_CMD        = -5,
+  /** Command returned an error. */
+  CLI_ERROR_CMD_FAILED       = -6,
+  /** Invalid parameter value. */
+  CLI_ERROR_BAD_ARG_VALUE    = -7,
+  /** Context creation failed. */
+  CLI_ERROR_CTX_CREATE       = -8,
+  /** Too many parameters provided. */
+  CLI_ERROR_TOO_MANY_ARGS    = -9,
+  /** Option does not exist in command. */
+  CLI_ERROR_UNKNOWN_OPT      = -10,
+  /** Option needs value. */
+  CLI_ERROR_MISSING_OPT_VALUE= -11,
+  /** Option does not need value. */
+  CLI_ERROR_OPT_NO_VALUE     = -12,
+  /** Syntax error. */
+  CLI_ERROR_SYNTAX           = -13,
+  /** Completion could not be performed. */
+  CLI_ERROR_COMPL_FAILED     = -14,
+  /** Input line was too long. */
+  CLI_ERROR_LINE_TOO_LONG    = -15,
+  /** Terminate the CLI processing. */
   CLI_SUCCESS_TERMINATE      = 1,
 } cli_error_type_t;
 #define CLI_ERROR_COMMAND_FAILED CLI_ERROR_CMD_FAILED
@@ -46,7 +71,37 @@ typedef struct {
 
 struct cli_arg_t;
 
+// -----[ cli_arg_check_f ]------------------------------------------
+/** Argument value check function.
+ * \param value is the value to be checked.
+ * \retval 0 if the value is accepted,
+ *   or -1 otherwise.
+ */
 typedef int    (*cli_arg_check_f)(const char * value);
+
+// -----[ cli_arg_enum_f ]-------------------------------------------
+/** Argument values enumeration function.
+ * \param text is a value prefix to filter enumerated values.
+ * \param state is an integer value (0 is for initializing the
+ *   generator, >0 for subsequent calls).
+ * \retval NULL value if no more matching value,
+ *   or non-NULL value otherwise.
+ *
+ * Example:
+ * \code
+ * static char * _cli_arg_enum(const char * text, int state) {
+ *   static const char * values= {"on", "off"};
+ *   static index;
+ *   if (state == 0)
+ *     index= 0;
+ *   while (index < 2) {
+ *     if (strncmp(text, state, strlen(text)))
+ *       continue;
+ *     index++;
+ *   return strdup(values[state]);
+ * }
+ * \endcode
+ */
 typedef char * (*cli_arg_enum_f) (const char * text, int state);
 
 typedef ptr_array_t cli_args_t;
@@ -62,6 +117,9 @@ typedef struct {
   cli_arg_enum_f  enumerate;
 } cli_arg_ops_t;
 
+/**
+ * Definition of a CLI argument or option.
+ */
 typedef struct cli_arg_t {
   char           * name;
   cli_arg_type_t   type;
@@ -75,10 +133,29 @@ typedef struct cli_arg_t {
   };
 } cli_arg_t;
 
-typedef int  (*cli_ctx_create_f) (cli_ctx_t * ctx, struct cli_cmd_t * cmd,
+/** Implementation of a CLI context command.
+ * \param ctx      is the current CLI context stack.
+ * \param cmd      is the command being invoked.
+ * \param item_ref is a pointer to the user-provided context data.
+ * \retval an error code (either CLI_SUCCESS or CLI_ERROR_CMD_FAILED).
+ */
+typedef int  (*cli_ctx_create_f) (cli_ctx_t * ctx,
+				  struct cli_cmd_t * cmd,
 				  void ** item_ref);
+
+/** Removal of CLI context's user-data.
+ * \param item_ref is a pointer to the user-provided context data.
+ */
 typedef void (*cli_ctx_destroy_f)(void ** item_ref);
-typedef int  (*cli_command_f)    (cli_ctx_t * ctx, struct cli_cmd_t * cmd);
+
+/** Implementation of a CLI command.
+ * \param ctx is the current CLI context stack.
+ * \param cmd is the command being invoked.
+ * \retval an error code (either CLI_SUCCESS or CLI_ERROR_CMD_FAILED).
+ */
+typedef int  (*cli_command_f)    (cli_ctx_t * ctx,
+				  struct cli_cmd_t * cmd);
+
 typedef int  (*cli_on_error_f)   (struct cli_t * cli, int result);
 
 typedef enum {
@@ -94,6 +171,9 @@ typedef struct cli_cmd_ops_t {
   cli_command_f     command;
 } cli_cmd_ops_t;
 
+/**
+ * Definition of a CLI command.
+ */
 typedef struct cli_cmd_t {
   cli_cmd_type_t     type;
   char             * name;
@@ -154,6 +234,12 @@ typedef struct cli_fsm_t {
   cli_elem_t           elem;        // Element returned for completion
 } cli_fsm_t;
 
+/**
+ * Definition of a CLI.
+ *
+ * This data structure maintains the trees of commands, the CLI
+ * state-machine, error codes and CLI context.
+ */
 typedef struct cli_t {
   void            * user_data;
   cli_cmd_t       * root_cmd;

@@ -10,8 +10,11 @@
 #include <config.h>
 #endif
 
+#include <assert.h>
+
 #include <libgds/cli.h>
 #include <libgds/cli_params.h>
+#include <libgds/gds.h>
 #include <libgds/memory.h>
 #include <libgds/str_util.h>
 #include <stdio.h>
@@ -24,157 +27,248 @@
 //
 /////////////////////////////////////////////////////////////////////
 
-// ----- cli_param_create -------------------------------------------
+// -----[ _cli_arg_create ]----------------------------------------
 /**
- * Create a parameter with default attributes.
+ * Create an argument with default attributes.
  */
-cli_param_t * cli_param_create(char * name,
-			     FCliCheckParam fCheck)
+static inline cli_arg_t * _cli_arg_create(cli_arg_type_t type,
+					  const char * name,
+					  cli_arg_check_f check,
+					  cli_arg_enum_f enumerate)
 {
-  cli_param_t * param= (cli_param_t *) MALLOC(sizeof(cli_param_t));
+  if (strchr(name, '<') || strchr(name, '>') ||
+      strchr(name, '='))
+    gds_fatal("The CLI does not allow arg names with [<>=] (\"%s\")\n", name);
+  if (!strncmp(name, "-", 1))
+    gds_fatal("The CLI does not allow arg names starting with '-' (\"%s\")\n",
+	      name);
 
-  param->name= str_create(name);
-  param->fCheck= fCheck;
-  param->fEnum= NULL;
-  param->type= CLI_PARAM_TYPE_STD;
-  param->info= NULL;
-  return param;
+  cli_arg_t * arg= (cli_arg_t *) MALLOC(sizeof(cli_arg_t));
+
+  arg->type= type;
+  arg->name= str_create(name);
+  arg->need_value= 0;
+  arg->present= 0;
+  arg->max_args= 1;
+  
+  arg->ops.check= check;
+  arg->ops.enumerate= enumerate;
+
+  switch (arg->type) {
+  case CLI_ARG_TYPE_STD:
+  case CLI_ARG_TYPE_OPT:
+    arg->value= NULL;
+    break;
+  case CLI_ARG_TYPE_VAR:
+    arg->values= NULL;
+    break;
+  default:
+    abort();
+  }
+  return arg;
 }
 
-// ----- cli_param_destroy ------------------------------------------
+// -----[ _cli_arg_destroy ]-----------------------------------------
 /**
- * Destroy a parameter.
+ * Destroy an argument.
  */
-void cli_param_destroy(cli_param_t ** param_ref)
+static inline void _cli_arg_destroy(cli_arg_t ** arg_ref)
 {
-  if (*param_ref != NULL) {
-    str_destroy(&(*param_ref)->name);
-    str_destroy(&(*param_ref)->info);
-    FREE(*param_ref);
-    *param_ref= NULL;
+  cli_arg_t * arg= *arg_ref;
+
+  if (arg != NULL) {
+    str_destroy(&arg->name);
+    switch (arg->type) {
+    case CLI_ARG_TYPE_STD:
+    case CLI_ARG_TYPE_OPT:
+      str_destroy(&arg->value);
+      break;
+    case CLI_ARG_TYPE_VAR:
+      tokens_destroy(&arg->values);
+      break;
+    default:
+      abort();
+    }
+    FREE(arg);
+    *arg_ref= NULL;
   }
 }
 
-// -----[ _cli_params_item_compare ----------------------------------
+// -----[ _cli_args_item_cmp ]---------------------------------------
 /**
  * Private helper function used to compare 2 parameters in a list.
  */
-static int _cli_params_item_compare(const void * item1,
-				    const void * item2,
-				    unsigned int elt_size)
+static int _cli_args_item_cmp(const void * item1,
+			      const void * item2,
+			      unsigned int elt_size)
 {
-  cli_param_t * param1= *((cli_param_t **) item1);
-  cli_param_t * param2= *((cli_param_t **) item2);
+  cli_arg_t * arg1= *((cli_arg_t **) item1);
+  cli_arg_t * arg2= *((cli_arg_t **) item2);
 
-  return strcmp(param1->name, param2->name);
+  return strcmp(arg1->name, arg2->name);
 }
 
-// -----[ _cli_params_item_destroy ]---------------------------------
+// -----[ _cli_args_item_destroy ]-----------------------------------
 /**
  * Private helper function used to destroy each parameter in a list.
  */
-static void _cli_params_item_destroy(void * item, const void * ctx)
+static void _cli_args_item_destroy(void * item, const void * ctx)
 {
-  cli_param_destroy((cli_param_t **) item);
+  _cli_arg_destroy((cli_arg_t **) item);
 }
 
-// ----- cli_params_create ------------------------------------------
+// -----[ cli_args_create ]------------------------------------------
 /**
  * Create a list of parameters. A list of parameters is a sequence,
  * i.e. the ordering of parameters is the ordering of their insertion
  * in the list.
  */
-cli_params_t * cli_params_create()
+cli_args_t * cli_args_create()
 {
-  return (cli_params_t *) ptr_array_create(0,
-					   _cli_params_item_compare,
-					   _cli_params_item_destroy,
-					   NULL);
+  return (cli_args_t *) ptr_array_create(0,
+					 _cli_args_item_cmp,
+					 _cli_args_item_destroy, NULL);
 }
 
-// -----[ _cli_params_check_latest ]---------------------------------
-/**
- * Check that the latest parameter on the list is not of type
- * CLI_PARAM_TYPE_VARARG. This function should be called before adding
- * any new parameter.
- */
-static void _cli_params_check_latest(cli_params_t * params)
+// -----[ cli_args_create_ref ]--------------------------------------
+cli_args_t * cli_args_create_ref()
 {
-  int iLength= ptr_array_length(params);
-  if ((iLength > 0) &&
-      (((cli_param_t *) params->data[iLength-1])->type == CLI_PARAM_TYPE_VARARG)) {
-    fprintf(stderr, "Error: can not add a parameter after a vararg parameter.\n");
+  return (cli_args_t *) ptr_array_create(0,
+					 _cli_args_item_cmp,
+					 NULL, NULL);
+}
+
+// -----[ cli_args_destroy ]-----------------------------------------
+/**
+ * Destroy a list of parameters.
+ */
+void cli_args_destroy(cli_args_t ** args_ref)
+{
+  ptr_array_destroy((ptr_array_t **) args_ref);
+}
+
+// -----[ cli_arg_dump ]---------------------------------------------
+void cli_arg_dump(gds_stream_t * stream, cli_arg_t * arg)
+{
+  switch (arg->type) {
+  case CLI_ARG_TYPE_STD:
+    stream_printf(stream, "<%s", arg->name);
+    if (arg->value != NULL)
+      stream_printf(stream, "=%s", arg->value);
+    stream_printf(stream, ">");
+    break;
+    
+  case CLI_ARG_TYPE_VAR:
+    stream_printf(stream, "<%s>", arg->name);
+    if (arg->max_args > 0)
+      stream_printf(stream, "?(0-%d)", arg->max_args);
+    else
+      stream_printf(stream, "?(0-any)");
+    break;
+    
+  case CLI_ARG_TYPE_OPT:
+    stream_printf(stream, "[--%s", arg->name);
+    if (arg->need_value) {
+      stream_printf(stream, "=");
+      if (arg->present)
+	stream_printf(stream, "%s", arg->value);
+    } else {
+      if (arg->present)
+	stream_printf(stream, "(set)", arg->value);
+    }
+    stream_printf(stream, "]");
+    break;
+    
+  default:
     abort();
   }
 }
 
-// ----- cli_params_destroy -----------------------------------------
-/**
- * Destroy a list of parameters.
- */
-void cli_params_destroy(cli_params_t ** params_ref)
+// -----[ cli_args_dump ]--------------------------------------------
+void cli_args_dump(gds_stream_t * stream, cli_args_t * args)
 {
-  ptr_array_destroy((SPtrArray **) params_ref);
+  unsigned int index;
+  cli_arg_t * arg;
+
+  for (index= 0; index < cli_args_num(args); index++) {
+    arg= (cli_arg_t *) args->data[index];
+    stream_printf(stream, " ");
+    cli_arg_dump(stream, arg);
+  }
 }
 
-// ----- cli_params_add ---------------------------------------------
+// -----[ _cli_args_check_latest ]---------------------------------
 /**
- * Add a parameter to the list of parameters.
+ * Check that the latest argument on the list is not of type
+ * CLI_ARG_TYPE_VAR. This function should be called before adding
+ * any new argument.
+ */
+static inline int _cli_args_check_latest(cli_args_t * args)
+{
+  int len= cli_args_num(args);
+  if ((len > 0) &&
+      (((cli_arg_t *) args->data[len-1])->type == CLI_ARG_TYPE_VAR))
+    return -1;
+  return 0;
+}
+
+// -----[ cli_args_add ]-------------------------------------------
+/**
+ * Add an argument to the set of parameters.
+ */
+cli_arg_t * cli_args_add(cli_args_t * args, cli_arg_t * arg)
+{
+  if (_cli_args_check_latest(args) < 0)
+    gds_fatal("The CLI does not allow arg \"%s\" to follow a vararg.\n",
+	      arg->name);
+  if (ptr_array_add((ptr_array_t *) args, &arg) < 0)
+    gds_fatal("The CLI could not add argument \"%s\"\n", arg->name);
+  return arg;
+}
+
+// -----[ cli_arg_check ]------------------------------------------
+/**
+ * Call the argument 'check' function if provided. Otherwise,
+ * succeed.
  *
- * Parameter type: CLI_PARAM_TYPE_STD
+ * Return value:
+ *   0  in case of success
+ *   <0 in case of error
  */
-int cli_params_add(cli_params_t * params, char * name,
-		   FCliCheckParam fCheck)
+int cli_arg_check(const cli_arg_t * arg, const char * value)
 {
-  cli_param_t * param= cli_param_create(name, fCheck);
-  _cli_params_check_latest(params);
-  return ptr_array_add((SPtrArray *) params, &param);
+  if (arg->ops.check != NULL)
+    return arg->ops.check(/*arg, */value);
+  return 0;
 }
 
-// ----- cli_params_add2 --------------------------------------------
+// -----[ cli_args_bounds ]------------------------------------------
 /**
- * Add a parameter to the list of parameters. An enumeration function
- * can be attached to this parameter. An enumeration function is
- * called by the command-line system in interactive mode.
- *
- * Parameter type: CLI_PARAM_TYPE_STD
+ * Return the minimum and maximum number of arguments
+ * required/accepted by this set og arguments.
  */
-int cli_params_add2(cli_params_t * params, char * name,
-		    FCliCheckParam fCheck,
-		    FCliEnumParam fEnum)
+void cli_args_bounds(cli_args_t * args, unsigned int * min,
+		     unsigned int * max)
 {
-  cli_param_t * param= cli_param_create(name, fCheck);
-  _cli_params_check_latest(params);
-  param->fEnum= fEnum;
-  return ptr_array_add((SPtrArray *) params, &param);
+  unsigned int num_args;
+  cli_arg_t * arg;
+
+  if (args == NULL) {
+    *min= 0;
+    *max= 0;
+  } else {
+    num_args= cli_args_num(args);
+    arg= cli_args_at(args, num_args-1);
+    if (arg->type == CLI_ARG_TYPE_VAR) {
+      *min= num_args-1;
+      *max= UINT_MAX;
+    } else {
+      *min= num_args;
+      *max= num_args;
+    }
+  }
 }
 
-// ----- cli_params_add_vararg --------------------------------------
-/**
- * Add a parameter that accepts a variable number of tokens. This type
- * of parameter must always be the last parameter of a command.
- *
- * Parameter type: CLI_PARAM_TYPE_VARARG
- */
-int cli_params_add_vararg(cli_params_t * params, char * name,
-			  uint8_t max_args,
-			  FCliCheckParam fCheck)
-{
-  cli_param_t * param= cli_param_create(name, fCheck);
-  _cli_params_check_latest(params);
-  param->type= CLI_PARAM_TYPE_VARARG;
-  param->max_args= max_args;
-  return ptr_array_add((SPtrArray *) params, &param);
-}
-
-// ----- cli_params_num ---------------------------------------------
-/**
- * Return the number of parameters.
- */
-unsigned int cli_params_num(cli_params_t * params)
-{
-  return ptr_array_length((SPtrArray *) params);
-}
 
 /////////////////////////////////////////////////////////////////////
 //
@@ -182,110 +276,66 @@ unsigned int cli_params_num(cli_params_t * params)
 //
 /////////////////////////////////////////////////////////////////////
 
-// ----- cli_option_create ------------------------------------------
-/**
- * Create an option.
- */
-cli_option_t * cli_option_create(char * name,
-			       FCliCheckParam fCheck)
+// -----[ _cli_arg_clear ]-------------------------------------------
+static inline void _cli_arg_clear(cli_arg_t * arg)
 {
-  cli_option_t * option= (cli_option_t *) MALLOC(sizeof(cli_option_t));
-  option->name= str_create(name);
-  option->value= NULL;
-  option->present= 0;
-  option->fCheck= fCheck;
-  option->info= NULL;
-  return option;
-}
-
-// ----- cli_option_destroy -----------------------------------------
-/**
- * Destroy an option.
- */
-void cli_option_destroy(cli_option_t ** option_ref)
-{
-  if (*option_ref != NULL) {
-    str_destroy(&(*option_ref)->name);
-    str_destroy(&(*option_ref)->value);
-    str_destroy(&(*option_ref)->info);
-    FREE(*option_ref);
-    *option_ref= NULL;
+  arg->present= 0;
+  switch (arg->type) {
+  case CLI_ARG_TYPE_STD:
+  case CLI_ARG_TYPE_OPT:
+    str_destroy(&arg->value);
+    break;
+  case CLI_ARG_TYPE_VAR:
+    tokens_destroy(&arg->values);
+    break;
+  default:
+    abort();
   }
 }
 
-// -----[ _cli_options_item_compare ---------------------------------
-/**
- * Private helper function used to compare 2 options in a list.
- */
-static int _cli_options_item_compare(const void * item1,
-				     const void * item2,
-				     unsigned int elt_size)
+// -----[ cli_opts_create ]------------------------------------------
+cli_opts_t * cli_opts_create()
 {
-  cli_option_t * option1= *((cli_option_t **) item1);
-  cli_option_t * option2= *((cli_option_t **) item2);
-
-  return strcmp(option1->name, option2->name);
+  return (cli_opts_t *) ptr_array_create(ARRAY_OPTION_SORTED,
+					 _cli_args_item_cmp,
+					 _cli_args_item_destroy,
+					 NULL);
 }
 
-// -----[ _cli_options_item_destroy ]--------------------------------
-/**
- * Private helper function used to destroy each parameter in a list.
- */
-static void _cli_options_item_destroy(void * item, const void * ctx)
+// -----[ cli_opts_destroy ]-----------------------------------------
+void cli_opts_destroy(cli_opts_t ** opts_ref)
 {
-  cli_option_destroy((cli_option_t **) item);
+  ptr_array_destroy((ptr_array_t **) opts_ref);
 }
 
-// ----- cli_options_create -----------------------------------------
+// -----[ cli_opts_add ]---------------------------------------------
+cli_arg_t * cli_opts_add(cli_opts_t * opts, cli_arg_t * opt)
+{
+  if (ptr_array_add(opts, &opt) < 0)
+    gds_fatal("The CLI could not add option \"%s\"\n", opt->name);
+  return opt;
+}
+
+// -----[ cli_opts_find ]--------------------------------------------
 /**
  *
  */
-cli_options_t * cli_options_create()
+cli_arg_t * cli_opts_find(cli_opts_t * opts, const char * name)
 {
-  return (cli_options_t *) ptr_array_create(ARRAY_OPTION_SORTED,
-					    _cli_options_item_compare,
-					    _cli_options_item_destroy,
-					    NULL);
-}
-
-// ----- cli_options_destroy ----------------------------------------
-/**
- *
- */
-void cli_options_destroy(cli_options_t ** options_ref)
-{
-  ptr_array_destroy((SPtrArray **) options_ref);
-}
-
-// ----- cli_options_find -------------------------------------------
-/**
- *
- */
-cli_option_t * cli_options_find(cli_options_t * options, const char * name)
-{
-  cli_option_t sTmp;
-  cli_option_t * option= &sTmp;
+  cli_arg_t opt= { .name= (char *) name };
+  cli_arg_t * ptr_opt= &opt;
   unsigned int index;
 
-  sTmp.name= (char *) name;
-  if (ptr_array_sorted_find_index(options, &option, &index))
+  if (opts == NULL)
     return NULL;
 
-  return (cli_option_t*) options->data[index];
+  if (ptr_array_sorted_find_index(opts, &ptr_opt, &index))
+    return NULL;
+
+  return (cli_arg_t*) opts->data[index];
 }
 
-// ----- cli_options_add --------------------------------------------
-/**
- * Add an option to the list of options.
- */
-int cli_options_add(cli_options_t * options, char * name,
-		    FCliCheckParam fCheck)
-{
-  cli_option_t * option= cli_option_create(name, fCheck);
-  return ptr_array_add((SPtrArray *) options, &option);
-}
-
-// ----- cli_options_has_value --------------------------------------
+// -----[ cli_opts_has_value ]------------------------------------
 /**
  * Test if the given option exists and has a value.
  *
@@ -293,99 +343,201 @@ int cli_options_add(cli_options_t * options, char * name,
  *   1 option has a value
  *   0 option does not exist or has no value
  */
-int cli_options_has_value(cli_options_t * options, char * name)
+int cli_opts_has_value(cli_opts_t * opts, const char * name)
 {
-  cli_option_t sTmp;
-  cli_option_t * option= &sTmp;
-  unsigned int index;
-
-  sTmp.name= name;
-  if (ptr_array_sorted_find_index(options, &option, &index))
+  cli_arg_t * opt= cli_opts_find(opts, name);
+  if (opt == NULL)
     return 0;
-
-  option= (cli_option_t*) options->data[index];
-
-  return (option->present);
+  return (opt->present);
 }
 
-// ----- cli_options_get_value --------------------------------------
+// -----[ cli_opts_get_value ]------------------------------------
 /**
  * Return the value of an option.
  *
  * Return value:
  *   NULL if the option does not exist or has no value.
  */
-char * cli_options_get_value(cli_options_t * options, char * name)
+char * cli_opts_get_value(cli_opts_t * opts, const char * name)
 {
-  cli_option_t sTmp;
-  cli_option_t * option= &sTmp;
-  unsigned int index;
-
-  sTmp.name= name;
-  if (ptr_array_sorted_find_index(options, &option, &index))
+  cli_arg_t * opt= cli_opts_find(opts, name);
+  if (opt == NULL)
     return NULL;
-
-  option= (cli_option_t*) options->data[index];
-  return option->value;
+  return opt->value;
 }
 
-// ----- cli_options_set_value --------------------------------------
+// -----[ cli_arg_set_value ]----------------------------------------
+int cli_arg_set_value(cli_arg_t * arg, const char * value)
+{
+  int result;
+
+  // Check value (if required)
+  if (arg->ops.check != NULL) {
+    result= arg->ops.check(/*arg, */value);
+    if (result)
+      return CLI_ERROR_BAD_ARG_VALUE;
+  }
+
+  switch (arg->type) {
+  case CLI_ARG_TYPE_STD:
+    // Clear previous value
+    if (arg->value != NULL)
+      str_destroy(&arg->value);
+    // Set value
+    if (value != NULL)
+      arg->value= str_create(value);
+    else
+      arg->value= NULL;
+    break;
+
+  case CLI_ARG_TYPE_OPT:
+    if ((value == NULL) && (arg->need_value))
+      return CLI_ERROR_MISSING_OPT_VALUE;
+    if ((value != NULL) && (!arg->need_value))
+      return CLI_ERROR_OPT_NO_VALUE;
+    arg->present= 1;
+    // Clear previous value
+    if (arg->value != NULL)
+      str_destroy(&arg->value);
+    // Set value
+    if (value != NULL)
+      arg->value= str_create(value);
+    else
+      arg->value= NULL;
+    break;
+
+  case CLI_ARG_TYPE_VAR:
+    if (arg->values == NULL)
+      arg->values= tokens_create();
+    if ((arg->max_args > 0) && (tokens_get_num(arg->values) >= arg->max_args))
+      return CLI_ERROR_TOO_MANY_ARGS;
+    tokens_add_copy(arg->values, value);
+    break;
+  default:
+    abort();
+  }
+
+  arg->present= 1;
+  return CLI_SUCCESS;
+}
+
+// -----[ cli_arg_get_num_values ]---------------------------------
+unsigned int cli_arg_get_num_values(cli_arg_t * arg)
+{
+  switch (arg->type) {
+  case CLI_ARG_TYPE_STD:
+    return 1;
+  case CLI_ARG_TYPE_OPT:
+    return 1;
+  case CLI_ARG_TYPE_VAR:
+    if (arg->values == NULL)
+      return 0;
+    return tokens_get_num(arg->values);
+  default:
+    abort();
+  }
+}
+
+// -----[ cli_arg_get_value ]--------------------------------------
+const char * cli_arg_get_value(cli_arg_t * arg, unsigned int index)
+{
+  switch (arg->type) {
+  case CLI_ARG_TYPE_STD:
+  case CLI_ARG_TYPE_OPT:
+    assert(index == 0);
+    return arg->value;
+  case CLI_ARG_TYPE_VAR:
+    assert(arg->values != NULL);
+    assert(index < tokens_get_num(arg->values));
+    return tokens_get_string_at(arg->values, index);
+  default:
+    abort();
+  }
+}
+
+
+// -----[ cli_opts_set_value ]------------------------------------
 /**
  * Set the value of an option.
  *
  * Return value:
  *   CLI_SUCCESS               value was set successfully.
- *   CLI_ERROR_UNKNOWN_OPTION  option does not exist
- *   CLI_ERROR_BAD_OPTION      option value is not valid
+ *   CLI_ERROR_UNKNOWN_OPT     option does not exist
+ *   CLI_ERROR_BAD_OPT         option value is not valid
  */
-int cli_options_set_value(cli_options_t * options, char * name,
-			  char * value)
+int cli_opts_set_value(cli_opts_t * opts, const char * name,
+		       const char * value)
 {
-  cli_option_t sTmp;
-  cli_option_t * option= &sTmp;
-  unsigned int index;
-  int result;
+  cli_arg_t * opt= cli_opts_find(opts, name);
+  if (opt == NULL)
+    return CLI_ERROR_UNKNOWN_OPT;
 
-  sTmp.name= name;
-  if (ptr_array_sorted_find_index(options, &option, &index))
-    return CLI_ERROR_UNKNOWN_OPTION;
-
-  option= (cli_option_t*) options->data[index];
-    
-  // Check value if required
-  if (option->fCheck != NULL) {
-    result= option->fCheck(value);
-    if (result)
-      return CLI_ERROR_BAD_OPTION;
-  }
-    
-  if (value != NULL)
-    option->value= str_create(value);
-  else
-    option->value= NULL;
-  option->present= 1;
-
-  return CLI_SUCCESS;
+  return cli_arg_set_value(opt, value);
 }
 
-// ----- cli_options_num --------------------------------------------
-unsigned int cli_options_num(cli_options_t * options)
-{
-  return ptr_array_length(options);
-}
-
-// ----- cli_options_init -------------------------------------------
+// -----[ cli_args_clear ]-------------------------------------------
 /**
  * Initialize the options' values.
  */
-void cli_options_init(cli_options_t * options)
+void cli_args_clear(cli_args_t * args)
 {
   unsigned int index;
-  cli_option_t * option;
+  cli_arg_t * arg;
 
-  for (index= 0; index < ptr_array_length(options); index++) {
-    option= (cli_option_t *) options->data[index];
-    option->present= 0;
-    str_destroy(&option->value);
+  for (index= 0; index < cli_args_num(args); index++) {
+    arg= cli_args_at(args, index);
+    _cli_arg_clear(arg);
   }
 }
+
+
+/////////////////////////////////////////////////////////////////////
+//
+// CLI ARG/VARARG/OPT CREATION
+//
+/////////////////////////////////////////////////////////////////////
+
+// -----[ cli_arg ]--------------------------------------------------
+cli_arg_t * cli_arg(const char * name, cli_arg_check_f check)
+{
+  return _cli_arg_create(CLI_ARG_TYPE_STD, name, check, NULL);
+}
+
+// -----[ cli_arg2 ]-------------------------------------------------
+cli_arg_t * cli_arg2(const char * name, cli_arg_check_f check,
+		     cli_arg_enum_f enumerate)
+{
+  return _cli_arg_create(CLI_ARG_TYPE_STD, name, check, enumerate);
+}
+
+// -----[ cli_vararg ]-----------------------------------------------
+cli_arg_t * cli_vararg(const char * name, uint8_t max_args,
+		       cli_arg_check_f check)
+{
+  cli_arg_t * arg= _cli_arg_create(CLI_ARG_TYPE_VAR, name, check, NULL);
+  arg->max_args= max_args;
+  return arg;
+}
+
+// -----[ cli_opt ]--------------------------------------------------
+cli_arg_t * cli_opt(const char * name, cli_arg_check_f check)
+{
+  char * name2= str_create(name);
+  char * real_name= strsep(&name2, "=");
+  cli_arg_t * arg= _cli_arg_create(CLI_ARG_TYPE_OPT, real_name, check, NULL);
+  if (name2 != NULL)
+    arg->need_value= 1;
+  str_destroy(&real_name);
+  return arg;
+}
+
+// -----[ cli_opt2 ]-------------------------------------------------
+cli_arg_t * cli_opt2(const char * name, cli_arg_check_f check,
+		     cli_arg_enum_f enumerate)
+{
+  cli_arg_t * arg= _cli_arg_create(CLI_ARG_TYPE_OPT, name, check, enumerate);
+  if (strrchr(name, '=') != NULL)
+    arg->need_value= 1;
+  return arg;
+}
+

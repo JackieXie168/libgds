@@ -20,22 +20,26 @@
 // -----[ _cli_context_item_create ]---------------------------------
 static inline
 _cli_ctx_item_t * _cli_context_item_create(cli_cmd_t * cmd,
-					   void * user_data)
+					   void * user_data,
+					   int final)
 {
   _cli_ctx_item_t * item=
     (_cli_ctx_item_t *) MALLOC(sizeof(_cli_ctx_item_t));
   item->user_data= user_data;
   item->cmd= cmd;
+  item->final= final;
   return item;
 }
 
 // -----[ _cli_context_item_destroy ]--------------------------------
 static inline void _cli_context_item_destroy(_cli_ctx_item_t ** item_ref)
 {
-  if (*item_ref != NULL) {
-    if ((*item_ref)->cmd->fCtxDestroy != NULL)
-      (*item_ref)->cmd->fCtxDestroy(&(*item_ref)->user_data);
-    FREE(*item_ref);
+  _cli_ctx_item_t * item= *item_ref;
+
+  if (item != NULL) {
+    if (item->final && (item->cmd->ops.ctx_destroy != NULL))
+      item->cmd->ops.ctx_destroy(&item->user_data);
+    FREE(item);
     *item_ref= NULL;
   }
 }
@@ -44,12 +48,13 @@ static inline void _cli_context_item_destroy(_cli_ctx_item_t ** item_ref)
 /**
  *
  */
-cli_ctx_t * cli_context_create()
+cli_ctx_t * cli_context_create(cli_cmd_t * cmd, void * user_data)
 {
   cli_ctx_t * ctx=
     (cli_ctx_t *) MALLOC(sizeof(cli_ctx_t));
   ctx->cmd_stack= stack_create(CLI_MAX_CONTEXT);
-  ctx->saved_depth= 0;
+  stack_push(ctx->cmd_stack, _cli_context_item_create(cmd, user_data, 1));
+  cli_context_save_depth(ctx);
   ctx->string= NULL;
   return ctx;
 }
@@ -61,34 +66,35 @@ cli_ctx_t * cli_context_create()
 void cli_context_destroy(cli_ctx_t ** ctx_ref)
 {
   unsigned int index;
+  cli_ctx_t * ctx= *ctx_ref;
 
-  if (*ctx_ref != NULL) {
-    for (index= 0; index < stack_depth((*ctx_ref)->cmd_stack); index++) {
+  if (ctx != NULL) {
+    for (index= 0; index < stack_depth(ctx->cmd_stack); index++) {
       _cli_ctx_item_t * item=
-	(_cli_ctx_item_t *) stack_get_at((*ctx_ref)->cmd_stack, index);
+	(_cli_ctx_item_t *) stack_get_at(ctx->cmd_stack, index);
       _cli_context_item_destroy(&item);
     }
-    stack_destroy(&(*ctx_ref)->cmd_stack);
-    str_destroy(&(*ctx_ref)->string);
-    FREE(*ctx_ref);
+    stack_destroy(&ctx->cmd_stack);
+    str_destroy(&ctx->string);
+    FREE(ctx);
     *ctx_ref= NULL;
   }
 }
 
-// ----- cli_context_depth ------------------------------------------
+// -----[ cli_context_depth ]----------------------------------------
 /**
  *
  */
-int cli_context_depth(cli_ctx_t * ctx)
+int cli_context_depth(const cli_ctx_t * ctx)
 {
   return stack_depth(ctx->cmd_stack);
 }
 
-// ----- cli_context_is_empty ---------------------------------------
+// -----[ cli_context_is_empty ]-------------------------------------
 /**
  *
  */
-int cli_context_is_empty(cli_ctx_t * ctx)
+int cli_context_is_empty(const cli_ctx_t * ctx)
 {
   return stack_is_empty(ctx->cmd_stack);
 }
@@ -98,11 +104,11 @@ int cli_context_is_empty(cli_ctx_t * ctx)
  * Push a command with parameters and context (user-data) on the
  * stack.
  */
-void cli_context_push(cli_ctx_t * ctx)
+void cli_context_push(cli_ctx_t * ctx, cli_cmd_t * cmd,
+		      void * user_data, int final)
 {
-  _cli_ctx_item_t * item= _cli_context_item_create(ctx->cmd,
-						   ctx->user_data);
-  stack_push(ctx->cmd_stack, item);
+  stack_push(ctx->cmd_stack,
+	     _cli_context_item_create(cmd, user_data, final));
 }
 
 // ----- cli_context_pop --------------------------------------------
@@ -112,46 +118,49 @@ void cli_context_push(cli_ctx_t * ctx)
 void cli_context_pop(cli_ctx_t * ctx)
 {
   _cli_ctx_item_t * item;
-  if (!stack_is_empty(ctx->cmd_stack)) {
+
+  // Always leave root element on stack
+  if (stack_depth(ctx->cmd_stack) <= 1)
+    return;
+
+  // Pop until next element is final
+  // - pop at least 1 item
+  // - leave root element on stack
+  do {
     item= (_cli_ctx_item_t *) stack_pop(ctx->cmd_stack);
-    ctx->cmd= item->cmd;
-    ctx->user_data= item->user_data;
     _cli_context_item_destroy(&item);
-  }
+  } while ((stack_depth(ctx->cmd_stack) > 1) &&
+	   !((_cli_ctx_item_t *) stack_top(ctx->cmd_stack))->final);
 }
 
-// ----- cli_context_top ---------------------------------------------
-/**
- *
- */
-_cli_ctx_item_t * cli_context_top(cli_ctx_t * ctx)
+// -----[ cli_context_top ]------------------------------------------
+const _cli_ctx_item_t * cli_context_top(const cli_ctx_t * ctx)
 {
   return (_cli_ctx_item_t *) stack_top(ctx->cmd_stack);
 }
 
-// ----- cli_context_get --------------------------------------------
-/**
- * Get current context (user-data).
- */
-void * cli_context_get(cli_ctx_t * ctx)
+// -----[ cli_context_top_cmd ]------------------------------------
+const cli_cmd_t * cli_context_top_cmd(const cli_ctx_t * ctx)
 {
-  return ctx->user_data;
+  return cli_context_top(ctx)->cmd;
 }
 
-// ----- cli_context_get_at ------------------------------------------
-/**
- *
- */
-_cli_ctx_item_t * cli_context_get_at(cli_ctx_t * ctx, uint32_t index)
+// -----[ cli_context_top_data ]-------------------------------------
+void * cli_context_top_data(const cli_ctx_t * ctx)
+{
+  return cli_context_top(ctx)->user_data;
+}
+
+// -----[ cli_context_get_at ]---------------------------------------
+const _cli_ctx_item_t * cli_context_get_at(const cli_ctx_t * ctx,
+					   unsigned int index)
 {
   return (_cli_ctx_item_t *) stack_get_at(ctx->cmd_stack, index);
 }
 
-// ----- cli_context_get_item_at ------------------------------------
-/**
- *
- */
-void * cli_context_get_item_at(cli_ctx_t * ctx, uint32_t index)
+// -----[ cli_context_get_item_at ]----------------------------------
+void * cli_context_get_item_at(const cli_ctx_t * ctx,
+			       unsigned int index)
 {
   _cli_ctx_item_t * item=
     (_cli_ctx_item_t *) stack_get_at(ctx->cmd_stack, index);
@@ -164,8 +173,8 @@ void * cli_context_get_item_at(cli_ctx_t * ctx, uint32_t index)
 /**
  *
  */
-void * cli_context_get_item_from_top(cli_ctx_t * ctx,
-				     int offset)
+void * cli_context_get_item_from_top(const cli_ctx_t * ctx,
+					   unsigned int offset)
 {
   if (!cli_context_is_empty(ctx))
     return cli_context_get_item_at(ctx,
@@ -174,26 +183,15 @@ void * cli_context_get_item_from_top(cli_ctx_t * ctx,
 }
 
 
-// ----- cli_context_get_item_at_top --------------------------------
-/**
- *
- */
-void * cli_context_get_item_at_top(cli_ctx_t * ctx)
-{
-  if (!cli_context_is_empty(ctx))
-    return cli_context_get_item_at(ctx, cli_context_depth(ctx)-1);
-  return NULL;
-}
-
 // ----- cli_context_clear ------------------------------------------
 /**
  * Clear context-stack and params
  */
 void cli_context_clear(cli_ctx_t * ctx)
 {
-  while (cli_context_depth(ctx) > 0)
+  while (cli_context_depth(ctx) > 1)
     cli_context_pop(ctx);
-  ctx->saved_depth= 0;
+  cli_context_save_depth(ctx);
 }
 
 // ----- cli_context_save_depth -------------------------------------
@@ -223,8 +221,8 @@ void cli_context_restore_depth(cli_ctx_t * ctx)
  */
 char * cli_context_to_string(cli_ctx_t * ctx, char * prefix)
 {
-  int index;//, iTokenOffset, iParamIndex;
-  _cli_ctx_item_t * item;
+  int index;
+  const _cli_ctx_item_t * item;
 
   // Free previous context-string
   str_destroy(&ctx->string);
@@ -232,30 +230,39 @@ char * cli_context_to_string(cli_ctx_t * ctx, char * prefix)
   // Build new string
   ctx->string= str_create(prefix);
 
-  //iTokenOffset= 0;
-  // Add context commands
-  for (index= 0; index < cli_context_depth(ctx); index++) {
+  // Add context commands (skip root command)
+  for (index= 1; index < cli_context_depth(ctx); index++) {
     item= cli_context_get_at(ctx, index);
     if ((item != NULL) && (item->cmd != NULL)) {
-      str_append(&ctx->string, "-");
-      str_append(&ctx->string, item->cmd->name);
-
-      // Add token values
-      /*
-      for (iParamIndex= 0;
-	   iParamIndex < cli_cmd_get_num_params(pCtxItem->cmd);
-	   iParamIndex++) {
-	str_append(&ctx->string, " ");
-	str_append(&ctx->string,
-		   tokens_get_string_at(ctx->pTokens, iTokenOffset));
-	iTokenOffset++;
-      }
-      */
-
+      ctx->string= str_append(ctx->string, "-");
+      ctx->string= str_append(ctx->string, item->cmd->name);
     }
   }
-  str_append(&ctx->string, "> ");
+  ctx->string= str_append(ctx->string, "> ");
 
   return ctx->string;
+}
+
+// -----[ cli_context_dump ]-----------------------------------------
+void cli_context_dump(gds_stream_t * stream, cli_ctx_t * ctx)
+{
+  unsigned int index;
+  _cli_ctx_item_t * item;
+
+  for (index= stack_depth(ctx->cmd_stack); index > 0; index--) {
+    item= (_cli_ctx_item_t *) stack_get_at(ctx->cmd_stack, index-1);
+    stream_printf(stream, "stack[%.2u]->cmd : %p (%s)\n",
+		  index, item->cmd, item->cmd->name);
+    stream_printf(stream, "         ->data: %p\n",
+		  item->user_data);
+    stream_printf(stream, "         ->final: %d\n", item->final);
+  }
+}
+
+// -----[ cli_context_set_root_user_data ]---------------------------
+void cli_context_set_root_user_data(cli_ctx_t * ctx, void * user_data)
+{
+  _cli_ctx_item_t * item= (_cli_ctx_item_t *) cli_context_get_at(ctx, 0);
+  item->user_data= user_data;
 }
 

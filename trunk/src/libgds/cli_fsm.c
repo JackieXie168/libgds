@@ -11,6 +11,8 @@
 #endif
 
 #include <libgds/cli.h>
+#include <libgds/cli_commands.h>
+#include <libgds/cli_params.h>
 #include <libgds/memory.h>
 
 //#define DEBUG
@@ -32,6 +34,30 @@
 #define CLI_OPENING_QUOTES "\"'"
 #define CLI_CLOSING_QUOTES "\"'"
 #define CLI_PROTECT_QUOTES "'"
+
+// -----[ _cli_find_subcmd ]-----------------------------------------
+/**
+ * Search for the command named 'name' in the list of sub-commands
+ * of 'cmd'. If not match was found, and if enabled by 'en_omni',
+ * perform a lookup in the list of omnipresent commands.
+ */
+static inline
+cli_cmd_t * _cli_find_subcmd(cli_t * cli, cli_cmd_t * cmd,
+			     const char * name, int en_omni)
+{
+  cli_cmd_t * match= NULL;
+
+  __debug("_cli_find_subcmd(cmd:\"%s\", name:\"%s\")\n", cmd->name, name);
+
+  // Match regular sub-command
+  match= cli_cmd_find_subcmd(cmd, name);
+
+  // Match omnipresent command (if enabled/possible)
+  if ((match == NULL) && en_omni)
+    match= cli_cmd_find_subcmd(cli->omni_cmd, name);
+
+  return match;
+}
 
 // -----[ _fsm_state2str ]-------------------------------------------
 static inline const char * _fsm_state2str(int match)
@@ -189,8 +215,8 @@ static inline int _cli_fsm_next_state(cli_t * cli, cli_fsm_t * fsm,
   case STATE_SUBCMD:
     if (compl)
       return CLI_ERROR_UNKNOWN_CMD;
-    sub_cmd= cli_find_subcmd(cli, fsm->cmd, token,
-			     fsm->token_index == 1);
+    sub_cmd= _cli_find_subcmd(cli, fsm->cmd, token,
+			      fsm->token_index == 1);
     if (sub_cmd == NULL)
       return CLI_ERROR_UNKNOWN_CMD;
     fsm->consume= 1;
