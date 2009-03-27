@@ -6,101 +6,124 @@
 // $Id$
 // ==================================================================
 
+/**
+ * \file
+ * Provide data structures and functions to manage an interactive
+ * command-line interface (CLI). This CLI can work in conjunction
+ * with the GNU readline library to provide a highly interactive
+ * command-line interface with auto-completion.
+ *
+ * Here is a typical example of a small CLI setup. This CLI will
+ * understand 3 different commands: "quit", "version" and "foo". The
+ * "foo" command requires a single argument named "bar".
+ *
+ * \code
+ * cli_t * cli= cli_create();
+ * cli_cmd_t * cmd;
+ * cli_cmd_t * root= cli_get_root_cmd(cli);
+ * cli_add_cmd(root, cli_cmd("quit", _cli_quit));
+ * cli_add_cmd(root, cli_cmd("version", _cli_version));
+ * cmd= cli_add_cmd(root, cli_cmd("foo", _cli_foo));
+ * cli_add_arg(cmd, cli_arg("bar", NULL));
+ * cli_execute_stream(stdin);
+ * \endcode
+ *
+ * The typical implementation of a command can be done as follows.
+ * The function will be called when the command "foo" is invoked
+ * with the required number of arguments. The function will retrieve
+ * the argument value and print it to the standard output. The
+ * function will also return the error code CLI_SUCCESS to indicate
+ * that its execution was successful.
+ *
+ * \code
+ * static int _cli_foo(cli_ctx_t * ctx, cli_cmd_t * cmd)
+ * {
+ *   const char * arg_bar= cli_get_arg_value(cmd, 0);
+ *   fprintf(stdout, "foo executed with arg \"bar\"=\"%s\"\n", arg_bar);
+ *   fflush(stdout);
+ *   return CLI_SUCCESS;
+ * }
+ * \endcode
+ *
+ * It is also possible to add groups of commands in the CLI commands
+ * tree. Here is a simple example that will react to the following
+ * commands: "grp cmd1" and "grp cmd2". It also allows to "enter" the
+ * group and further type "cmd1" or "cmd2" to invoke the registered
+ * commands.
+ *
+ * \code
+ * cli_cmd_t * grp= cli_add_cmd(root, cli_cmd_group("grp"));
+ * cli_add_cmd(grp, cli_cmd_group("cmd1", _cli_cmd1));
+ * cli_add_cmd(grp, cli_cmd_group("cmd2", _cli_cmd2));
+ * \endcode
+ *
+ * The next step is to associate user-data to a group. The child
+ * commands of this group can then rely on the group's user-data for
+ * their execution. This is called contexts and this is created as
+ * follows:
+ *
+ * \code
+ * cli_cmd_t * ctx= cli_add_cmd(root, cli_cmd_ctx("ctx",
+ *                                                _cli_ctx_create,
+ *                                                _cli_ctx_destroy));
+ * cli_add_arg(ctx, cli_arg("name"));
+ * cli_add_cmd(ctx, cli_cmd("cmd1", _cli_cmd1));
+ * cli_add_cmd(ctx, cli_cmd("cmd2", _cli_cmd2));
+ * \endcode
+ *
+ * The context command needs two different functions to create
+ * context user-data when the context is entered and to destroy
+ * this user-data (if needed) when the context is exited. In the
+ * following example, the "ctx" context will simply push onto the
+ * context a copy of the name passed as an argument. It will then
+ * free this name when the context is freed.
+ * \attention
+ * It would be incorrect to push the argument value onto the context
+ * without performing a copy as the argument value would not be valid
+ * for the execution of the subsequent commands.
+ *
+ * \code
+ * // -----[ _cli_ctx_create ]---------------------------------------
+ * static int _cli_ctx_create(cli_ctx_t * ctx, cli_cmd_t * cmd,
+ *                            void ** user_data_ref)
+ * {
+ *   const char * arg_name= cli_get_arg_value(cmd, 0);
+ *   *user_data= strdup(arg_name);
+ *   return CLI_SUCCESS;
+ * }
+ *
+ * // -----[ _cli_ctx_destroy ]--------------------------------------
+ * static void _cli_ctx_destroy(void ** user_data_ref)
+ * {
+ *   free(*user_data_ref);
+ * }
+ * \endcode
+ *
+ * The child commands can then access the context data as shown in
+ * the following example:
+ *
+ * \code
+ * // -----[ _cli_cmd1 ]---------------------------------------------
+ * static int _cli_cmd1(cli_ctx_t * ctx, cli_cmd_t * cmd)
+ * {
+ *   const char * name= (char *) cli_context_get_at_top(ctx);
+ *   fprintf(stdout, "execution of \"cmd1\" with context \"%s\"\n", name);
+ *   fflush(stdout);
+ *   return CLI_SUCCESS;
+ * }
+ * \endcode
+ */
+
 #ifndef __GDS_CLI_H__
 #define __GDS_CLI_H__
 
-#include <libgds/array.h>
-#include <libgds/cli_params.h>
-#include <libgds/stream.h>
-#include <libgds/stack.h>
 #include <stdio.h>
-#include <libgds/tokenizer.h>
 
-#define MAX_CLI_LINE_LENGTH 1024
+#include <libgds/array.h>
+#include <libgds/cli_types.h>
+#include <libgds/stream.h>
 
-#define CLI_SUCCESS                    0   // The execution was successful
-#define CLI_ERROR_GENERIC             -1   // Generic error (no details)
-#define CLI_ERROR_UNEXPECTED          -2   // Error detected, cause unknown
-#define CLI_ERROR_UNKNOWN_COMMAND     -3   // Command does not exist in context
-#define CLI_ERROR_MISSING_PARAM       -4   // Command needs more parameters
-#define CLI_ERROR_NOT_A_COMMAND       -5   // Command cannot be executed
-#define CLI_ERROR_COMMAND_FAILED      -6   // Command returned an error
-#define CLI_ERROR_BAD_PARAM           -7   // Invalid parameter value
-#define CLI_ERROR_CTX_CREATE          -8   // Context creation failed
-#define CLI_ERROR_TOO_MANY_PARAMS     -9   // Too many parameters provided
-#define CLI_ERROR_UNKNOWN_OPTION      -10  // Option does not exist in command
-#define CLI_ERROR_BAD_OPTION          -11  // Invalid option value
-#define CLI_ERROR_SYNTAX              -12  // Syntax error
-#define CLI_WARNING_EMPTY_COMMAND      1
-#define CLI_SUCCESS_TERMINATE          2
-#define CLI_SUCCESS_HELP               3
-
-#define CLI_MATCH_NOTHING      0
-#define CLI_MATCH_COMMAND      1
-#define CLI_MATCH_OPTION_NAMES 2
-#define CLI_MATCH_OPTION_VALUE 3
-#define CLI_MATCH_PARAM_VALUE  4
-
-typedef ptr_array_t cli_cmds_t;
-struct cli_t;
-struct cli_cmd_t;
-
-typedef struct {
-  void             * user_data;         // Current user data
-  struct cli_cmd_t * cmd;           // Current command
-  gds_stack_t      * cmd_stack;       // Stack of commands
-  unsigned int       saved_depth;
-  char             * string;
-} cli_ctx_t;
-
-typedef int (*FCliContextCreate)(cli_ctx_t * ctx, void ** item_ref);
-typedef void (*FCliContextDestroy)(void ** item_ref);
-typedef int (*FCliCommand)(cli_ctx_t * ctx, struct cli_cmd_t * cmd);
-typedef int (*FCliOnError)(struct cli_t * cli, int result);
-typedef void (*FCliOnHelp)(struct cli_cmd_t * cmd, void * ctx);
-
-typedef struct cli_cmd_t {
-  char               * name;
-  cli_cmds_t         * sub_cmds;
-  cli_params_t       * params;
-  struct cli_cmd_t   * parent;
-  gds_tokens_t       * param_values;
-  cli_options_t      * options;
-  FCliContextCreate    fCtxCreate;
-  FCliContextDestroy   fCtxDestroy;
-  FCliCommand          fCommand;
-  char               * help;
-} cli_cmd_t;
-
-typedef struct {
-  void      * user_data;     // User data
-  cli_cmd_t * cmd;           // Saved command
-} _cli_ctx_item_t;
-
-typedef struct {
-  int    error;       // Last error code
-  int    line_number; // Line number of last command
-  int    user_error;  // Last application error code
-                      // (has a meaning only if last command failed)
-  char * user_msg;    // Last application error message
-                      // (has a meaning only if last command failed)
-} cli_error_t;
-
-typedef struct {
-  FCliOnError on_error; // called on error
-  FCliOnHelp  on_help;  // called when help invoked
-} cli_ops_t;
-
-typedef struct cli_t {
-  gds_tokenizer_t * tokenizer;
-  cli_cmd_t       * root_cmd;
-  cli_ctx_t       * ctx;             // Current execution context (stack)
-  cli_ops_t         ops;
-  // --- Variables used for error reporting purpose ---
-  int               uExecTokenIndex; // Index to current token in cli
-  cli_param_t     * exec_param;      // Currently expected parameter
-  cli_error_t       error;
-} cli_t;
+#define CLI_MAX_LINE_LENGTH 1024
 
 #ifdef __cplusplus
 extern "C" {
@@ -109,53 +132,91 @@ extern "C" {
   ///////////////////////////////////////////////////////////////////
   // COMMANDS MANAGMENT FUNCTIONS
   ///////////////////////////////////////////////////////////////////
+  
+  // -----[ cli_matching_subcmds ]-----------------------------------
+  cli_cmds_t * cli_matching_subcmds(cli_t * cli, cli_cmd_t * cmd,
+				    const char * text, int en_omni);
+  // -----[ cli_matching_opts ]--------------------------------------
+  cli_args_t * cli_matching_opts(cli_cmd_t * cmd, const char * text);
 
-  // ----- cli_cmds_create ------------------------------------------
-  cli_cmds_t * cli_cmds_create();
-  // ----- cli_cmds_destroy -----------------------------------------
-  void cli_cmds_destroy(cli_cmds_t ** cmds_ref);
-  // ----- cli_matching_cmds ----------------------------------------
-  cli_cmds_t * cli_matching_cmds(cli_cmds_t * cmds, const char * text);
-  // ----- cli_cmds_add ---------------------------------------------
-  int cli_cmds_add(cli_cmds_t * cmds, cli_cmd_t * cmd);
-  // ----- cli_cmd_create -------------------------------------------
-  cli_cmd_t * cli_cmd_create(char * name, FCliCommand fCommand,
-			     cli_cmds_t * sub_cmds,
-			     cli_params_t * params);
-  // ----- cli_cmd_create -------------------------------------------
-  cli_cmd_t * cli_cmd_create_ctx(char * name,
-				 FCliContextCreate fCtxCreate,
-				 FCliContextDestroy fCtxDestroy,
-				 cli_cmds_t * sub_cmds,
-				 cli_params_t * params);
-  // ----- cli_cmd_destroy ------------------------------------------
-  void cli_cmd_destroy(cli_cmd_t ** cmd_ref);
-  // ----- cli_cmd_dump ---------------------------------------------
-  void cli_cmd_dump(gds_stream_t * stream, char * prefix,
-		    cli_cmd_t * cmd);
-  // ----- cli_cmd_add_subcmd ---------------------------------------
-  int cli_cmd_add_subcmd(cli_cmd_t * cmd, cli_cmd_t * sub_cmd);
-  // ----- cli_cmd_find_submd ---------------------------------------
-  cli_cmd_t * cli_cmd_find_subcmd(cli_cmd_t * cmd, char * name);
-  // ----- cli_cmd_get_num_subcmds ----------------------------------
-  int cli_cmd_get_num_subcmds(cli_cmd_t * cmd);
-  // ----- cli_cmd_get_subcmd_at ------------------------------------
-  cli_cmd_t * cli_cmd_get_subcmd_at(cli_cmd_t * cmd, unsigned int index);
-  // ----- cli_cmd_add_param ----------------------------------------
-  int cli_cmd_add_param(cli_cmd_t * cmd, char * name,
-			FCliCheckParam fCheckParam);
-  // ----- cli_cmd_get_num_params -----------------------------------
-  int cli_cmd_get_num_params(cli_cmd_t * cmd);
-  // ----- cli_cmd_get_param_at -------------------------------------
-  cli_param_t * cli_cmd_get_param_at(cli_cmd_t * cmd,
-				     unsigned int index);
-  // ----- cli_cmd_add_option ---------------------------------------
-  int cli_cmd_add_option(cli_cmd_t * cmd,
-			 char * name,
-			 FCliCheckParam fCheckParam);
-  // ----- _cli_cmd_match -------------------------------------------
-  int cli_cmd_match(cli_t * cli, cli_cmd_t * cmd, char * start_cmd,
-		    char * end_cmd, void ** ctx_ref);
+
+  ///////////////////////////////////////////////////////////////////
+  // CLI TREE MANAGMENT FUNCTIONS
+  ///////////////////////////////////////////////////////////////////
+
+  // -----[ cli_cmd ]------------------------------------------------
+  /**
+   * Create a command.
+   *
+   * The created command cannot have children.
+   *
+   * \param name    is the name of the command.
+   * \param command is the callback function that implements the
+   *   command.
+   * \retval the command.
+   */
+  cli_cmd_t * cli_cmd(const char * name, cli_command_f command);
+
+  // -----[ cli_cmd_ctx ]------------------------------------------
+  /**
+   * Create a context command.
+   *
+   * \param name        is the name of the command.
+   * \param ctx_create  is the context creation callback.
+   * \param ctx_destroy is the context destruction callback.
+   * \retval the command.
+   */
+  cli_cmd_t * cli_cmd_ctx(const char * name,
+			  cli_ctx_create_f ctx_create,
+			  cli_ctx_destroy_f ctx_destroy);
+
+  // -----[ cli_cmd_group ]------------------------------------------
+  /**
+   * Create a group of commands.
+   *
+   * \param name is the name of the group.
+   * \retval the group.
+   */
+  cli_cmd_t * cli_cmd_group(const char * name);
+
+  // -----[ cli_cmd_prefix ]-----------------------------------------
+  /**
+   * Create a prefix of commands.
+   *
+   * \param name is the name of the prefix.
+   * \retval the prefix.
+   */
+  cli_cmd_t * cli_cmd_prefix(const char * name);
+
+  // -----[ cli_add_cmd ]--------------------------------------------
+  /**
+   * Add a child to a command.
+   *
+   * \param cmd     is the parent command.
+   * \param sub_cmd is the child command.
+   * \retval the child command.
+   */
+  cli_cmd_t * cli_add_cmd(cli_cmd_t * cmd, cli_cmd_t * sub_cmd);
+
+  // -----[ cli_add_arg ]--------------------------------------------
+  /**
+   * Add an argument to a command.
+   *
+   * \param cmd is the command.
+   * \param arg is the argument.
+   * \retval the argument.
+   */
+  cli_arg_t * cli_add_arg(cli_cmd_t * cmd, cli_arg_t * arg);
+
+  // -----[ cli_add_opt ]--------------------------------------------
+  /**
+   * Add an option to a command.
+   *
+   * \param cmd is the command.
+   * \param opt is the option.
+   * \retval the option.
+   */
+  cli_arg_t * cli_add_opt(cli_cmd_t * cmd, cli_arg_t * opt);
 
 
   ///////////////////////////////////////////////////////////////////
@@ -163,38 +224,179 @@ extern "C" {
   ///////////////////////////////////////////////////////////////////
 
   // -----[ cli_create ]---------------------------------------------
+  /**
+   * Create a CLI.
+   */
   cli_t * cli_create();
+
   // -----[ cli_destroy ]--------------------------------------------
+  /**
+   * Destroy a CLI.
+   */
   void cli_destroy(cli_t ** cli_ref);
+
+  // -----[ cli_get_root_cmd ]---------------------------------------
+  /**
+   * Return the CLI's root command.
+   *
+   * The root command cannot be executed. It is the root of the CLI
+   * commands tree.
+   */
+  cli_cmd_t * cli_get_root_cmd(cli_t * cli);
+
+  // -----[ cli_get_omni_cmd ]---------------------------------------
+  /**
+   * Return the CLI's omni command.
+   *
+   * The omni command cannot be executed. It is the root of the CLI
+   * omnipresent commands tree.
+   */
+  cli_cmd_t * cli_get_omni_cmd(cli_t * cli);
+
   // -----[ cli_set_on_error ]---------------------------------------
-  void cli_set_on_error(cli_t * cli, FCliOnError on_error);
+  void cli_set_on_error(cli_t * cli, cli_on_error_f on_error);
   // -----[ cli_set_param_lookup ]-----------------------------------
   void cli_set_param_lookup(cli_t * cli, param_lookup_t lookup);
-  // ----- cli_execute_ctx ------------------------------------------
-  int cli_execute_ctx(cli_t * cli, const char * cmd,
-		      void * ctx);
-  // ----- cli_execute ----------------------------------------------
-  int cli_execute(cli_t * cli, const char * cmd);
-  // ----- cli_register_cmd -----------------------------------------
-  int cli_register_cmd(cli_t * cli, cli_cmd_t * cmd);
-  // ----- cli_perror -----------------------------------------------
-  void cli_perror(gds_stream_t * stream, int error);
-  // ----- cli_strerror -----------------------------------------------
-  const char * cli_strerror(int error);
-  // ----- cli_execute_file -----------------------------------------
-  int cli_execute_file(cli_t * cli, FILE * stream);
-  // ----- cli_execute_line -----------------------------------------
-  int cli_execute_line(cli_t * cli, const char * line);
-  // ----- cli_get_cmd_context --------------------------------------
-  cli_cmd_t * cli_get_cmd_context(cli_t * cli);
-  // ----- cli_get_error_details ------------------------------------
+
+  // -----[ cli_set_user_data ]----------------------------------------
+  /**
+   * Set the base CLI context.
+   *
+   * The provided context can be used by the implementation of
+   * commands.
+   */
+  void cli_set_user_data(cli_t * cli, void * user_data);
+
+
+  ///////////////////////////////////////////////////////////////////
+  // CLI ERROR MANAGEMENT
+  ///////////////////////////////////////////////////////////////////
+
+  // -----[ cli_perror ]---------------------------------------------
+  /**
+   * Print an error message.
+   *
+   * \param stream is the output stream.
+   * \param error  is the error code.
+   */
+  void cli_perror(gds_stream_t * stream, cli_error_type_t error);
+
+  // -----[ cli_strerror ]-------------------------------------------
+  /**
+   * Provide an error message from an error code.
+   *
+   * \param error is the error code.
+   * \retval corresponding error message.
+   */
+  const char * cli_strerror(cli_error_type_t error);
+
+  // -----[ cli_get_error_details ]----------------------------------
   int cli_get_error_details(cli_t * cli, cli_error_t * error);
-  // ----- cli_set_user_error -----------------------------------------
+
+  // -----[ cli_set_user_error ]-------------------------------------
+  /**
+   * Set a user error message.
+   *
+   * This function can be used in user defined commands to provide
+   * a more comprehensive error message.
+   *
+   * \attention
+   * This function should only be used in the commands callback
+   * functions.
+   *
+   * \param cli    is the CLI.
+   * \param format is the message and variable argument list
+   *   specifier (with a printf like format).
+   */
   void cli_set_user_error(cli_t * cli, const char * format, ...);
 
-  // -----[ cli_dump_error ]-------------------------------------------
+  // -----[ cli_dump_error ]-----------------------------------------
   void cli_dump_error(gds_stream_t * stream, cli_t * cli);
 
+
+  ///////////////////////////////////////////////////////////////////
+  // CLI EXECUTION / COMPLETION
+  ///////////////////////////////////////////////////////////////////
+
+  // -----[ cli_execute ]--------------------------------------------
+  /**
+   * Execute a single line.
+   *
+   * \param cli  is the CLI.
+   * \param str is the line to interpret.
+   * \retval the execution status code.
+   */
+  int cli_execute(cli_t * cli, const char * str);
+
+  // -----[ cli_complete ]-------------------------------------------
+  int cli_complete(cli_t * cli, const char * str, const char * compl,
+		   cli_elem_t * ctx);
+
+  // -----[ cli_execute_stream ]-------------------------------------
+  /**
+   * Execute commands from a stream.
+   *
+   * \param cli    is the CLI.
+   * \param stream is the input stream.
+   * \retval the execution status code.
+   */
+  int cli_execute_stream(cli_t * cli, FILE * stream);
+
+  // -----[ cli_execute_line ]---------------------------------------
+  int cli_execute_line(cli_t * cli, const char * line);
+  // -----[ cli_get_cmd_context ]------------------------------------
+  void cli_get_cmd_context(cli_t * cli, cli_cmd_t ** cmd,
+			   void ** user_data);
+
+
+  ///////////////////////////////////////////////////////////////////
+  // CLI ARGUMENTS / OPTIONS RUN-TIME ACCESS
+  ///////////////////////////////////////////////////////////////////
+
+  // -----[ cli_get_arg_value ]--------------------------------------
+  /**
+   * Get the value of a command's argument.
+   *
+   * \param cmd   is the command.
+   * \param index is the argument's index.
+   * \retval the argument's value.
+   */
+  const char * cli_get_arg_value(const cli_cmd_t * cmd,
+				 unsigned int index);
+
+  // -----[ cli_get_arg_num_values ]-----------------------------------
+  /**
+   * Get the number of values of command's argument.
+   *
+   * \param cmd   is the command.
+   * \param index is the argument's index.
+   * \retval the number of values. This should be 1 for standard
+   *   arguments and possibly more than 1 for varargs.
+   */
+  unsigned int cli_get_arg_num_values(const cli_cmd_t * cmd,
+				      unsigned int index);
+  
+  // -----[ cli_get_opt_value ]--------------------------------------
+  /**
+   * Get the value of a command's option.
+   *
+   * \param cmd  is the command.
+   * \param name is the option's name.
+   * \retval the option's value.
+   */
+  const char * cli_get_opt_value(const cli_cmd_t * cmd,
+				 const char * name);
+
+  // -----[ cli_has_opt_value ]--------------------------------------
+  /**
+   * Test if a command's option is present.
+   *
+   * \param cmd is the command.
+   * \param name is the option's name.
+   * \retval 0 if the option is not present,
+   *   or != 0 if the option is present.
+   */
+  int cli_has_opt_value(const cli_cmd_t * cmd, const char * name);
 
 #ifdef __cplusplus
 }
