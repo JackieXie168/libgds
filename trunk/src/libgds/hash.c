@@ -32,9 +32,9 @@
 #include <libgds/hash.h>
 
 typedef struct {
-  FHashEltCompare elt_cmp;
-  FHashEltDestroy elt_destroy;
-  FHashCompute    hash_compute;
+  gds_hash_cmp_f     elt_cmp;
+  gds_hash_destroy_f elt_destroy;
+  gds_hash_compute_f hash_compute;
 } hash_ops_t;
 
 struct gds_hash_set_t {
@@ -186,30 +186,24 @@ static inline hash_elt_t * _hash_element_add(const ptr_array_t * aHashElt,
 }
 
 // -----[ hash_set_create ]------------------------------------------
-/**
- * Create a new hash set.
- *
- * Note on parameters:
- *   resize-threshold (use 0 to avoid re-hashing)
- */
 gds_hash_set_t * hash_set_create(unsigned int size,
 				 float resize_thr, 
-				 FHashEltCompare elt_cmp,
-				 FHashEltDestroy elt_destroy,
-				 FHashCompute hash_compute)
+				 gds_hash_cmp_f cmp,
+				 gds_hash_destroy_f destroy,
+				 gds_hash_compute_f compute)
 {
   gds_hash_set_t * hash= MALLOC(sizeof(gds_hash_set_t));
 
   hash->items= MALLOC(sizeof(void *)*size);
   memset(hash->items, 0, sizeof(void *)*size);
 
-  assert(hash_compute != NULL);
+  assert(compute != NULL);
   assert(resize_thr >= 0.0);
   assert(resize_thr < 1.0);
 
-  hash->ops.elt_cmp= elt_cmp;
-  hash->ops.elt_destroy= elt_destroy;
-  hash->ops.hash_compute= hash_compute;
+  hash->ops.elt_cmp= cmp;
+  hash->ops.elt_destroy= destroy;
+  hash->ops.hash_compute= compute;
 
   hash->size= size;
   hash->resize_thr= resize_thr;
@@ -316,22 +310,6 @@ static void _hash_set_rehash(gds_hash_set_t * hash)
 
 
 // -----[ hash_set_add ]---------------------------------------------
-/**
- * Add a new element to the hash-table. If the element already exists,
- * i.e. if it is the same as an already existing element according to
- * the comparison function, then the reference count of the existing
- * element is incremented.
- *
- * Return value:
- * - element did not exist:
- *   The pointer to the element in the hash-table is returned. If the
- *   return value is equal to pElt, that means that a new element was
- *   added.
- * - element already exists:
- *   The pointer to the existing element is returned. If the return
- *   value is different from pElt, that means that an equivalent
- *   element was already in the hash table.
- */
 void * hash_set_add(gds_hash_set_t * hash, void * item)
 {
   unsigned int index= 0;
@@ -404,14 +382,6 @@ void * hash_set_search(const gds_hash_set_t * hash, void * item)
 }
 
 // -----[ hash_set_remove ]------------------------------------------
-/**
- * Remove an element from the hash table.
- *
- * Return value:
- *   HASH_ERROR_NO_MATCH if no elt was deleted or unreferenced
- *   HASH_SUCCESS_UNREF  if one element was unreferenced 
- *   HASH_SUCCESS        if one element was deleted (refcount became 0)
- */
 int hash_set_remove(gds_hash_set_t * hash, void * item)
 {
   uint32_t key= hash->ops.hash_compute(item, hash->size);
@@ -471,7 +441,7 @@ unsigned int hash_set_get_refcnt(const gds_hash_set_t * hash, void * item)
  * Note: the callback can be called with an item which is NULL.
  */
 int hash_set_for_each_key(const gds_hash_set_t * hash,
-			  FHashForEach foreach, 
+			  gds_hash_foreach_f foreach, 
 			  void * ctx)
 {
   int result;
@@ -492,7 +462,7 @@ int hash_set_for_each_key(const gds_hash_set_t * hash,
  * Call the given callback function foreach item in the hash table.
  */
 int hash_set_for_each(const gds_hash_set_t * hash,
-		      FHashForEach foreach, 
+		      gds_hash_foreach_f foreach,
 		      void * ctx)
 {
   int result;
