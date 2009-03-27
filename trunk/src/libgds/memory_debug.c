@@ -2,9 +2,9 @@
 // @(#)memory_debug.c
 //
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 17/05/2005
-// @lastdate 20/12/2007
+// $Id$
 // ==================================================================
 // Implementation of a kind of garbage collector to detect the origin
 // of some memory bugs. It can be used to debug two types of memory
@@ -24,6 +24,12 @@
 // '--enable-memory-debug'
 // ==================================================================
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#include <assert.h>
+
 #include <libgds/memory_debug.h>
 
 #include <stdio.h>
@@ -31,174 +37,170 @@
 #include <string.h>
 #include <libgds/list.h>
 
-typedef struct {
-  void * pPtrAddr;
-  unsigned int uSize;
-  char * pcFileName;
-  int iLineNumber;
-} SMemAlloc;
+#define MAX_ALLOCATION_TRACK 1000
 
-static SList * plMemAlloc= NULL;
-static long int iAllocatedBytes= 0;
-static long int iFreedBytes= 0;
-static long int iMaxAllocatedAtOneTime= 0;
+typedef struct {
+  void         * addr;
+  unsigned int   size;
+  char         * filename;
+  int            line_num;
+} _mem_alloc_t;
+
+static gds_list_t * _alloc_list= NULL;
+static struct {
+  long int allocated;
+  long int freed;
+  long int largest_alloc;
+} _stats= { 0, 0, 0 };
+
+// -----[ _update_stats ]--------------------------------------------
+static inline void _update_stats(unsigned int alloc_inc,
+				 unsigned int free_inc)
+{
+  _stats.allocated+= alloc_inc;
+  _stats.freed+= free_inc;
+  if (_stats.largest_alloc < alloc_inc)
+    _stats.largest_alloc= alloc_inc;
+}
 
 // -----[ _mem_dbg_alloc_init ]--------------------------------------
-static SMemAlloc * _mem_dbg_alloc_init(void * pPtrAddr, unsigned int uSize, 
-				       char * pcFileName, int iLineNumber)
+static inline
+_mem_alloc_t * _mem_dbg_alloc_init(void * addr, unsigned int size, 
+				   const char * filename, int line_num)
 {
-  SMemAlloc * pAlloc= malloc(sizeof(SMemAlloc));
-
-  pAlloc->pPtrAddr= pPtrAddr;
-  pAlloc->uSize= uSize;
-  pAlloc->pcFileName= strdup(pcFileName);
-  pAlloc->iLineNumber= iLineNumber;
-
-  return pAlloc;
+  _mem_alloc_t * alloc= malloc(sizeof(_mem_alloc_t));
+  alloc->addr= addr;
+  alloc->size= size;
+  alloc->filename= strdup(filename);
+  alloc->line_num= line_num;
+  return alloc;
 }
 
 // -----[ _mem_dbg_alloc_cmp ]---------------------------------------
-static int _mem_dbg_alloc_cmp(void * pItem1, void * pItem2)
+static int _mem_dbg_alloc_cmp(const void * item1, const void * item2)
 {
-  SMemAlloc * pAlloc1 = (SMemAlloc *)pItem1;
-  SMemAlloc * pAlloc2 = (SMemAlloc *)pItem2;
+  _mem_alloc_t * alloc1= (_mem_alloc_t *) item1;
+  _mem_alloc_t * alloc2= (_mem_alloc_t *) item2;
 
-  if (pAlloc1->pPtrAddr < pAlloc2->pPtrAddr)
+  if (alloc1->addr < alloc2->addr)
     return -1;
-  else if (pAlloc1->pPtrAddr > pAlloc2->pPtrAddr)
+  if (alloc1->addr > alloc2->addr)
     return 1;
-  else
-    return 0;
+  return 0;
 }
 
 // -----[ _mem_dbg_alloc_destroy ]-----------------------------------
-static void _mem_dbg_alloc_destroy(void ** pItem)
+static void _mem_dbg_alloc_destroy(void ** item_ref)
 {
-  SMemAlloc ** pAlloc = (SMemAlloc **)pItem;
+  _mem_alloc_t ** alloc_ref= (_mem_alloc_t **) item_ref;
+  _mem_alloc_t * alloc= *alloc_ref;
   
-  if ((*pAlloc) != NULL) {
-    if ((*pAlloc)->pcFileName != NULL)
-      free((*pAlloc)->pcFileName);
-    free(*pAlloc);
-    *pAlloc=NULL;
-  }
+  if (alloc == NULL)
+    return;
+  if (alloc->filename != NULL)
+    free(alloc->filename);
+  free(alloc);
+  *alloc_ref= NULL;
 }
 
 // -----[ _mem_dbg_alloc_for_each ]----------------------------------
-static void _mem_dbg_alloc_for_each(void * pItem, void * pContext)
+static int _mem_dbg_alloc_for_each(void * item, void * ctx)
 {
-  SMemAlloc * pAlloc = (SMemAlloc *)pItem;
-  fprintf(stderr, "[%p] : %u bytes memory leak in %s (line %d) ... ", 
-	  pAlloc->pPtrAddr,
-	  pAlloc->uSize, 
-	  pAlloc->pcFileName, 
-	  pAlloc->iLineNumber);
-  //free the memory allocated by the process.
-  // No, we shouldn't do that !
-  /*free (pAlloc->pPtrAddr);
-    fprintf(stderr, "freed");*/
-  fprintf(stderr, "\n");
+  _mem_alloc_t * alloc= (_mem_alloc_t *) item;
+  fprintf(stderr, "[%p] : %u bytes memory leak in %s (line %d)\n", 
+	  alloc->addr, alloc->size, alloc->filename, alloc->line_num);
+  fflush(stderr);
+  return 0;
 }
 
 // -----[ memory_debug_track_alloc ]---------------------------------
-void memory_debug_track_alloc(void * pNewPtr,
+void memory_debug_track_alloc(void * new_ptr,
 			      size_t size,
-			      char * pcFileName,
-			      int iLineNumber)
+			      const char * filename,
+			      int line_num)
 {
-  SMemAlloc * pAlloc = NULL;
+  _mem_alloc_t * alloc = NULL;
 
-  if (plMemAlloc != NULL) {
-    pAlloc= _mem_dbg_alloc_init(pNewPtr, size, 
-				pcFileName, iLineNumber);
-    if (list_add(plMemAlloc, pAlloc) == -1) {
-      fprintf(stderr, "allocation already made\n");
-      exit(EXIT_FAILURE);
-    }
-    iAllocatedBytes+= size;
-    if (iMaxAllocatedAtOneTime < iAllocatedBytes-iFreedBytes)
-      iMaxAllocatedAtOneTime= iAllocatedBytes-iFreedBytes;
+  if (_alloc_list == NULL)
+    return;
+
+  alloc= _mem_dbg_alloc_init(new_ptr, size, filename, line_num);
+  if (list_add(_alloc_list, alloc) < 0) {
+    fprintf(stderr, "allocation already made\n");
+    fflush(stderr);
+    exit(EXIT_FAILURE);
   }
+  _update_stats(size, 0);
 }
 
 // -----[ memory_debug_track_realloc ]-------------------------------
-void memory_debug_track_realloc(void * pNewPtr,
-				void * pPtr,
+void memory_debug_track_realloc(void * new_ptr,
+				void * ptr,
 				size_t size,
-				char * pcFileName,
-				int iLineNumber)
+				const char * filename,
+				int line_num)
 {
-  SMemAlloc * pAlloc = NULL, * pAllocSearched = NULL;
-  int iIndex = 0;
+  _mem_alloc_t alloc= { .addr= ptr };
+  _mem_alloc_t * alloc_searched= NULL;
+  unsigned int index = 0;
 
-  if (plMemAlloc != NULL) {
-    if (pNewPtr != pPtr) {
-      pAlloc= _mem_dbg_alloc_init(pPtr, 0, "", 0);
-      if (list_find_index(plMemAlloc, pAlloc, &iIndex) == 0) {
-
-	//useful for some stat
-	pAllocSearched= list_get_index(plMemAlloc, iIndex);
-	iAllocatedBytes-= pAllocSearched->uSize;
-	iAllocatedBytes+= size;
-	if (iMaxAllocatedAtOneTime < iAllocatedBytes-iFreedBytes)
-	  iMaxAllocatedAtOneTime= iAllocatedBytes-iFreedBytes;
-	
-	list_delete(plMemAlloc, iIndex);
-
-	free(pAlloc);
-	pAlloc= _mem_dbg_alloc_init(pNewPtr, size, 
-				    pcFileName, iLineNumber);
-	if (list_add(plMemAlloc, pAlloc) == -1) {
-	  free(pAlloc);
-	  exit(EXIT_FAILURE);
-	}
-      } else {
-	free(pAlloc);
-	exit(EXIT_FAILURE);
-      }
-    }
+  if (_alloc_list == NULL)
+    return;
+  
+  if (list_index_of(_alloc_list, &alloc, &index) < 0) {
+    fprintf(stderr, "[%p] : memory not allocated by MALLOC : %s (line %d)\n",
+	    ptr, filename, line_num);
+    exit(EXIT_FAILURE);
   }
+  
+  alloc_searched= list_get_at(_alloc_list, index);
+  _update_stats(size, alloc_searched->size);
+  assert(list_remove_at(_alloc_list, index) >= 0);
+  assert(list_add(_alloc_list,
+		  _mem_dbg_alloc_init(new_ptr, size,
+				      filename, line_num)) >= 0);
 }
 
 // -----[ memory_debug_track_free ]----------------------------------
-void memory_debug_track_free(void * pPtr,
-			     char * pcFileName,
-			     int iLineNumber)
+void memory_debug_track_free(void * ptr,
+			     const char * filename,
+			     int line_num)
 {
-  SMemAlloc * pAlloc = NULL, * pAllocSearched = NULL;
-  int iIndex = 0;
+  _mem_alloc_t alloc= { .addr= ptr };
+  _mem_alloc_t * alloc_searched= NULL;
+  unsigned int index= 0;
 
-  if (plMemAlloc != NULL) {
-    pAlloc= _mem_dbg_alloc_init(pPtr, 0, "", 0);
-    if (list_find_index(plMemAlloc, pAlloc, &iIndex) != -1) {
-      //some stat
-      pAllocSearched= list_get_index(plMemAlloc, iIndex);
-      iFreedBytes+= pAllocSearched->uSize;
-      list_delete(plMemAlloc, iIndex);
-    } else 
-      fprintf(stderr, "[%p] : memory not allocated by MALLOC : %s (line %d)\n",
-	      pPtr, pcFileName, iLineNumber);
-    free(pAlloc);
+  if (_alloc_list == NULL)
+    return;
+
+  if (list_index_of(_alloc_list, &alloc, &index) < 0) {
+    fprintf(stderr, "[%p] : memory not allocated by MALLOC : %s (line %d)\n",
+	    ptr, filename, line_num);
+    fflush(stderr);
   }
+  alloc_searched= list_get_at(_alloc_list, index);
+  _update_stats(0, alloc_searched->size);
+  assert(list_remove_at(_alloc_list, index) >= 0);
 }
 
 // -----[ memory_debug_init ]----------------------------------------
-void memory_debug_init(int iTrack)
+void memory_debug_init(int track)
 {
-  if (iTrack) {
-    plMemAlloc= list_create(_mem_dbg_alloc_cmp,
-			    _mem_dbg_alloc_destroy, 15000);
-  }
+  if (track)
+    _alloc_list= list_create(_mem_dbg_alloc_cmp,
+			     _mem_dbg_alloc_destroy,
+			     MAX_ALLOCATION_TRACK);
 }
 
 // -----[ memory_debug_destroy ]-------------------------------------
 void memory_debug_destroy()
 {
-  if (plMemAlloc != NULL) {
-    list_for_each(plMemAlloc, _mem_dbg_alloc_for_each, NULL);
-    list_destroy(&plMemAlloc);
-    fprintf(stderr, "total allocated bytes : %li\n", iAllocatedBytes);
-    fprintf(stderr, "total freed bytes     : %li\n", iFreedBytes);
-    fprintf(stderr, "max allocated         : %li\n", iMaxAllocatedAtOneTime);
-  }
+  if (_alloc_list == NULL)
+    return;
+  
+  list_for_each(_alloc_list, _mem_dbg_alloc_for_each, NULL);
+  list_destroy(&_alloc_list);
+  fprintf(stderr, "total allocated bytes : %li\n", _stats.allocated);
+  fprintf(stderr, "total freed bytes     : %li\n", _stats.freed);
+  fprintf(stderr, "largest allocation    : %li\n", _stats.largest_alloc);
 }

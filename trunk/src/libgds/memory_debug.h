@@ -1,13 +1,13 @@
 // ==================================================================
 // @(#)memory_debug.h
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 04/01/2007
-// @lastdate 20/12/2007
+// $Id$
 // ==================================================================
 
-#ifndef __LIBGDS_MEMODY_DEBUG_H__
-#define __LIBGDS_MEMORY_DEBUG_H__
+#ifndef __GDS_MEMODY_DEBUG_H__
+#define __GDS_MEMORY_DEBUG_H__
 
 #include <stdlib.h>
 
@@ -23,17 +23,17 @@ extern "C" {
 #endif
 
   // -----[ memory_debug_track_alloc ]-------------------------------
-  void memory_debug_track_alloc(void * pNewPtr, size_t size,
-				char * pcFileName, int iLineNumber);
+  void memory_debug_track_alloc(void * new_ptr, size_t size,
+				const char * filename, int line_num);
   // -----[ memory_debug_track_realloc ]-----------------------------
-  void memory_debug_track_realloc(void * pNewPtr, void * pPtr,
-				  size_t size, char * pcFileName,
-				  int iLineNumber);
+  void memory_debug_track_realloc(void * new_ptr, void * ptr,
+				  size_t size,
+				  const char * filename, int line_num);
   // -----[ memory_debug_track_free ]--------------------------------
-  void memory_debug_track_free(void * pPtr, char * pcFileName,
-			       int iLineNumber);
+  void memory_debug_track_free(void * ptr, const char * filename,
+			       int line_num);
   // -----[ memory_debug_init ]--------------------------------------
-  void memory_debug_init(int iTrack);
+  void memory_debug_init(int track);
   // -----[ memory_debug_destroy ]-----------------------------------
   void memory_debug_destroy();
 
@@ -41,4 +41,4 @@ extern "C" {
 }
 #endif
 
-#endif /* __LIBGDS_MEMORY_DEBUG_H__ */
+#endif /* __GDS_MEMORY_DEBUG_H__ */
