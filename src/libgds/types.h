@@ -6,6 +6,11 @@
 // $Id$
 // ==================================================================
 
+/**
+ * \file
+ * Provide some conditionnally defined preprocessor symbols.
+ */
+
 #ifndef __TYPES_H__
 #define __TYPES_H__
 
