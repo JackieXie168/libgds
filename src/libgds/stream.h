@@ -45,6 +45,7 @@ typedef enum {
   STREAM_TYPE_FILE,
   STREAM_TYPE_CALLBACK,
   STREAM_TYPE_CMD,
+  STREAM_TYPE_PROCESS,
 } stream_type_t ;
 
 // -----[ gds_stream_cb_f ]------------------------------------------
@@ -148,6 +149,14 @@ extern "C" {
    */
   gds_stream_t * stream_create_callback(gds_stream_cb_f cb,
 					void * ctx);
+
+  // -----[ stream_create_proc ]-------------------------------------
+  /**
+   * Create a GDS stream that writes to a process.
+   *
+   * \param cmd is the shell command line.
+   */
+  gds_stream_t * stream_create_proc(const char * cmd);
 
   // -----[ stream_destroy ]-----------------------------------------
   /**
