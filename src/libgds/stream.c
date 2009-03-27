@@ -21,9 +21,6 @@
 #include <libgds/stream.h>
 
 // -----[ stream_create ]--------------------------------------------
-/**
- *
- */
 gds_stream_t * stream_create(FILE * file)
 {
   gds_stream_t * stream= (gds_stream_t *) MALLOC(sizeof(gds_stream_t));
@@ -34,9 +31,6 @@ gds_stream_t * stream_create(FILE * file)
 }
 
 // -----[ stream_create_file ]-------------------------------------------
-/**
- *
- */
 gds_stream_t * stream_create_file(const char * filename)
 {
   gds_stream_t * stream= NULL;
@@ -51,10 +45,7 @@ gds_stream_t * stream_create_file(const char * filename)
 }
 
 // -----[ stream_create_callback ]-----------------------------------
-/**
- *
- */
-gds_stream_t * stream_create_callback(FLogStreamCallback callback,
+gds_stream_t * stream_create_callback(gds_stream_cb_f callback,
 				      void * context)
 {
   gds_stream_t * stream= stream_create(stderr);
@@ -66,44 +57,53 @@ gds_stream_t * stream_create_callback(FLogStreamCallback callback,
   return stream;
 }
 
+// -----[ stream_create_proc ]---------------------------------------
+gds_stream_t * stream_create_proc(const char * cmd)
+{
+  FILE * proc;
+  gds_stream_t * stream;
+
+  proc= popen(cmd, "w");
+  if (proc == NULL)
+    return NULL;
+  stream= stream_create(proc);
+  stream->type= STREAM_TYPE_PROCESS;
+  return stream;
+}
+
 // -----[ stream_destroy ]-------------------------------------------
-/**
- *
- */
 void stream_destroy(gds_stream_t ** stream_ref)
 {
   gds_stream_t * stream= *stream_ref;
 
-  if (stream != NULL) {
-    switch (stream->type) {
-    case STREAM_TYPE_FILE:
-      if (stream->stream != NULL)
-	fclose(stream->stream);
-      break;
-    case STREAM_TYPE_CMD:
-      stream->ops.destroy(stream);
-      break;
-    default:
-      break;
-    }
-    FREE(stream);
+  if (stream == NULL)
+    return;
+
+  switch (stream->type) {
+  case STREAM_TYPE_FILE:
+    if (stream->stream != NULL)
+      fclose(stream->stream);
+    break;
+  case STREAM_TYPE_CMD:
+    stream->ops.destroy(stream);
+    break;
+  case STREAM_TYPE_PROCESS:
+    pclose(stream->stream);
+    break;
+  default:
+    break;
   }
+  FREE(stream);
   *stream_ref= NULL;
 }
 
 // -----[ stream_set_level ]-----------------------------------------
-/**
- *
- */
 void stream_set_level(gds_stream_t * stream, stream_level_t level)
 {
   stream->level= level;
 }
 
 // -----[ stream_enabled ]-------------------------------------------
-/**
- *
- */
 int stream_enabled(gds_stream_t * stream, stream_level_t level)
 {
   if (stream == NULL)
@@ -112,12 +112,9 @@ int stream_enabled(gds_stream_t * stream, stream_level_t level)
 }
 
 // -----[ stream_vprintf ]-------------------------------------------
-/**
- *
- */
 int stream_vprintf(gds_stream_t * stream, const char * format, va_list ap)
 {
-  char * str;
+  char * str= NULL;
   int result= -1;
 
   if (stream == NULL)
@@ -126,13 +123,23 @@ int stream_vprintf(gds_stream_t * stream, const char * format, va_list ap)
   switch (stream->type) {
   case STREAM_TYPE_STREAM:
   case STREAM_TYPE_FILE:
+  case STREAM_TYPE_PROCESS:
     assert(stream->stream != NULL);
     result= vfprintf(stream->stream, format, ap);
     break;
 
   case STREAM_TYPE_CALLBACK:
     assert(stream->callback.callback != NULL);
+#ifdef HAVE_VASPRINTF
     assert(vasprintf(&str, format, ap) >= 0);
+#else
+    /* Guess who has no vasprintf ? hello Solaris... */
+    result= vsnprintf(str, 0, format, ap);
+    assert(result >= 0);
+    str= malloc(sizeof(char)*(result+1));
+    assert(str != NULL);
+    assert(vsnprintf(str, result+1, format, ap) >= 0);
+#endif /* HAVE_VASPRINTF */
     assert(str != NULL);
     result= stream->callback.callback(stream->callback.context, str);
     free(str);
@@ -150,9 +157,6 @@ int stream_vprintf(gds_stream_t * stream, const char * format, va_list ap)
 }
 
 // -----[ stream_printf ]--------------------------------------------
-/**
- *
- */
 int stream_printf(gds_stream_t * stream, const char * format, ...)
 {
   va_list ap;
@@ -165,9 +169,6 @@ int stream_printf(gds_stream_t * stream, const char * format, ...)
 }
 
 // -----[ stream_flush ]------------------------------------------------
-/**
- *
- */
 void stream_flush(gds_stream_t * stream)
 {
   if (stream == NULL)
@@ -176,6 +177,7 @@ void stream_flush(gds_stream_t * stream)
   switch (stream->type) {
   case STREAM_TYPE_STREAM:
   case STREAM_TYPE_FILE:
+  case STREAM_TYPE_PROCESS:
     fflush(stream->stream);
     break;
   case STREAM_TYPE_CALLBACK:
@@ -191,9 +193,6 @@ void stream_flush(gds_stream_t * stream)
 
 
 // -----[ stream_perror ]--------------------------------------------
-/**
- *
- */
 void stream_perror(gds_stream_t * stream, const char * format, ...)
 {
   va_list ap;
@@ -207,10 +206,7 @@ void stream_perror(gds_stream_t * stream, const char * format, ...)
 }
 
 // -----[ stream_str2level ]------------------------------------------
-/**
- *
- */
-stream_level_t stream_str2level(char * str)
+stream_level_t stream_str2level(const char * str)
 {
   if (strcasecmp(str, "everything"))
     return STREAM_LEVEL_EVERYTHING;
