@@ -1,13 +1,13 @@
 // ==================================================================
 // @(#)list.c
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @author Sebastien Tandel (sta@info.ucl.ac.be)
 // @date 23/11/2002
-// @lastdate 18/03/2007
+// $Id$
 // ==================================================================
 // Warning: performance of 'list_add' are poor (due to realloc +
-// memmove) but memory usage and research are optimal !!!
+// memmove) but memory usage and research are good !!!
 // 
 // 13/06/2003:
 //   - added the possibility to resize the list by uStepResize. it
@@ -34,6 +34,9 @@
 //     (header files) should not be disclosed.
 // ==================================================================
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include <assert.h>
 #include <stdio.h>
@@ -42,255 +45,220 @@
 
 #include <libgds/list.h>
 
-// -----[ _list_compare ]--------------------------------------------
-/**
- *
- */
-static inline int _list_compare(void * pItem1, void * pItem2)
+// -----[ _list_cmp ]------------------------------------------------
+static inline int _list_cmp(const void * item1, const void * item2)
 {
-  if (pItem1 == pItem2)
+  if (item1 == item2)
     return 0;
-  else if (pItem1 < pItem2)
+  if (item1 < item2)
     return -1;
-  else
-    return 1;
+  return 1;
 }
 
-// ----- list_create ------------------------------------------------
-/**
- *
- */
-SList * list_create(FListCompare fCompare,
-		    FListDestroy fDestroy, unsigned int uStepResize)
+// -----[ list_create ]----------------------------------------------
+gds_list_t * list_create(gds_list_cmp_f cmp,
+			 gds_list_destroy_f destroy,
+			 unsigned int resize_step)
 {
-  SList * pList= (SList *) malloc(sizeof(SList));
-  assert(pList != NULL);
-  pList->iSize= 0;
-  pList->uNbrElt = 0;
-  if (uStepResize == 0) 
-    uStepResize = 1;
-  pList->uStepResize = uStepResize;
-  pList->fCompare= fCompare;
-  pList->fDestroy= fDestroy;
-  pList->ppItems= NULL;
-  return pList;
+  gds_list_t * list= (gds_list_t *) malloc(sizeof(gds_list_t));
+  assert(list != NULL);
+  list->size= 0;
+  list->length = 0;
+  if (resize_step == 0) 
+    resize_step= 1;
+  list->resize_step= resize_step;
+
+  list->ops.cmp    = cmp;
+  list->ops.destroy= destroy;
+
+  list->items= NULL;
+  return list;
 }
 
-// ----- list_destroy -----------------------------------------------
-/**
- *
- */
-void list_destroy(SList ** ppList)
+// -----[ list_destroy ]---------------------------------------------
+void list_destroy(gds_list_t ** list_ref)
 {
-  int iIndex;
+  gds_list_t * list= *list_ref;
+  unsigned int index;
+  
+  if (list == NULL)
+    return;
 
-  if (*ppList != NULL) {
-    if ((*ppList)->ppItems != NULL) {
-      if ((*ppList)->fDestroy != NULL)
-	for (iIndex= 0; iIndex < (*ppList)->uNbrElt; iIndex++)
-	  (*ppList)->fDestroy(&(*ppList)->ppItems[iIndex]);
-      free((*ppList)->ppItems);
-      (*ppList)->ppItems= NULL;
-    }
-    free(*ppList);
-    *ppList= NULL;
+  if (list->items != NULL) {
+    if (list->ops.destroy != NULL)
+      for (index= 0; index < list->length; index++)
+	list->ops.destroy(&list->items[index]);
+    free(list->items);
   }
+  free(list);
+  *list_ref= NULL;
 }
 
-// ----- list_find_index --------------------------------------------
+// -----[ list_index_of ]--------------------------------------------
 /**
  * ITEM found => 0, INDEX of item
  * ITEM not found => -1, INDEX where insertion must occur
  */
-int list_find_index(SList * pList, void * pItem, int * piIndex)
+int list_index_of(gds_list_t * list, void * item, unsigned int * index_ref)
 {
-  int iOffset= 0;
-  int iSize= pList->uNbrElt;
-  int iPos= iSize/2;
-  int iCompareResult;
+  unsigned int offset= 0;
+  unsigned int length= list->length;
+  unsigned int pos= length/2;
+  int cmp_res;
 
-  while (iSize > 0) {
-    iCompareResult= ((pList->fCompare != NULL)?
-		     pList->fCompare(pList->ppItems[iPos], pItem):
-		     _list_compare(pList->ppItems[iPos], pItem));
-    if (!iCompareResult) {
-      *piIndex= iPos;
+  while (length > 0) {
+    cmp_res= ((list->ops.cmp != NULL)?
+	      list->ops.cmp(list->items[pos], item):
+	      _list_cmp(list->items[pos], item));
+    if (cmp_res == 0) {
+      *index_ref= pos;
       return 0;
-    } else if (iCompareResult > 0) {
-      if (iPos > iOffset) {
-	iSize= iPos-iOffset;
-	iPos= iOffset+iSize/2;
-      } else
+    }
+    if (cmp_res > 0) {
+      if (pos <= offset)
 	break;
+      length= pos-offset;
+      pos= offset+length/2;
     } else {
-      if (iOffset+iSize-iPos > 0) {
-	iSize= iOffset+iSize-iPos-1;
-	iOffset= iPos+1;
-	iPos= iOffset+iSize/2;
-      } else
+      if (offset+length-pos <= 0)
 	break;
+      length= offset+length-pos-1;
+      offset= pos+1;
+      pos= offset+length/2;
     }
   }
-  *piIndex= iPos;
+  *index_ref= pos;
   return -1;
 }
 
 // -----[ _list_resized_if_required ]--------------------------------
-/**
- *
- */
-static void _list_resize(SList * pList)
+static inline void _list_resize_if_required(gds_list_t * list)
 {
-  if (pList->ppItems != NULL) {
-    if (pList->iSize == 0) {
-      free(pList->ppItems);
-      pList->ppItems = NULL;
+  if (list->items != NULL) {
+    if (list->size == 0) {
+      free(list->items);
+      list->items = NULL;
     } else {
-      pList->ppItems= realloc(pList->ppItems, sizeof(void *)*pList->iSize);
-      assert(pList->ppItems != NULL);
+      list->items= realloc(list->items, sizeof(void *)*list->size);
+      assert(list->items != NULL);
     }
   } else {
-    pList->ppItems= malloc(sizeof(void *)*pList->iSize);
-    assert(pList->ppItems != NULL);
+    if (list->size == 0)
+      return;
+    list->items= malloc(sizeof(void *)*list->size);
+    assert(list->items != NULL);
   }
 }
 
-// ----- list_insert_index ------------------------------------------
-/**
- *
- */
-int list_insert_index(SList * pList, int iIndex, void * pItem)
+// -----[ list_insert_at ]-------------------------------------------
+int list_insert_at(gds_list_t * list, unsigned int index, void * item)
 {
-  if ((iIndex < 0) || (iIndex > pList->uNbrElt))
+  if (index > list->length)
     return -1;
   
-  pList->uNbrElt++;
-  if (pList->uNbrElt >= pList->iSize) {
-    pList->iSize += pList->uStepResize;
-    _list_resize(pList);
+  list->length++;
+  if (list->length >= list->size) {
+    list->size+= list->resize_step;
+    _list_resize_if_required(list);
   }
   
-  if (iIndex < pList->uNbrElt - 1) {
-    memmove(&pList->ppItems[iIndex+1], &pList->ppItems[iIndex],
-	    sizeof(void *)*(pList->uNbrElt-iIndex-1));
-  }
-  
-  pList->ppItems[iIndex]= pItem;
-  return 0;
+  if (index < list->length-1)
+    memmove(&list->items[index+1], &list->items[index],
+	    sizeof(void *)*(list->length-index-1));
+  list->items[index]= item;
+  return index;
 }
 
-// ----- list_get_nbr_element ---------------------------------------
-/**
- *
- */
-int list_get_nbr_element(SList * pList)
+// -----[ list_length ]----------------------------------------------
+unsigned int list_length(gds_list_t * list)
 {
-  return pList->uNbrElt;
+  return list->length;
 }
 
-// ----- list_get_index ---------------------------------------------
-/*
- *
- */
-void * list_get_index(SList * pList, int iIndex)
+// -----[ list_get_at ]----------------------------------------------
+void * list_get_at(gds_list_t * list, unsigned int index)
 {
-  if (iIndex >= pList->uNbrElt)
+  if (index >= list->length)
     return NULL;
-  
-  return pList->ppItems[iIndex];
+  return list->items[index];
 }
 
-// ----- list_add ---------------------------------------------------
-/**
- * TODO: current code is very inefficient. list_find_index() and
- * list_insert_index() should be merged in order to perform a single
- * lookup !!!
- */
-int list_add(SList * pList, void * pItem)
+// -----[ list_add ]-------------------------------------------------
+int list_add(gds_list_t * list, void * item)
 {
-  int iIndex;
+  unsigned int index;
 
-  if (list_find_index(pList, pItem, &iIndex) < 0)
-    return list_insert_index(pList, iIndex, pItem);
-  return -1; // Item already exists
+  if (list_index_of(list, item, &index) == 0)
+    return -1;
+  return list_insert_at(list, index, item);
 }
 
-// ----- list_delete ------------------------------------------------
-/*
- *
- */
-int list_delete(SList * pList, int iIndex)
+// -----[ list_remove_at ]-------------------------------------------
+int list_remove_at(gds_list_t * list, unsigned int index)
 {
-  if (iIndex > pList->uNbrElt)
+  if (index >= list->length)
     return -1;
   
-  if (pList->fDestroy != NULL)
-    pList->fDestroy(&pList->ppItems[iIndex]);
+  if (list->ops.destroy != NULL)
+    list->ops.destroy(&list->items[index]);
   
+  if (list->length-(index+1) != 0)
+    memmove(&(list->items[index]), &(list->items[index+1]),
+	    sizeof(void *)*(list->length-(index+1)));
   
-  if (pList->uNbrElt - (iIndex+1) != 0) {
-    /*fprintf(stderr, "@%d: memcpy %p %p %p %d\n", iIndex,
-      pList->ppItems[iIndex], pList->ppItems[iIndex+1], pList->ppItems[iIndex+pList->uNbrElt-iIndex-1], pList->uNbrElt-iIndex-1);*/
-    memmove(&(pList->ppItems[iIndex]), &(pList->ppItems[iIndex+1]), sizeof(void *)*(pList->uNbrElt - (iIndex+1)));
-  }
-  
-  pList->uNbrElt--;
-  if (pList->uStepResize <= pList->iSize - pList->uNbrElt) {
-    pList->iSize -= pList->uStepResize;
-    _list_resize(pList);
+  list->length--;
+  if (list->resize_step <= list->size-list->length) {
+    list->size-= list->resize_step;
+    _list_resize_if_required(list);
   }
   return 0;
 }
 
-// ----- list_replace -----------------------------------------------
-/**
- *
- */
-int list_replace(SList * pList, int iIndex, void * pItem)
+// -----[ list_replace_at ]------------------------------------------
+int list_replace_at(gds_list_t * list, unsigned int index, void * item)
 {
-  if (iIndex >= pList->uNbrElt)
+  if (index >= list->length)
     return -1;
 
-  if (pList->fDestroy != NULL)
-    pList->fDestroy(&pList->ppItems[iIndex]);
-  pList->ppItems[iIndex]= pItem;
+  if (list->ops.destroy != NULL)
+    list->ops.destroy(&list->items[index]);
+  list->items[index]= item;
   return 0;
 }
 
-// ----- list_for_each ----------------------------------------------
-/**
- *
- */
-void list_for_each(SList * pList, FListForEach fForEach, void * pContext)
+// -----[ list_for_each ]--------------------------------------------
+int list_for_each(gds_list_t * list, gds_list_foreach_f foreach,
+		  void * ctx)
 {
-  int iIndex;
-
-  for (iIndex= 0; iIndex < pList->uNbrElt; iIndex++)
-    fForEach(pList->ppItems[iIndex], pContext);
+  unsigned int index;
+  int result;
+  for (index= 0; index < list->length; index++) {
+    result= foreach(list->items[index], ctx);
+    if (result != 0)
+      return result;
+  }
+  return 0;
 }
 
-// ----- list_copy --------------------------------------------------
-/**
- * We have to copy the empty elements
- */
-SList * list_copy(SList * pList, FListCopyItem fCopyItem)
+// -----[ list_dup ]-------------------------------------------------
+gds_list_t * list_dup(gds_list_t * list, gds_list_dup_f dup)
 {
-  int iIndex;
-
-  SList * pNewList= list_create(pList->fCompare, pList->fDestroy,
-				pList->uStepResize);
-  pNewList->iSize= pList->iSize;
-  pNewList->uNbrElt= pList->uNbrElt;
+  unsigned int index;
+  gds_list_t * new_list= list_create(list->ops.cmp,
+				     list->ops.destroy,
+				     list->resize_step);
+  new_list->size= list->size;
+  new_list->length= list->length;
 	
-  pNewList->ppItems= malloc(sizeof(void *)*pNewList->iSize);
-  assert(pNewList->ppItems != NULL);
-  if (fCopyItem == NULL) {
-    memcpy(pNewList->ppItems, pList->ppItems,
-	   sizeof(void *)*pNewList->uNbrElt);
+  new_list->items= malloc(sizeof(void *)*new_list->size);
+  assert(new_list->items != NULL);
+  if (dup == NULL) {
+    memcpy(new_list->items, list->items,
+	   sizeof(void *)*new_list->length);
   } else {
-    for (iIndex= 0; iIndex < pNewList->uNbrElt; iIndex++)
-      pNewList->ppItems[iIndex]= fCopyItem(pList->ppItems[iIndex]);
+    for (index= 0; index < new_list->length; index++)
+      new_list->items[index]= dup(list->items[index]);
   }
-  return pNewList;
+  return new_list;
 }
 
