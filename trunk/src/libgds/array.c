@@ -25,8 +25,8 @@
                        ((_array_t *) A)->size
 
 typedef struct {
-  FArrayCompare compare;
-  FArrayDestroy destroy;
+  gds_array_cmp_f     cmp;
+  gds_array_destroy_f destroy;
 } _array_ops_t;
 
 typedef struct {
@@ -61,8 +61,8 @@ GDS_EXP_DECL
 array_t * _array_create(unsigned int elt_size,
 			unsigned int size,
 			uint8_t options,
-			FArrayCompare compare,
-			FArrayDestroy destroy,
+			gds_array_cmp_f cmp,
+			gds_array_destroy_f destroy,
 			const void * destroy_ctx)
 {
   _array_t * real_array= (_array_t *) MALLOC(sizeof(_array_t));
@@ -73,19 +73,15 @@ array_t * _array_create(unsigned int elt_size,
   else
     real_array->data= NULL;
   real_array->options= options;
-  real_array->ops.compare= compare;
+  real_array->ops.cmp= cmp;
   real_array->ops.destroy= destroy;
   real_array->destroy_ctx= destroy_ctx;
   return (array_t *) real_array;
 }
 
 // ----- _array_set_fdestroy -----------------------------------------
-/**
- *
- *
- */
 GDS_EXP_DECL
-void _array_set_fdestroy(array_t * array, FArrayDestroy destroy,
+void _array_set_fdestroy(array_t * array, gds_array_destroy_f destroy,
 			 const void * destroy_ctx)
 {
   _array_t * real_array = (_array_t *)array;
@@ -174,11 +170,11 @@ void _array_set_length(array_t * array, unsigned int new_length)
  *    -1 in case of failure (index >= length)
  */
 GDS_EXP_DECL
-int _array_set_at(array_t * array, unsigned int index, void * data)
+int _array_set_at(array_t * array, unsigned int index, void * data_ref)
 {
   if (index >= ((_array_t *) array)->size)
     return -1;
-  memcpy(_array_elt_pos(array, index), data,
+  memcpy(_array_elt_pos(array, index), data_ref,
   	 ((_array_t *) array)->elt_size);
   return index;
 }
@@ -192,12 +188,12 @@ int _array_set_at(array_t * array, unsigned int index, void * data)
  *   -1 in case of failure (index >= length)
  */
 GDS_EXP_DECL
-int _array_get_at(array_t * array, unsigned int index, void * data)
+int _array_get_at(array_t * array, unsigned int index, void * data_ref)
 {
   if (index >= ((_array_t *) array)->size)
     return -1;
 
-  memcpy(data, _array_elt_pos(array, index),
+  memcpy(data_ref, _array_elt_pos(array, index),
 	 ((_array_t *) array)->elt_size);
   return 0;
 }
@@ -223,9 +219,9 @@ int _array_sorted_find_index(array_t * array, void * data,
 
   while (size > 0) {
     iCompareResult=
-      (((_array_t *) array)->ops.compare(_array_elt_pos(array, pos),
-					 data,
-					 ((_array_t *) array)->elt_size));
+      (((_array_t *) array)->ops.cmp(_array_elt_pos(array, pos),
+				     data,
+				     ((_array_t *) array)->elt_size));
     if (!iCompareResult) {
       *index= pos;
       return 0;
@@ -288,21 +284,21 @@ int _array_insert_at(array_t * array, unsigned int index, void * data)
  *          if (sorted && ARRAY_OPTION_UNIQUE && value exists)
  */
 GDS_EXP_DECL
-int _array_add(array_t * array, void * data)
+int _array_add(array_t * array, void * data_ref)
 {
   unsigned int index;
 
   if (((_array_t *) array)->options & ARRAY_OPTION_SORTED) {
-    if (_array_sorted_find_index(array, data, &index) < 0) {
-      return _array_insert_at(array, index, data);
+    if (_array_sorted_find_index(array, data_ref, &index) < 0) {
+      return _array_insert_at(array, index, data_ref);
     } else {
       if (((_array_t *) array)->options & ARRAY_OPTION_UNIQUE)
 	return -1;
       else
-	return _array_set_at(array, index, data);
+	return _array_set_at(array, index, data_ref);
     }
   } else
-    return _array_append(array, data);
+    return _array_append(array, data_ref);
 }
 
 // ----- array_append -----------------------------------------------
@@ -336,7 +332,7 @@ int _array_append(array_t * array, void * data)
  *   !=0 in case of failure
  */
 GDS_EXP_DECL
-int _array_for_each(array_t * array, FArrayForEach foreach,
+int _array_for_each(array_t * array, gds_array_foreach_f foreach,
 		    const void * ctx)
 {
   unsigned int index;
@@ -363,7 +359,7 @@ array_t * _array_copy(array_t * array)
   array_t * new_array= _array_create(((_array_t *) array)->elt_size,
 				     ((_array_t *) array)->size,
 				     ((_array_t *) array)->options,
-				     ((_array_t *) array)->ops.compare,
+				     ((_array_t *) array)->ops.cmp,
 				     ((_array_t *) array)->ops.destroy,
 				     ((_array_t *) array)->destroy_ctx);
   // TBR _array_set_length(new_array, ((_array_t *)array)->size);
@@ -385,24 +381,22 @@ int _array_remove_at(array_t * array, unsigned int index)
   _array_t * real_array= (_array_t *) array;
   unsigned int offset;
 
-  if (index < real_array->size) {
-
-    // Free item at given position if required
-    if (real_array->ops.destroy != NULL)
-      real_array->ops.destroy(_array_elt_pos(real_array, index),
-			      real_array->destroy_ctx);
-
-    // Since (index >= 0), then (real_array->size >= 1) and then
-    // there is no problem with the unsigned variable uOffset.
-    for (offset= index; offset < real_array->size-1; offset++) {
-      memcpy(_array_elt_pos(array, offset),
-	     _array_elt_pos(array, offset+1),
-	     real_array->elt_size);
-    }
-    _array_resize_if_required(array, real_array->size-1);
-  } else {
+  if (index >= real_array->size)
     return -1;
+
+  // Free item at given position if required
+  if (real_array->ops.destroy != NULL)
+    real_array->ops.destroy(_array_elt_pos(real_array, index),
+			    real_array->destroy_ctx);
+  
+  // Since (index >= 0), then (real_array->size >= 1) and then
+  // there is no problem with the unsigned variable uOffset.
+  for (offset= index; offset < real_array->size-1; offset++) {
+    memcpy(_array_elt_pos(array, offset),
+	   _array_elt_pos(array, offset+1),
+	   real_array->elt_size);
   }
+  _array_resize_if_required(array, real_array->size-1);
   return 0;
 }
 
@@ -422,7 +416,7 @@ array_t * _array_sub(array_t * array, unsigned int first, unsigned int last)
     _array_create(((_array_t *) array)->elt_size,
 		  last-first+1,
 		  ((_array_t *) array)->options,
-		  ((_array_t *) array)->ops.compare,
+		  ((_array_t *) array)->ops.cmp,
 		  ((_array_t *) array)->ops.destroy,
 		  ((_array_t *) array)->destroy_ctx);
   // TBR sub_array->size= last-first+1;
@@ -474,16 +468,16 @@ void _array_trim(array_t * array, unsigned max_length)
  * Simple selection-sort.
  */
 GDS_EXP_DECL
-int _array_sort(array_t * array, FArrayCompare fCompare)
+int _array_sort(array_t * array, gds_array_cmp_f cmp)
 {
   unsigned int index, index2;
   void * pTemp= MALLOC(((_array_t *) array)->elt_size);
 
   for (index= 0; index < _array_length(array); index++)
     for (index2= index; index2 > 0; index2--)
-      if (fCompare(_array_elt_pos(array, index2-1),
-		   _array_elt_pos(array, index2),
-		   ((_array_t *) array)->elt_size) > 0) {
+      if (cmp(_array_elt_pos(array, index2-1),
+	      _array_elt_pos(array, index2),
+	      ((_array_t *) array)->elt_size) > 0) {
 	_array_elt_copy_from(array, pTemp, index2);
 	_array_elt_copy(array, index2, index2-1);
 	_array_elt_copy_to(array, index2-1, pTemp);
@@ -491,7 +485,7 @@ int _array_sort(array_t * array, FArrayCompare fCompare)
 
   FREE(pTemp);
   ((_array_t*) array)->options|= ARRAY_OPTION_SORTED;
-  ((_array_t*) array)->ops.compare= fCompare;
+  ((_array_t*) array)->ops.cmp= cmp;
   return 0;
 }
 
@@ -506,7 +500,7 @@ int _array_sort(array_t * array, FArrayCompare fCompare)
  *     the largest subfiles first on the stack
  */
 GDS_EXP_DECL
-int _array_quicksort(array_t * array, FArrayCompare fCompare)
+int _array_quicksort(array_t * array, gds_array_cmp_f cmp)
 {
   // NOT YET IMPLEMENTED
   return -1;

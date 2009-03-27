@@ -6,6 +6,43 @@
 // $Id$
 // ==================================================================
 
+/**
+ * \file
+ * Provide data structures and functions to manage generic dynamic
+ * arrays. These arrays are dynamic as their memory footprint will be
+ * adjusted automatically to fit their needs (at the expense of some
+ * additional CPU time). They are generic in the sense that they
+ * don't care what data types they are working with. All you need to
+ * do is to specify the size of a single cell. You can optionally
+ * specify how cells are compared (for sorted arrays), how cells are
+ * freed and how cells are copied.
+ *
+ * Specific data structures are provided to work with simple scalar
+ * data types such as int's, unsigned int's, char's, and so on. It is
+ * easy to build arrays for custom data types by using the array
+ * template macro GDS_ARRAY_TEMPLATE.
+ *
+ * The following example shows how to define an array of doubles by
+ * using the array templates (note that this array type is already
+ * defined in \c libgds/array.h). This will define a new type
+ * \c double_array_t and the corresponding functions which will all
+ * be prefixed by \c double_array_.
+ *
+ * \code
+ * GDS_ARRAY_TEMPLATE(double_array, double, 0, _array_compare, NULL, NULL)
+ * \endcode
+ *
+ * The \c double_array_t type is then used as follows:
+ *
+ * \code
+ * unsigned int index;
+ * double_array_t * array= double_array_create(100);
+ * for (index= 0; index < double_array_size(array); index++)
+ *   array->data[index]= ((double) 0.1) * index;
+ * double_array_destroy(&array);
+ * \endcode
+ */
+
 #ifndef __GDS_ARRAY_H__
 #define __GDS_ARRAY_H__
 
@@ -14,23 +51,29 @@
 #include <libgds/enumerator.h>
 #include <libgds/types.h>
 
-#define ARRAY_OPTION_SORTED  0x01
-#define ARRAY_OPTION_UNIQUE  0x02
+/** Option: array will be sorted. */
+#define ARRAY_OPTION_SORTED 0x01
 
-// ----- FArrayCompare ----------------------------------------------
-/**
- * Warning: FArrayCompare is being passed pointers to the items to be
- * compared.
- */
-typedef int (*FArrayCompare)(const void * item1,
-			     const void * item2,
-			     unsigned int elt_size);
-// ----- FArrayDestroy ----------------------------------------------
-typedef void (*FArrayDestroy) (void * item, const void * ctx);
-// ----- FArrayForEach ----------------------------------------------
-typedef int (*FArrayForEach) (const void * item, const void * ctx);
-// ----- FArrayCopyItem ---------------------------------------------
-typedef void * (*FArrayCopyItem) (const void * item);
+/** Option: array will reject duplicate values. */
+#define ARRAY_OPTION_UNIQUE 0x02
+
+// -----[ gds_array_cmp_f ]------------------------------------------
+/** Comparison callback function. */
+typedef int (*gds_array_cmp_f)(const void * item1,
+			       const void * item2,
+			       unsigned int item_size);
+
+// -----[ gds_array_destroy_f ]--------------------------------------
+/** Cell de-allocation callback function. */
+typedef void (*gds_array_destroy_f)(void * item, const void * ctx);
+
+// -----[ gds_array_foreach_f ]--------------------------------------
+/** Array traversal callback function. */
+typedef int (*gds_array_foreach_f)(const void * item, const void * ctx);
+
+// -----[ gds_array_clone_f ]----------------------------------------
+/** Cell value copy callback function. */
+typedef void * (*gds_array_clone_f)(const void * item);
 
 typedef struct array_t {
   char * data;
@@ -41,58 +84,184 @@ extern "C" {
 #endif
 
   // ----- _array_create --------------------------------------------
+  /**
+   * Create a dynamic array.
+   *
+   * \param elt_size    is the size of a single cell.
+   * \param size        is the array size.
+   * \param options     is a set of array options.
+   * \param cmp         is the cell comparison callback function.
+   * \param destroy     is the cell de-allocation callback function.
+   * \param destroy_ctx is a context pointer for the \a destroy
+   *   function.
+   * \retval the newly created array.
+   */
   GDS_EXP_DECL array_t * _array_create(unsigned int elt_size,
 				       unsigned int size,
 				       uint8_t options,
-				       FArrayCompare compare,
-				       FArrayDestroy destroy,
+				       gds_array_cmp_f cmp,
+				       gds_array_destroy_f destroy,
 				       const void * destroy_ctx);
+
+  // ----- _array_destroy -------------------------------------------
+  /**
+   * Destroy a dynamic array.
+   *
+   * \param array_ref is a pointer to the array to be destroyed.
+   */
+  GDS_EXP_DECL void _array_destroy(array_t ** array_ref);
+
   // ----- _array_set_fdestroy --------------------------------------
   GDS_EXP_DECL void _array_set_fdestroy(array_t * array,
-					FArrayDestroy destroy,
+					gds_array_destroy_f destroy,
 					const void * destroy_ctx);
-  // ----- _array_destroy -------------------------------------------
-  GDS_EXP_DECL void _array_destroy(array_t ** array_ref);
+
   // ----- _array_length --------------------------------------------
+  /**
+   * Get the length of an array.
+   *
+   * \param array is the array.
+   * \retval the length of the array (number of cells).
+   */
   GDS_EXP_DECL unsigned int _array_length(array_t * array);
+
   // ----- _array_set_length ----------------------------------------
   GDS_EXP_DECL void _array_set_length(array_t * array,
 				      unsigned int size);
+
   // ----- _array_set_at --------------------------------------------
+  /**
+   * Set the value of a cell in an array.
+   *
+   * \param array    is the array.
+   * \param index    is the cell index.
+   * \param data_ref is a pointer to the value to be stored.
+   * \retval the insertion index in case of success,
+   *   or <0 in case of failure (index >= length).
+   *
+   * \attention
+   * This function should not be used with sorted arrays as it
+   * changes the array cell directly. Use \c _array_add with sorted
+   * arrays.
+   */
   GDS_EXP_DECL int _array_set_at(array_t * array, unsigned int index,
-				 void * data);
-  // ----- _array_get_at --------------------------------------------
+				 void * data_ref);
+
+  // -----[ _array_get_at ]--------------------------------------------
+  /**
+   * Get the value of a cell in an array.
+   *
+   * \param array    is the array.
+   * \param index    is the cell index.
+   * \param data_ref is a pointer to the value to be retrieved.
+   * \retval 0 in case of success,
+   *   or <0 in case of failure (index >= length).
+   */
   GDS_EXP_DECL int _array_get_at(array_t * array, unsigned int index,
-				 void * data);
-  // ----- _array_sorted_find_index ---------------------------------
-  GDS_EXP_DECL int _array_sorted_find_index(array_t * array, void * data,
+				 void * data_ref);
+
+  // -----[ _array_sorted_find_index ]-------------------------------
+  /**
+   * Find the index of a value in an array.
+   *
+   * \param array is the array.
+   * \param data_ref is a pointer to the searched value.
+   * \param index    is a pointer to the searched index.
+   * \retval 0 in case of success (value found),
+   *   or <0 in case of failure (value not found).
+   *
+   * Note that if the value is not found, the function still
+   * copies in \a index the location where the value would be
+   * stored in the array (according to the \p cmp function).
+   */
+  GDS_EXP_DECL int _array_sorted_find_index(array_t * array,
+					    void * data_ref,
 					    unsigned int * index);
-  // ----- _array_add -----------------------------------------------
-  GDS_EXP_DECL int _array_add(array_t * array, void * data);
+
+  // -----[ _array_add ]---------------------------------------------
+  /**
+   * Add a value to an array.
+   *
+   * This function behaves differently if the array is sorted or not.
+   *
+   * \li If the array is sorted (see ARRAY_OPTION_SORTED), the
+   * function will find the correct insertion index (with the \p cmp
+   * function) and add the new value at that location. If the
+   * ARRAY_OPTION_UNIQUE option is set, and if a similar value exists
+   * (according th the \p cmp function), an error will be returned.
+   *
+   * \li If the array is not sorted, the value is appended at the end
+   * of the array (the array size is expanded if needed).
+   *
+   * \param array    is the array.
+   * \param data_ref is the data to be inserted.
+   * \retval the insertion index in case of success,
+   *   or <0 in case of error (duplicate value).
+   */
+  GDS_EXP_DECL int _array_add(array_t * array, void * data_ref);
+
   // ----- _array_append --------------------------------------------
-  GDS_EXP_DECL int _array_append(array_t * array, void * data);
+  /**
+   * Add a value to an array.
+   *
+   * Add a value at the end of an array. The array will be expanded
+   * if needed.
+   *
+   * \param array is the array.
+   * \param data_ref is a pointer to the new value.
+   * \retval the insertion index.
+   */
+  GDS_EXP_DECL int _array_append(array_t * array, void * data_ref);
+
   // ----- _array_insert_at -----------------------------------------
+  /**
+   * Insert a value in an array.
+   *
+   * \param array is the array.
+   * \param index is the insertion index.
+   * \param data_ref is a pointer to the value to be inserted.
+   * \retval the insertion index in case of success,
+   *   or <0 in case of failure (index > size).
+   */
   GDS_EXP_DECL int _array_insert_at(array_t * array, unsigned int index,
 				    void * data);
+
+  // ----- _array_remove_at -----------------------------------------
+  /**
+   * Remove a value from an array.
+   *
+   * \param array is the array.
+   * \param index is the removal index.
+   * \retval 0 in case of success,
+   *   or <0 in case of failure (index >= size).
+   */
+  GDS_EXP_DECL int _array_remove_at(array_t * array, unsigned int index);
+
   // ----- _array_for_each ------------------------------------------
-  GDS_EXP_DECL int _array_for_each(array_t * array, FArrayForEach foreach,
+  GDS_EXP_DECL int _array_for_each(array_t * array,
+				   gds_array_foreach_f foreach,
 				   const void * ctx);
+
   // ----- _array_copy ----------------------------------------------
   GDS_EXP_DECL array_t * _array_copy(array_t * array);
-  // ----- _array_remove_at -----------------------------------------
-  GDS_EXP_DECL int _array_remove_at(array_t * array, unsigned int index);
+
   // ----- _array_compare -------------------------------------------
   GDS_EXP_DECL int _array_compare(const void * item1, const void * item2,
 				  unsigned int elt_size);
+
   // ----- _array_sub -----------------------------------------------
   GDS_EXP_DECL array_t * _array_sub(array_t * array, unsigned int first,
 				    unsigned int last);
+
   // ----- _array_add_array -----------------------------------------
   GDS_EXP_DECL void _array_add_array(array_t * array, array_t * src_array);
+
   // ----- _array_trim ----------------------------------------------
   GDS_EXP_DECL void _array_trim(array_t * array, unsigned max_length);
+
   // ----- _array_sort ----------------------------------------------
-  GDS_EXP_DECL int _array_sort(array_t * array, FArrayCompare fCompare);
+  GDS_EXP_DECL int _array_sort(array_t * array, gds_array_cmp_f cmp);
+
   // ----- _array_get_enum ------------------------------------------
   GDS_EXP_DECL gds_enum_t * _array_get_enum(array_t * array);
   
@@ -157,9 +326,9 @@ extern "C" {
     return _array_sorted_find_index((array_t *) array, &data, index);	\
   }									\
   static inline int N##_for_each(N##_t * array,				\
-				 FArrayForEach fForEach,		\
-				 void * pContext) {			\
-    return _array_for_each((array_t *) array, fForEach, pContext);	\
+				 gds_array_foreach_f foreach,		\
+				 void * ctx) {				\
+    return _array_for_each((array_t *) array, foreach, ctx);		\
   }									\
   static inline gds_enum_t * N##_get_enum(N##_t * array) {		\
     return _array_get_enum((array_t *) array);				\
@@ -173,8 +342,8 @@ extern "C" {
     return _array_insert_at((array_t *) array, index, data);		\
   }									\
   static inline int N##_sort(N##_t * array,				\
-			     FArrayCompare fCompare) {			\
-    return _array_sort((array_t *) array, fCompare);			\
+			     gds_array_cmp_f cmp) {			\
+    return _array_sort((array_t *) array, cmp);			\
   }									\
   static inline N##_t * N##_sub(N##_t * array,				\
 				unsigned int first,			\
@@ -188,14 +357,13 @@ extern "C" {
     _array_add_array((array_t *) array, (array_t *) add_array);		\
   }
 
-#define GDS_ARRAY_TEMPLATE(N,T,OPT,FC,FD,FDC)				\
-  GDS_ARRAY_TEMPLATE_TYPE(N,T);						\
-  GDS_ARRAY_TEMPLATE_OPS(N,T,OPT,FC,FD,FDC);
+#define GDS_ARRAY_TEMPLATE(NAME,TYPE,OPT,FC,FD,FDC)			\
+  GDS_ARRAY_TEMPLATE_TYPE(NAME,TYPE);					\
+  GDS_ARRAY_TEMPLATE_OPS(NAME,TYPE,OPT,FC,FD,FDC);
 
 typedef struct ptr_array_t {
   void ** data;
 } ptr_array_t;
-typedef ptr_array_t SPtrArray;
 
 #define ptr_array_create_ref(O)				\
   (ptr_array_t *) _array_create(sizeof(void *), 0, O,	\
