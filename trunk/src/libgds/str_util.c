@@ -19,29 +19,33 @@
 /**
  * Replacement for strsep() in case it is not system-provided. We
  * should check that strcspn() is available.
+ *
+ * Notes:
+ *   strsep() is not standard (first appeared in 4.4BSD)
+ *   strcspn() is ISO C90.
  */
 #ifndef HAVE_STRSEP
-char * strsep(char ** ppcStr, const char * pcDelim)
+char * strsep(char ** str, const char * delim)
 {
-  char *pcSave = *ppcStr;
-  if(*ppcStr == NULL)
+  char *save = *str;
+  if(*str == NULL)
     return NULL;
-  *ppcStr = *ppcStr + strcspn(*ppcStr, pcDelim);
-  if(**ppcStr == 0)
-    *ppcStr = NULL;
+  *str = *str + strcspn(*str, delim);
+  if(**str == 0)
+    *str = NULL;
   else{
-    **ppcStr = 0;
-    (*ppcStr)++;
+    **str = 0;
+    (*str)++;
   }
-  return pcSave;
+  return save;
 }
-#endif
+#endif /* HAVE_STRSEP */
 
-// ----- str_lcreate ------------------------------------------------
+// -----[ str_lcreate ]----------------------------------------------
 /**
  * Create a string of the given size (+ NUL-termination).
  *
- * Pre: tLen >= 0
+ * Pre: len >= 0
  *
  * Post: (result != NULL) && (result NUL-terminated)
  */
@@ -52,12 +56,12 @@ char * str_lcreate(size_t len)
   return new_s;
 }
 
-// ----- str_create -------------------------------------------------
+// -----[ str_create ]-----------------------------------------------
 /**
  * Create a copy of the given string. If the source string is NULL,
  * the resulting string will be an empty, NUL-terminated string.
  *
- * Pre: (pcString == NULL) || (pcString NUL-terminated)
+ * Pre: (s == NULL) || (s NUL-terminated)
  * 
  * Post: (result != NULL) && (result NUL-terminated)
  */
@@ -73,12 +77,12 @@ char * str_create(const char * s)
   return new_s;
 }
 
-// ----- str_ncreate ------------------------------------------------
+// -----[ str_ncreate ]----------------------------------------------
 /**
  * Create a copy of the given string with at most the given number of
  * characters (resulting string buffer will be of size len+1).
  *
- * Pre: (tLen >= 0) && ((pcString == NULL) || (pcString NUL-terminated))
+ * Pre: (len >= 0) && ((s == NULL) || (s NUL-terminated))
  *
  * Post:(result != NULL) && (result NUL-terminated)
  */
@@ -98,32 +102,31 @@ char * str_ncreate(const char * s, size_t len)
   return new_s;
 }
 
-// ----- str_lextend ------------------------------------------------
+// -----[ str_lextend ]------------------------------------------------
 /**
  *
  */
-char * str_lextend(char ** s, size_t new_len)
+char * str_lextend(char * s, size_t new_len)
 {
-  *s= (char *) REALLOC(*s, sizeof(char)*(new_len+1));
-  return *s;
+  return (char *) REALLOC(s, sizeof(char)*(new_len+1));
 }
 
-// ----- str_destroy ------------------------------------------------
+// -----[ str_destroy ]----------------------------------------------
 /**
  * Free the given string.
  *
  * Post:
  *   *s == NULL
  */
-void str_destroy(char ** s)
+void str_destroy(char ** s_ref)
 {
-  if (*s != NULL) {
-    FREE(*s);
-    *s= NULL;
+  if (*s_ref != NULL) {
+    FREE(*s_ref);
+    *s_ref= NULL;
   }
 }
 
-// ----- str_append -------------------------------------------------
+// -----[ str_append ]-----------------------------------------------
 /**
  * Append a string to another.
  *
@@ -134,52 +137,54 @@ void str_destroy(char ** s)
  * Post:
  *   (result != NULL) && (result is NUL-terminated)
  */
-char * str_append(char ** s, const char * append)
+char * str_append(char * s, const char * append)
 {
   size_t len_append= 0;
   size_t len;
+  char * new_s= s;
 
   if (append != NULL)
     len_append= strlen(append);
 
   if (len_append > 0) {
-    if (*s != NULL) {
-      len= strlen(*s);
-      *s= str_lextend(s, len+len_append);
-      strcpy((*s)+len, append);
+    if (s != NULL) {
+      len= strlen(s);
+      new_s= str_lextend(s, len+len_append);
+      strcpy((new_s)+len, append);
     } else {
-      *s= str_create(append);
+      new_s= str_create(append);
     }
   }
-  return *s;
+  return new_s;
 }
 
-// ----- str_nappend ------------------------------------------------
+// -----[ str_nappend ]----------------------------------------------
 /**
  * Append a string to another, result is limited in size.
  *
  * Pre:
- *   (*s == NULL) || (*s is NUL-terminated)
+ *   (s == NULL) || (s is NUL-terminated)
  *   (append == NULL) || (append is NUL-terminated)
  *
  * Post:
  *   (result != NULL)
  */
-char * str_nappend(char ** s, const char * append,
-		   size_t len)
+char * str_nappend(char * s, const char * append, size_t len)
 {
-  if ((*s == NULL) || (len == 0))
+  char * new_s;
+
+  if ((s == NULL) || (len == 0))
     return str_ncreate(append, len);
 
-  *s= str_lextend(s, strlen(*s)+len);
+  new_s= str_lextend(s, strlen(s)+len);
   // The following line is not the most efficient since it
   // has to recompute the length of *s before appending !!!
-  strncat(*s, append, len);
-  (*s)[strlen(*s)+len]= '\0';
-  return *s;
+  strncat(s, append, len);
+  new_s[strlen(new_s)+len]= '\0';
+  return new_s;
 }
 
-// ----- str_prepend ------------------------------------------------
+// -----[ str_prepend ]----------------------------------------------
 /**
  * Prepend a string with another.
  *
@@ -189,27 +194,26 @@ char * str_nappend(char ** s, const char * append,
  *
  * Post: (return != NULL) && (return NUL-terminated)
  */
-char * str_prepend(char ** ppcString, const char * pcToPrepend)
+char * str_prepend(char * s, const char * prepend)
 {
-  size_t tLenToPrepend= 0;
-  size_t tLen;
-  char * pcNewString;
+  size_t len_prepend= 0;
+  size_t len;
+  char * new_s= s;
 
-  if (pcToPrepend != NULL)
-    tLenToPrepend= strlen(pcToPrepend);
+  if (prepend != NULL)
+    len_prepend= strlen(prepend);
 
-  if (tLenToPrepend > 0) {
-    tLen= strlen(*ppcString);
-    pcNewString= str_ncreate(pcToPrepend, tLen+tLenToPrepend);
+  if (len_prepend > 0) {
+    len= strlen(s);
+    new_s= str_ncreate(prepend, len+len_prepend);
     // The following line is not the most efficient since I guess it
     // has to recompute the length of *ppcString before appending !!!
-    strcat(pcNewString, *ppcString);
-    *ppcString= pcNewString;
+    strcat(new_s, s);
   }
-  return *ppcString;
+  return new_s;
 }
 
-// ----- str_translate ----------------------------------------------
+// -----[ str_translate ]--------------------------------------------
 /**
  * Translate the characters in the string.
  *
@@ -217,59 +221,66 @@ char * str_prepend(char ** ppcString, const char * pcToPrepend)
  *   - all input strings are valid and NUL-terminated
  *   - the length of both characters sets are equal
  */
-void str_translate(char * pcString, const char * pcSrcChars,
-		   const char * pcDstChars)
+void str_translate(char * s, const char * src_chars,
+		   const char * dst_chars)
 {
-  char * pcCharPos;
-  char * pcStrPos= pcString;
+  char * c_pos;
+  char * s_pos= s;
 
-  while (*pcStrPos != 0) {
-    pcCharPos= strchr(pcSrcChars, *pcStrPos);
-    if (pcCharPos != NULL) {
-      pcCharPos+= pcDstChars-pcSrcChars;
-      *pcStrPos= *pcCharPos;
+  while (*s_pos != 0) {
+    c_pos= strchr(src_chars, *s_pos);
+    if (c_pos != NULL) {
+      c_pos+= dst_chars-src_chars;
+      *s_pos= *c_pos;
     }
-    pcStrPos++;
+    s_pos++;
   }
 }
 
-// ----- str_as_long ------------------------------------------------
+// -----[ str_as_long ]----------------------------------------------
 /**
  * Convert a string to a long (LONG_MIN <= X <= LONG_MAX).
  */
-int str_as_long(const char * pcString, long int * plValue)
+int str_as_long(const char * s, long int * value)
 {
-  long int lValue;
-  char * pcEndPtr;
+  long int long_value;
+  char * endptr;
 
-  if (plValue == NULL)
+  if (value == NULL)
     return -1;
-  lValue= strtol(pcString, &pcEndPtr, 0);
+  errno= 0;
+  long_value= strtol(s, &endptr, 0);
+  // If no conversion could be performed, 0 is returned and errno <- EINVAL
+  if (errno == EINVAL)
+    return -1;
+  // If under/over-flow occurs, errno <- ERANGE
   if (errno == ERANGE)
     return -1;
-  *plValue= lValue;
-  return (*pcEndPtr == 0)?0:-1;
+  *value= long_value;
+  // We do full string conversions. There is an error if the char
+  // pointed by endptr is not '\0'
+  return (*endptr == 0)?0:-1;
 }
 
-// ----- str_as_int -------------------------------------------------
+// -----[ str_as_int ]-----------------------------------------------
 /**
  * Convert a string to an integer (INT_MIN <= X <= INT_MAX).
  */
-int str_as_int(const char * pcString, int * piValue)
+int str_as_int(const char * s, int * value)
 {
-  long int lValue;
+  long int l_value;
 
-  if (piValue == NULL)
+  if (value == NULL)
     return -1;
-  if (str_as_long(pcString, &lValue) != 0)
+  if (str_as_long(s, &l_value) != 0)
     return -1;
-  if ((lValue < INT_MIN) || (lValue > INT_MAX))
+  if ((l_value < INT_MIN) || (l_value > INT_MAX))
     return -1;
-  *piValue= lValue;
+  *value= l_value;
   return 0;
 }
 
-// ----- str_as_ulong -----------------------------------------------
+// -----[ str_as_ulong ]---------------------------------------------
 /**
  * Convert a string to an unsigned long (0 <= X <= ULONG_MAX).
  * 
@@ -279,55 +290,67 @@ int str_as_int(const char * pcString, int * piValue)
  * 'strtoul()' since it will convert a negative number to a positive
  * number.
  */
-int str_as_ulong(const char * pcString, unsigned long int * pulValue)
+int str_as_ulong(const char * s, unsigned long int * value)
 {
-  long long int llValue;
-  char * pcEndPtr;
+  long long int ll_value;
+  char * endptr;
 
-  if (pulValue == NULL)
+  if (value == NULL)
     return -1;
-  llValue= strtoll(pcString, &pcEndPtr, 0);
-  /* Check for errors and bounds (0 <= x <= ULONG_MAX) */
-  if ((errno == ERANGE) || (llValue < 0) || (llValue > ULONG_MAX))
+  errno= 0;
+  ll_value= strtoll(s, &endptr, 0);
+  // If no conversion could be performed, 0 is returned and errno <- EINVAL
+  if (errno == EINVAL)
     return -1;
-  *pulValue= (unsigned long int) llValue;
-  return (*pcEndPtr == 0)?0:-1;
+  // If under/over-flow occurs, errno <- ERANGE
+  if (errno == ERANGE)
+    return -1;
+  // Check for bounds (0 <= x <= ULONG_MAX)
+  if ((ll_value < 0) || (ll_value > ULONG_MAX))
+    return -1;
+  *value= (unsigned long int) ll_value;
+  // We do full string conversions. There is an error if the char
+  // pointed by endptr is not '\0'
+  return (*endptr == 0)?0:-1;
 }
 
-// ----- str_as_uint ------------------------------------------------
+// -----[ str_as_uint ]----------------------------------------------
 /**
  * Convert a string to an unsigned int (0 < X <= UINT_MAX).
  */
-int str_as_uint(const char * pcString, unsigned int * puValue)
+int str_as_uint(const char * s, unsigned int * value)
 {
-  unsigned long int ulValue;
+  unsigned long int l_value;
 
-  if (puValue == NULL)
+  if (value == NULL)
     return -1;
-  if (str_as_ulong(pcString, &ulValue) != 0)
+  if (str_as_ulong(s, &l_value) != 0)
     return -1;
-  if (ulValue > UINT_MAX)
+  if (l_value > UINT_MAX)
     return -1;
-  *puValue= ulValue;
+  *value= l_value;
   return 0;
 }
 
-// ----- str_as_double ----------------------------------------------
+// -----[ str_as_double ]--------------------------------------------
 /**
  *
  */
-int str_as_double(const char * pcString, double * pdValue)
+int str_as_double(const char * s, double * value)
 {
-  double dValue;
-  char * pcEndPtr;
+  double d_value;
+  char * endptr;
 
-  if (pdValue == NULL)
+  if (value == NULL)
     return -1;
-  dValue= strtod(pcString, &pcEndPtr);
+  errno= 0;
+  d_value= strtod(s, &endptr);
   if (errno == ERANGE)
     return -1;
-  *pdValue= dValue;
-  return (*pcEndPtr == 0)?0:-1;
+  *value= d_value;
+  // We do full string conversions. There is an error if the char
+  // pointed by endptr is not '\0'
+  return (*endptr == 0)?0:-1;
 }
 
 
@@ -374,7 +397,7 @@ void str_buf_write_char(str_buf_t * buf, char c)
     buf->data= str_lcreate(buf->size);
   } else if (buf->index >= buf->size) {
     buf->size+= buf->min_size;
-    str_lextend(&buf->data, buf->size);
+    buf->data= str_lextend(buf->data, buf->size);
   }
 
   // Store character
@@ -392,7 +415,7 @@ void str_buf_write_string(str_buf_t * buf, const char * str)
     buf->data= str_lcreate(buf->size);
   } else if (buf->index+len >= buf->size) {
     buf->size+= buf->min_size * ((len / buf->min_size)+1);
-    str_lextend(&buf->data, buf->size);
+    buf->data= str_lextend(buf->data, buf->size);
   }
 
   // Store character
