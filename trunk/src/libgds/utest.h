@@ -13,7 +13,7 @@
  * Provide a simple, lightweight unit testing framework.
  *
  * A typical unit test is a simple function that conforms to the
- * unit_test_func signature. For example:
+ * \c unit_test_func signature. For example:
  * \code
  * static int unit_test() {
  *   UTEST_ASSERT(value == 5, "value should be 5");
@@ -38,7 +38,7 @@
  * \code
  * utest_init(0);
  * utest_set_fork();
- * utest_set_user("foo");
+ * utest_set_user(getenv("USER"));
  * utest_set_project("", "0.9a");
  * utest_run_suite("Suite #1", NUM_TESTS, TEST_SUITE, NULL, NULL);
  * utest_done();
