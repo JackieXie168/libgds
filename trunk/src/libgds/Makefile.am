@@ -13,7 +13,10 @@ libgdsinclude_HEADERS = \
 	cli.h \
 	cli_commands.h \
 	cli_ctx.h \
+	cli_fsm.h \
 	cli_params.h \
+	cli_types.h \
+	debug.h \
 	dllist.h \
 	enumerator.h \
 	fifo.h \
@@ -23,7 +26,6 @@ libgdsinclude_HEADERS = \
 	libgds-config.h \
 	list.h \
 	params.h \
-	patricia-tree.h \
 	memory.h \
 	radix-tree.h \
 	rand.h \
@@ -35,6 +37,7 @@ libgdsinclude_HEADERS = \
 	stream_cmd.h \
 	tokenizer.h \
 	tokens.h \
+	trie.h \
 	types.h \
 	utest.h \
 	xml.h 
@@ -51,11 +54,16 @@ libgds_la_SOURCES =\
 	bloom_filter.c \
 	cli.c \
 	cli.h \
+	cli_commands.c \
 	cli_commands.h \
 	cli_ctx.c \
 	cli_ctx.h \
+	cli_fsm.c \
+	cli_fsm.h \
 	cli_params.c \
 	cli_params.h \
+	cli_types.h \
+	debug.h \
 	dllist.c \
 	enumerator.c \
 	enumerator.h \
@@ -72,8 +80,6 @@ libgds_la_SOURCES =\
 	memory_debug.h \
 	params.c \
 	params.h \
-	patricia-tree.c \
-	patricia-tree.h \
 	radix-tree.c \
 	radix-tree.h \
 	rand.c \
@@ -89,6 +95,8 @@ libgds_la_SOURCES =\
 	tokenizer.h \
 	tokens.c \
 	tokens.h \
+	trie.c \
+	trie.h \
 	utest.c \
 	utest.h \
 	xml.c \
