@@ -20,14 +20,14 @@
 /**
  *
  */
-gds_fifo_t * fifo_create(uint32_t max_depth, FFIFODestroy destroy)
+gds_fifo_t * fifo_create(unsigned int max_depth, gds_fifo_destroy_f destroy)
 {
   gds_fifo_t * fifo= (gds_fifo_t *) MALLOC(sizeof(gds_fifo_t));
   fifo->options= 0;
   fifo->max_depth= max_depth;
   fifo->start_index= 0;
   fifo->current_depth= 0;
-  fifo->fDestroy= destroy;
+  fifo->destroy= destroy;
   fifo->items= (void **) MALLOC(sizeof(void *)*max_depth);
   return fifo;
 }
@@ -42,10 +42,10 @@ void fifo_destroy(gds_fifo_t ** fifo_ref)
   unsigned int index;
 
   if (fifo != NULL) {
-    if (fifo->fDestroy != NULL)
+    if (fifo->destroy != NULL)
       for (index= 0; index < fifo->current_depth; index++)
-	fifo->fDestroy(&fifo->items[(fifo->start_index+index) %
-				      fifo->max_depth]);
+	fifo->destroy(&fifo->items[(fifo->start_index+index) %
+				   fifo->max_depth]);
     FREE(fifo->items);
     fifo->items= NULL;
     FREE(fifo);
@@ -71,7 +71,7 @@ void fifo_set_option(gds_fifo_t * fifo, uint8_t option, int state)
  */
 static int _fifo_grow(gds_fifo_t * fifo)
 {
-  uint32_t new_depth= 0;
+  unsigned int new_depth= 0;
 
   // Note: currently, whatever exponential or linear is selected,
   // _fifo_grow will lead to exponential growth
@@ -138,7 +138,7 @@ void * fifo_pop(gds_fifo_t * fifo)
 /**
  *
  */
-uint32_t fifo_depth(gds_fifo_t * fifo)
+unsigned int fifo_depth(gds_fifo_t * fifo)
 {
   return fifo->current_depth;
 }

@@ -7,6 +7,11 @@
 // $Id$
 // ==================================================================
 
+/**
+ * \file
+ * Provide a data structure and functions to manage FIFO queues.
+ */
+
 #ifndef __GDS_FIFO_H__
 #define __GDS_FIFO_H__
 
@@ -15,16 +20,16 @@
 #define FIFO_OPTION_GROW_LINEAR      0x01
 #define FIFO_OPTION_GROW_EXPONENTIAL 0x02
 
-// ----- FFIFODestroy -----------------------------------------------
-typedef void (*FFIFODestroy)(void ** ppItem);
+/** Destroy a FIFO item. */
+typedef void (*gds_fifo_destroy_f)(void ** item_ref);
 
-typedef struct fifo_t {
-  uint32_t        max_depth;
-  uint8_t         options;
-  uint32_t        start_index;
-  uint32_t        current_depth;
-  FFIFODestroy    fDestroy;
-  void         ** items;
+typedef struct gds_fifo_t {
+  unsigned int          max_depth;
+  uint8_t               options;
+  unsigned int          start_index;
+  unsigned int          current_depth;
+  gds_fifo_destroy_f    destroy;
+  void               ** items;
 } gds_fifo_t;
 
 #ifdef __cplusplus
@@ -32,18 +37,68 @@ extern "C" {
 #endif
 
   // -----[ fifo_create ]--------------------------------------------
-  gds_fifo_t * fifo_create(uint32_t max_depth, FFIFODestroy destroy);
+  /**
+   * Create a FIFO queue.
+   *
+   * \param max_depth is the maximum depth.
+   * \param destroy   is the destroy callback function (can be NULL).
+   */
+  gds_fifo_t * fifo_create(unsigned int max_depth,
+			   gds_fifo_destroy_f destroy);
+
   // -----[ fifo_destroy ]-------------------------------------------
+  /**
+   * Destroy a FIFO queue.
+   *
+   * If the destroy callback is not NULL, it will be called for each
+   * item in the queue.
+   *
+   * \param fifo_ref is the pointer to the FIFO to be destroyed.
+   */
   void fifo_destroy(gds_fifo_t ** fifo_ref);
+
   // -----[ fifo_set_option ]----------------------------------------
   void fifo_set_option(gds_fifo_t * fifo, uint8_t flag, int state);
+
   // -----[ fifo_push ]----------------------------------------------
+  /**
+   * Push an item onto the FIFO queue.
+   *
+   * \param fifo is the target FIFO queue.
+   * \param item is the item to be pushed.
+   * \retval 0 if the item could be pushed,
+   *         or <0 if the FIFO is full (i.e. if current depth equals
+   *         max depth).
+   */
   int fifo_push(gds_fifo_t * fifo, void * item);
+
   // -----[ fifo_pop ]-----------------------------------------------
+  /**
+   * Pop an item from the FIFO queue.
+   *
+   * \param fifo is the source FIFO queue.
+   * \retval the earliest pushed item,
+   *         or NULL if the FIFO queue is empty.
+   */
   void * fifo_pop(gds_fifo_t * fifo);
+
   // -----[ fifo_depth ]---------------------------------------------
-  uint32_t fifo_depth(gds_fifo_t * fifo);
+  /**
+   * Return the depth of the FIFO queue.
+   *
+   * \param fifo is the target FIFO queue.
+   * \retval the current depth.
+   */
+  unsigned int fifo_depth(gds_fifo_t * fifo);
+
   // -----[ fifo_get_at ]--------------------------------------------
+  /**
+   * Return the item at a given position in the FIFO queue.
+   *
+   * \param fifo is the target FIFO queue.
+   * \param index is the location of the item searched.
+   * \retval the searched item.
+   */
   void * fifo_get_at(gds_fifo_t * fifo, unsigned int index);
 
 #ifdef __cplusplus
