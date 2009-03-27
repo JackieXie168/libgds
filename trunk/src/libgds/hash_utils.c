@@ -16,13 +16,8 @@
 #include <libgds/hash_utils.h>
 
 // ----- hash_utils_key_compute_string -------------------------------
-/**
- * Universal hash function for string keys (discussed in Sedgewick's
- * "Algorithms in C, 3rd edition") and adapted.
- *
- */
 uint32_t hash_utils_key_compute_string(const void * item,
-				  unsigned int hash_size)
+				       unsigned int hash_size)
 {
   const char * str= (const char *) item;
   uint32_t key, a = 31415, b = 27183;
