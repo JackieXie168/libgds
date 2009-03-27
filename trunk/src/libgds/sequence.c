@@ -1,15 +1,16 @@
 // ==================================================================
 // @(#)sequence.c
 //
-// @author Bruno Quoitin (bqu@info.ucl.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @date 23/11/2002
-// @lastdate 27/01/2005
+// $Id$
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,167 +18,138 @@
 #include <libgds/memory.h>
 #include <libgds/sequence.h>
 
-unsigned long sequence_create_count= 0;
-unsigned long sequence_copy_count= 0;
-unsigned long sequence_destroy_count= 0;
-
-// ----- sequence_create --------------------------------------------
-/**
- *
- */
-SSequence * sequence_create(FSeqCompare fCompare,
-			    FSeqDestroy fDestroy)
+// -----[ sequence_create ]------------------------------------------
+gds_seq_t * sequence_create(gds_seq_cmp_f cmp,
+			    gds_seq_destroy_f destroy)
 {
-  SSequence * pSequence= (SSequence *) MALLOC(sizeof(SSequence));
-  sequence_create_count++;
-  pSequence->iSize= 0;
-  pSequence->fCompare= fCompare;
-  pSequence->fDestroy= fDestroy;
-  pSequence->ppItems= NULL;
-  return pSequence;
+  gds_seq_t * sequence= (gds_seq_t *) MALLOC(sizeof(gds_seq_t));
+  sequence->size= 0;
+  sequence->cmp= cmp;
+  sequence->destroy= destroy;
+  sequence->items= NULL;
+  return sequence;
 }
 
-// ----- sequence_destroy -------------------------------------------
-/**
- *
- */
-void sequence_destroy(SSequence ** ppSequence)
+// -----[ sequence_destroy ]-----------------------------------------
+void sequence_destroy(gds_seq_t ** seq_ref)
 {
-  int iIndex;
+  unsigned int index;
+  gds_seq_t * seq= *seq_ref;
 
-  if (*ppSequence != NULL) {
-    sequence_destroy_count++;
-    if ((*ppSequence)->ppItems != NULL) {
-      if ((*ppSequence)->fDestroy != NULL)
-	for (iIndex= 0; iIndex < (*ppSequence)->iSize; iIndex++)
-	  (*ppSequence)->fDestroy(&(*ppSequence)->ppItems[iIndex]);
-      FREE((*ppSequence)->ppItems);
-      (*ppSequence)->ppItems= NULL;
+  if (seq != NULL) {
+    if (seq->items != NULL) {
+      if (seq->destroy != NULL)
+	for (index= 0; index < seq->size; index++)
+	  seq->destroy(&seq->items[index]);
+      FREE(seq->items);
+      seq->items= NULL;
     }
-    FREE(*ppSequence);
-    *ppSequence= NULL;
+    FREE(seq);
+    *seq_ref= NULL;
   }
 }
 
-// ----- sequence_find_index ----------------------------------------
+// -----[ sequence_index_of ]----------------------------------------
 /**
- * ITEM found => INDEX of item (>= 0)
+ * ITEM found => return -1INDEX of item (>= 0)
  * ITEM not found => -1
  */
-int sequence_find_index(SSequence * pSequence, void * pItem)
+int sequence_index_of(gds_seq_t * seq, void * item,
+		      unsigned int * index_ref)
 {
-  int iIndex= 0;
-  int iCompareResult;
+  unsigned int index= 0;
 
-  while (iIndex < pSequence->iSize) {
-    iCompareResult= ((pSequence->fCompare != NULL)?
-      pSequence->fCompare(pSequence->ppItems[iIndex], pItem):
-      (pSequence->ppItems[iIndex] == pItem));
-    if (iCompareResult)
-      return iIndex;
-    iIndex++;
+  while (index < seq->size) {
+    if (((seq->cmp != NULL) &&
+	 (seq->cmp(seq->items[index], item))) ||
+	(seq->items[index] == item)) {
+      *index_ref= index;
+      return 0;
+    }
+    index++;
   }
   return -1;
 }
 
 // ----- sequence_insert_at -----------------------------------------
-/**
- *
- */
-int sequence_insert_at(SSequence * pSequence, int iIndex, void * pItem)
+void sequence_insert_at(gds_seq_t * seq, unsigned int index,
+			void * item)
 {
-  if ((iIndex < 0) || (iIndex > pSequence->iSize))
-    return -1;
-  pSequence->iSize++;
-  if (pSequence->ppItems != NULL) {
-    pSequence->ppItems= REALLOC(pSequence->ppItems,
-			    sizeof(void *)*pSequence->iSize);
-    memmove(&pSequence->ppItems[iIndex+1], &pSequence->ppItems[iIndex],
-	    sizeof(void *)*(pSequence->iSize-iIndex-1));
-  } else
-    pSequence->ppItems= MALLOC(sizeof(void *)*pSequence->iSize);
-  pSequence->ppItems[iIndex]= pItem;
-  return 0;
+  assert(index <= seq->size);
+  seq->size++;
+  if (seq->items != NULL) {
+    seq->items= REALLOC(seq->items,
+			sizeof(void *)*seq->size);
+    memmove(&seq->items[index+1], &seq->items[index],
+	    sizeof(void *)*(seq->size-index-1));
+  } else {
+    seq->items= MALLOC(sizeof(void *)*seq->size);
+  }
+  seq->items[index]= item;
 }
 
 // ----- sequence_add -----------------------------------------------
-/**
- *
- */
-int sequence_add(SSequence * pSequence, void * pItem)
+void sequence_add(gds_seq_t * seq, void * item)
 {
-  return sequence_insert_at(pSequence, pSequence->iSize, pItem);
+  sequence_insert_at(seq, seq->size, item);
 }
 
 // ----- sequence_remove --------------------------------------------
-/**
- *
- */
-int sequence_remove(SSequence * pSequence, void * pItem)
+int sequence_remove(gds_seq_t * seq, void * item)
 {
-  int iIndex;
-
-  iIndex= sequence_find_index(pSequence, pItem);
-  if (iIndex > 0)
-    return sequence_remove_at(pSequence, iIndex);
+  unsigned int index;
+  if (sequence_index_of(seq, item, &index) < 0)
+    return -1;
+  sequence_remove_at(seq, index);
   return 0;
 }
 
 // ----- sequence_remove_at -----------------------------------------
-/**
- *
- */
-int sequence_remove_at(SSequence * pSequence, int iIndex)
+void sequence_remove_at(gds_seq_t * seq, unsigned int index)
 {
-  if ((iIndex < 0) || (iIndex >= pSequence->iSize))
-    return -1;
+  assert(index < seq->size);
 
-  if (pSequence->iSize-iIndex > 0)
-    memmove(&pSequence->ppItems[iIndex], &pSequence->ppItems[iIndex+1],
-	    pSequence->iSize-iIndex-1);
-  pSequence->iSize--;
-  if (pSequence->iSize == 0) {
-    FREE(pSequence->ppItems);
-    pSequence->ppItems= NULL;
-  } else
-    pSequence->ppItems= (void *) REALLOC(pSequence->ppItems,
-					 pSequence->iSize*sizeof(void *));
-  return 0;
+  if (seq->size-index > 0)
+    memmove(&seq->items[index], &seq->items[index+1],
+	    seq->size-index-1);
+  seq->size--;
+  if (seq->size == 0) {
+    FREE(seq->items);
+    seq->items= NULL;
+  } else {
+    seq->items= (void *) REALLOC(seq->items, seq->size*sizeof(void *));
+  }
 }
 
 // ----- sequence_for_each ------------------------------------------
-/**
- *
- */
-void sequence_for_each(SSequence * pSequence, FSeqForEach fForEach,
-		       void * pContext)
+int sequence_for_each(gds_seq_t * seq, gds_seq_foreach_f foreach,
+		       void * ctx)
 {
-  int iIndex;
+  unsigned int index;
+  int result;
 
-  for (iIndex= 0; iIndex < pSequence->iSize; iIndex++)
-    fForEach(pSequence->ppItems[iIndex], pContext);
+  for (index= 0; index < seq->size; index++) {
+    result= foreach(seq->items[index], ctx);
+    if (result < 0)
+      return result;
+  }
+  return 0;
 }
 
 // ----- sequence_copy ----------------------------------------------
-/**
- *
- */
-SSequence * sequence_copy(SSequence * pSequence, FSeqCopyItem fCopyItem)
+gds_seq_t * sequence_copy(gds_seq_t * seq, gds_seq_copy_f copy)
 {
-  int iIndex;
+  unsigned int index;
 
-  SSequence * pNewSequence= sequence_create(pSequence->fCompare,
-					    pSequence->fDestroy);
-  sequence_copy_count++;
-  pNewSequence->iSize= pSequence->iSize;
-  if (pNewSequence->iSize > 0) {
-    pNewSequence->ppItems= MALLOC(sizeof(void *)*pNewSequence->iSize);
-    if (fCopyItem == NULL)
-      memcpy(pNewSequence->ppItems, pSequence->ppItems,
-	     sizeof(void *)*pNewSequence->iSize);
+  gds_seq_t * new_seq= sequence_create(seq->cmp, seq->destroy);
+  new_seq->size= seq->size;
+  if (new_seq->size > 0) {
+    new_seq->items= MALLOC(sizeof(void *)*new_seq->size);
+    if (copy == NULL)
+      memcpy(new_seq->items, seq->items, sizeof(void *)*new_seq->size);
     else
-      for (iIndex= 0; iIndex < pNewSequence->iSize; iIndex++)
-	pNewSequence->ppItems[iIndex]= fCopyItem(pSequence->ppItems[iIndex]);
+      for (index= 0; index < new_seq->size; index++)
+	new_seq->items[index]= copy(seq->items[index]);
   }
-  return pNewSequence;
+  return new_seq;
 }
