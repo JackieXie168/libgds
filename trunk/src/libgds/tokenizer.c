@@ -18,7 +18,8 @@
 #include <libgds/str_util.h>
 #include <libgds/tokenizer.h>
 
-//#define __DEBUG_TOKENIZER__
+//#define DEBUG
+#include <libgds/debug.h>
 
 // Internal constants
 #define TK_BUF_SIZE 1024       // Initial size of token buffer
@@ -40,7 +41,6 @@ typedef enum {
   _STATE_MAX,
 } _state_t;
 
-#ifdef __DEBUG_TOKENIZER__
 static char * _STATE_NAMES[_STATE_MAX]= {
   "NORMAL",
   "IN_DELIM",
@@ -51,7 +51,6 @@ static char * _STATE_NAMES[_STATE_MAX]= {
   "IN_PARAM",
   "FINAL",
 };
-#endif /* __DEBUG_TOKENIZER__ */
 
 // -----[ _assert_disjoint_charsets ]--------------------------------
 static inline void _assert_disjoint_charsets(const char * set1,
@@ -63,20 +62,17 @@ static inline void _assert_disjoint_charsets(const char * set1,
     assert(set1[index] != set2[index2]);
 }
 
-// ----- tokenizer_create -------------------------------------------
-/**
- *
- */
+// -----[ tokenizer_create ]-----------------------------------------
 gds_tokenizer_t * tokenizer_create(const char * delimiters,
 				   const char * opening_quotes,
 				   const char * closing_quotes)
 {
-  gds_tokenizer_t * tokenizer=
+  gds_tokenizer_t * tk=
     (gds_tokenizer_t *) MALLOC(sizeof(gds_tokenizer_t));
-  tokenizer->tokens= NULL;
-  tokenizer->delimiters= str_create(delimiters);
-  tokenizer->flags= 0;
-  tokenizer->protect_quotes= NULL;
+  tk->tokens= NULL;
+  tk->delimiters= str_create(delimiters);
+  tk->flags= 0;
+  tk->protect_quotes= NULL;
 
   // Initialize quotes
   if ((opening_quotes != NULL) && (closing_quotes != NULL)) {
@@ -89,80 +85,74 @@ gds_tokenizer_t * tokenizer_create(const char * delimiters,
     _assert_disjoint_charsets(delimiters, opening_quotes);
     _assert_disjoint_charsets(delimiters, closing_quotes);
 
-    tokenizer->opening_quotes= str_create(opening_quotes);
-    tokenizer->closing_quotes= str_create(closing_quotes);
+    tk->opening_quotes= str_create(opening_quotes);
+    tk->closing_quotes= str_create(closing_quotes);
   } else {
-    tokenizer->opening_quotes= str_create("");
-    tokenizer->closing_quotes= str_create("");
+    tk->opening_quotes= str_create("");
+    tk->closing_quotes= str_create("");
   }
 
   // Token buffer used for parsing (initially empty)
-  tokenizer->tk_buf= str_buf_create(TK_BUF_SIZE);
+  tk->tk_buf= str_buf_create(TK_BUF_SIZE);
 
   // Parameter lookup function
-  tokenizer->lookup.lookup= NULL;
-  tokenizer->lookup.ctx= NULL;
+  tk->lookup.lookup= NULL;
+  tk->lookup.ctx= NULL;
 
-  return tokenizer;
+  return tk;
 }
 
 // ----- tokenizer_destroy ------------------------------------------
-/**
- *
- */
-void tokenizer_destroy(gds_tokenizer_t ** tokenizer_ref)
+void tokenizer_destroy(gds_tokenizer_t ** tk_ref)
 {
-  gds_tokenizer_t * tokenizer= *tokenizer_ref;
-  if (tokenizer != NULL) {
-    str_destroy(&tokenizer->delimiters);
-    str_destroy(&tokenizer->opening_quotes);
-    str_destroy(&tokenizer->closing_quotes);
-    str_destroy(&tokenizer->protect_quotes);
-    tokens_destroy(&tokenizer->tokens);
-    str_buf_destroy(&tokenizer->tk_buf);
-    FREE(tokenizer);
-    *tokenizer_ref= NULL;
+  gds_tokenizer_t * tk= *tk_ref;
+  if (tk != NULL) {
+    str_destroy(&tk->delimiters);
+    str_destroy(&tk->opening_quotes);
+    str_destroy(&tk->closing_quotes);
+    str_destroy(&tk->protect_quotes);
+    tokens_destroy(&tk->tokens);
+    str_buf_destroy(&tk->tk_buf);
+    FREE(tk);
+    *tk_ref= NULL;
   }
 }
 
 // ----- tokenizer_get_tokens ---------------------------------------
-/**
- *
- */
-const gds_tokens_t * tokenizer_get_tokens(gds_tokenizer_t * tokenizer)
+const gds_tokens_t * tokenizer_get_tokens(gds_tokenizer_t * tk)
 {
-  return tokenizer->tokens;
+  return tk->tokens;
 }
 
 // -----[ _is_delimiter ]--------------------------------------------
-static inline int _is_delimiter(gds_tokenizer_t * tokenizer, char c)
+static inline int _is_delimiter(gds_tokenizer_t * tk, char c)
 {
   return (!(c == TOKENIZER_CHAR_EOS) &&
-	  (strchr(tokenizer->delimiters, c) != NULL));
+	  (strchr(tk->delimiters, c) != NULL));
 }
 
 // -----[ _is_opening_quote ]----------------------------------------
-static inline int _is_opening_quote(gds_tokenizer_t * tokenizer, char c,
+static inline int _is_opening_quote(gds_tokenizer_t * tk, char c,
 				    char * closing_quote, int * protecting)
 {
   char * match;
   if (c == TOKENIZER_CHAR_EOS)
     return 0;
-  if (tokenizer->opening_quotes == NULL)
+  if (tk->opening_quotes == NULL)
     return 0;
-  match= strchr(tokenizer->opening_quotes, c);
+  match= strchr(tk->opening_quotes, c);
   if (match == NULL)
     return 0;
 
   // Return matching closing quote (if requested)
   if (closing_quote != NULL)
-    *closing_quote= *(tokenizer->closing_quotes+
-		      (match-tokenizer->opening_quotes));
+    *closing_quote= *(tk->closing_quotes+
+		      (match-tk->opening_quotes));
 
   // Check if this is a "protecting" quote (if requested)
   if (protecting != NULL) {
-    if ((tokenizer->protect_quotes != NULL) &&
-	(strchr(tokenizer->protect_quotes, c) != NULL))
+    if ((tk->protect_quotes != NULL) &&
+	(strchr(tk->protect_quotes, c) != NULL))
       *protecting= 1;
     else
       *protecting= 0;
@@ -172,15 +162,15 @@ static inline int _is_opening_quote(gds_tokenizer_t * tokenizer, char c,
 }
 
 // -----[ _is_closing_quote ]----------------------------------------
-static inline int _is_closing_quote(gds_tokenizer_t * tokenizer, char c,
+static inline int _is_closing_quote(gds_tokenizer_t * tk, char c,
 				    char * expected_quote)
 {
   char * match;
   if (c == TOKENIZER_CHAR_EOS)
     return 0;
-  if (tokenizer->closing_quotes == NULL)
+  if (tk->closing_quotes == NULL)
     return 0;
-  match= strchr(tokenizer->closing_quotes, c);
+  match= strchr(tk->closing_quotes, c);
   if (match == NULL)
     return 0;
   if ((expected_quote != NULL) && (*match != *expected_quote))
@@ -189,26 +179,23 @@ static inline int _is_closing_quote(gds_tokenizer_t * tokenizer, char c,
 }
 
 // -----[ _peek_buf ]------------------------------------------------
-static inline char * _peek_buf(gds_tokenizer_t * tokenizer)
+static inline char * _peek_buf(gds_tokenizer_t * tk)
 {
   // Terminate buffer
-  str_buf_write_char(tokenizer->tk_buf, '\0');
+  str_buf_write_char(tk->tk_buf, '\0');
   // Mark as empty
-  str_buf_reset(tokenizer->tk_buf);
+  str_buf_reset(tk->tk_buf);
 
-#ifdef __DEBUG_TOKENIZER__
-  stream_printf(gdsout, "FSM:peek_buf \"%s\"\n", tokenizer->tk_buf->data);
-#endif /* __DEBUG_TOKENIZER__ */
+  __debug("FSM:peek_buf \"%s\"\n", tk->tk_buf->data);
 
-  return tokenizer->tk_buf->data;
+  return tk->tk_buf->data;
 }
 
 // -----[ _push_state ]----------------------------------------------
 static inline void _push_state(gds_stack_t * stack, _state_t state)
 {
-#ifdef __DEBUG_TOKENIZER__
-  stream_printf(gdsout, "FSM:push_state(%s)\n", _STATE_NAMES[state]);
-#endif /* __DEBUG_TOKENIZER__ */
+  __debug("FSM:push_state(%s)\n", _STATE_NAMES[state]);
+
   stack_push(stack, (void *) state);
 }
 
@@ -218,9 +205,9 @@ static inline _state_t _pop_state(gds_stack_t * stack)
   _state_t state;
   assert(!stack_is_empty(stack));
   state= (_state_t) stack_pop(stack);
-#ifdef __DEBUG_TOKENIZER__
-  stream_printf(gdsout, "FSM:pop_state(): %s\n", _STATE_NAMES[state]);
-#endif /* __DEBUG_TOKENIZER__ */
+
+  __debug("FSM:pop_state(): %s\n", _STATE_NAMES[state]);
+
   return state;
 }
 
@@ -238,11 +225,8 @@ static inline char _escape(char c)
   }
 }
 
-// ----- tokenizer_run ----------------------------------------------
-/**
- *
- */
-int tokenizer_run(gds_tokenizer_t * tokenizer, const char * str)
+// -----[ tokenizer_run ]--------------------------------------------
+int tokenizer_run(gds_tokenizer_t * tk, const char * str)
 {
   int error= TOKENIZER_SUCCESS;
   _state_t state= _STATE_IN_DELIM;
@@ -255,20 +239,17 @@ int tokenizer_run(gds_tokenizer_t * tokenizer, const char * str)
   const char * value;
 
   // Allocate list of tokens (free previous one if needed)
-  if (tokenizer->tokens != NULL)
-    tokens_destroy(&tokenizer->tokens);
-  tokenizer->tokens= tokens_create();
+  if (tk->tokens == NULL)
+    tk->tokens= tokens_create();
+  tokens_clear(tk->tokens);
 
   // Reset buffer
-  str_buf_reset(tokenizer->tk_buf);
+  str_buf_reset(tk->tk_buf);
 
   // Finite State Machine
   while (state != _STATE_FINAL) {
 
-#ifdef __DEBUG_TOKENIZER__
-    stream_printf(gdsout, "FSM:process(%s, '%c')\n",
-		  _STATE_NAMES[state], *str);
-#endif /* __DEBUG_TOKENIZER__ */
+    __debug("FSM:process(%s, '%c')\n", _STATE_NAMES[state], *str);
 
     dont_eat= 0;
 
@@ -279,41 +260,41 @@ int tokenizer_run(gds_tokenizer_t * tokenizer, const char * str)
       if (*str == TOKENIZER_CHAR_ESCAPE) {
 	_push_state(stack, state);
 	state= _STATE_IN_ESCAPE;
-      } else if ((tokenizer->lookup.lookup != NULL) &&
+      } else if ((tk->lookup.lookup != NULL) &&
 		 (*str == PARAM_CHAR_START)) {
 	_push_state(stack, state);
 	state= _STATE_IN_PARAM_FIRST;
       } else if ((*str == TOKENIZER_CHAR_EOS) ||
 		 (*str == TOKENIZER_CHAR_EOL)) {
-	if (!str_buf_empty(tokenizer->tk_buf) ||
-	    (tokenizer->flags & TOKENIZER_OPT_EMPTY_FINAL))
-	  tokens_add_copy(tokenizer->tokens, _peek_buf(tokenizer));
+	if (!str_buf_empty(tk->tk_buf) ||
+	    (tk->flags & TOKENIZER_OPT_EMPTY_FINAL))
+	  tokens_add_copy(tk->tokens, _peek_buf(tk));
 	state= _STATE_FINAL;
-      } else if (_is_delimiter(tokenizer, *str)) {
-	tokens_add_copy(tokenizer->tokens, _peek_buf(tokenizer));
+      } else if (_is_delimiter(tk, *str)) {
+	tokens_add_copy(tk->tokens, _peek_buf(tk));
 	state= _STATE_IN_DELIM;
-      } else if (_is_opening_quote(tokenizer, *str, &closing_quote,
+      } else if (_is_opening_quote(tk, *str, &closing_quote,
 				   &protecting)) {
-	str_buf_write_invisible(tokenizer->tk_buf);
+	str_buf_write_invisible(tk->tk_buf);
 	state= _STATE_IN_BLOCK;
-      } else if (_is_closing_quote(tokenizer, *str, NULL)) {
+      } else if (_is_closing_quote(tk, *str, NULL)) {
 	error= TOKENIZER_ERROR_MISSING_OPEN;
 	state= _STATE_FINAL;
       } else
-	str_buf_write_char(tokenizer->tk_buf, *str);
+	str_buf_write_char(tk->tk_buf, *str);
       break;
 
     case _STATE_IN_DELIM:
       if (*str == TOKENIZER_CHAR_EOS) {
 	dont_eat= 1;
 	state= _STATE_NORMAL;
-      } else if (_is_delimiter(tokenizer, *str)) {
+      } else if (_is_delimiter(tk, *str)) {
 	// Stay in DELIM state:
 	//   If the SINGLE_DELIM option is set, each delimiter
 	//   separates two fields. If two consecutive delimiters are
 	//   found, then an empty field must be created.
-	if (tokenizer->flags & TOKENIZER_OPT_SINGLE_DELIM) {
-	  tokens_add_copy(tokenizer->tokens, "");
+	if (tk->flags & TOKENIZER_OPT_SINGLE_DELIM) {
+	  tokens_add_copy(tk->tokens, "");
 	}
       } else {
 	dont_eat= 1;
@@ -325,7 +306,7 @@ int tokenizer_run(gds_tokenizer_t * tokenizer, const char * str)
       if (*str == TOKENIZER_CHAR_ESCAPE) {
 	_push_state(stack, state);
 	state= _STATE_IN_ESCAPE;
-      } else if ((tokenizer->lookup.lookup != NULL) &&
+      } else if ((tk->lookup.lookup != NULL) &&
 		 (*str == PARAM_CHAR_START) &&
 		 !protecting) {
 	_push_state(stack, state);
@@ -333,14 +314,14 @@ int tokenizer_run(gds_tokenizer_t * tokenizer, const char * str)
       } else if (*str == TOKENIZER_CHAR_EOS) {
 	error= TOKENIZER_ERROR_MISSING_CLOSE;
 	state= _STATE_FINAL;
-      } else if (_is_closing_quote(tokenizer, *str, &closing_quote)) {
+      } else if (_is_closing_quote(tk, *str, &closing_quote)) {
 	state= _STATE_FROM_BLOCK;
       } else
-	str_buf_write_char(tokenizer->tk_buf, *str);
+	str_buf_write_char(tk->tk_buf, *str);
       break;
 
     case _STATE_FROM_BLOCK:
-      if (_is_opening_quote(tokenizer, *str, &closing_quote, &protecting)) {
+      if (_is_opening_quote(tk, *str, &closing_quote, &protecting)) {
 	state= _STATE_IN_BLOCK;
       } else {
 	dont_eat= 1;
@@ -355,7 +336,7 @@ int tokenizer_run(gds_tokenizer_t * tokenizer, const char * str)
 	state= _STATE_FINAL;
 	break;
       }
-      str_buf_write_char(tokenizer->tk_buf, _escape(*str));
+      str_buf_write_char(tk->tk_buf, _escape(*str));
       break;
 
     case _STATE_IN_PARAM_FIRST:
@@ -372,7 +353,7 @@ int tokenizer_run(gds_tokenizer_t * tokenizer, const char * str)
 
     case _STATE_IN_PARAM:
       if (!_is_param_char(*str)) {
-	/*if (tokenizer->lookup.lookup == NULL) {
+	/*if (tk->lookup.lookup == NULL) {
 	  error= TOKENIZER_ERROR_PARAM_LOOKUP;
 	  state= _STATE_FINAL;
 	  break;
@@ -380,24 +361,24 @@ int tokenizer_run(gds_tokenizer_t * tokenizer, const char * str)
 	param= MALLOC((str-param_start+1)*sizeof(char));
 	memcpy(param, param_start, str-param_start);
 	param[str-param_start]= '\0';
-#ifdef __DEBUG_TOKENIZER__
-	stream_printf(gdsout, "lookup(%s)\n", param);
-#endif /* __DEBUG_TOKENIZER__ */
-	if (tokenizer->lookup.lookup != NULL) {
-	  value= tokenizer->lookup.lookup(param, tokenizer->lookup.ctx);
-#ifdef __DEBUG_TOKENIZER__
-	  stream_printf(gdsout, "-> value=%s\n", value);
-#endif /* __DEBUG_TOKENIZER__ */
+
+	__debug("lookup(%s)\n", param);
+
+	if (tk->lookup.lookup != NULL) {
+	  value= tk->lookup.lookup(param, tk->lookup.ctx);
+
+	  __debug("-> value=%s\n", value);
+
 	  if (value == NULL) {
 	    error= TOKENIZER_ERROR_PARAM_UNDEF;
 	    state= _STATE_FINAL;
 	    FREE(param);
 	    break;
 	  }
-	  str_buf_write_string(tokenizer->tk_buf, value);
+	  str_buf_write_string(tk->tk_buf, value);
 	} else {
-	  str_buf_write_char(tokenizer->tk_buf, '$');
-	  str_buf_write_string(tokenizer->tk_buf, param);
+	  str_buf_write_char(tk->tk_buf, '$');
+	  str_buf_write_string(tk->tk_buf, param);
 	}
 	FREE(param);
 	dont_eat= 1;
@@ -418,10 +399,9 @@ int tokenizer_run(gds_tokenizer_t * tokenizer, const char * str)
   if (error == TOKENIZER_SUCCESS) {
     assert(stack_is_empty(stack));
   } else {
-#ifdef __DEBUG_TOKENIZER__
-    stream_printf(gdsout, "FSM:finish_with_error(%s)\n",
-		  tokenizer_strerror(error));
-#endif /* __DEBUG_TOKENIZER__ */
+
+    __debug("FSM:finish_with_error(%s)\n", tokenizer_strerror(error));
+
   }
 
   stack_destroy(&stack);
@@ -446,13 +426,11 @@ const char * tokenizer_strerror(int error)
     return "undefined parameter";
   case TOKENIZER_ERROR_PARAM_INVALID:
     return "invalid parameter name";
-  case TOKENIZER_ERROR_PARAM_LOOKUP:
-    return "no parameter lookup function configured";
   }
   return NULL;
 }
 
-// ----- tokenizer_perror -------------------------------------------
+// -----[ tokenizer_perror ]-----------------------------------------
 /**
  *
  */
@@ -465,42 +443,30 @@ void tokenizer_perror(gds_stream_t * stream, int error)
     stream_printf(stream, "unknown error (%d)", error);
 }
 
-// ----- tokenizer_get_num_token ------------------------------------
-/**
- *
- */
-uint16_t tokenizer_get_num_tokens(gds_tokenizer_t * tokenizer)
-{
-  if (tokenizer->tokens != NULL)
-    return tokens_get_num(tokenizer->tokens);
-  else
-    return 0;
-}
-
 // -----[ tokenizer_set_flag ]---------------------------------------
-void tokenizer_set_flag(gds_tokenizer_t * tokenizer, uint8_t flag)
+void tokenizer_set_flag(gds_tokenizer_t * tk, uint8_t flag)
 {
-  tokenizer->flags|= flag;
+  tk->flags|= flag;
 }
 
 // -----[ tokenizer_reset_flag ]-------------------------------------
-void tokenizer_reset_flag(gds_tokenizer_t * tokenizer, uint8_t flag)
+void tokenizer_reset_flag(gds_tokenizer_t * tk, uint8_t flag)
 {
-  tokenizer->flags&= ~flag;
+  tk->flags&= ~flag;
 }
 
 // -----[ tokenizer_set_lookup ]----------------------------------
-void tokenizer_set_lookup(gds_tokenizer_t * tokenizer,
+void tokenizer_set_lookup(gds_tokenizer_t * tk,
 			  param_lookup_t lookup)
 {
-  tokenizer->lookup= lookup;
+  tk->lookup= lookup;
 }
 
 // -----[ tokenizer_set_protect_quotes ]-----------------------------
-void tokenizer_set_protect_quotes(gds_tokenizer_t * tokenizer,
+void tokenizer_set_protect_quotes(gds_tokenizer_t * tk,
 				  const char * quotes)
 {
-  str_destroy(&tokenizer->protect_quotes);
+  str_destroy(&tk->protect_quotes);
   if (quotes != NULL)
-    tokenizer->protect_quotes= str_create(quotes);
+    tk->protect_quotes= str_create(quotes);
 }
