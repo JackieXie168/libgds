@@ -268,10 +268,10 @@ static inline void _pcolor(FILE * stream, color_t color,
 
   va_start(ap, format);
   //if (isatty(0))
-    fprintf(stream, _strcolor(color));
+  fprintf(stream, "%s", _strcolor(color));
   vfprintf(stream, format, ap);
   //if (isatty(0))
-    fprintf(stream, _strcolor(COLOR_DEFAULT));
+  fprintf(stream, "%s", _strcolor(COLOR_DEFAULT));
   va_end(ap);
 }
 
@@ -375,19 +375,21 @@ static inline void _utest_write_suite_close()
 }
 
 // ----[ utest_write_test ]------------------------------------------
-void utest_write_test(unit_test_t * test)
+void utest_write_test(FILE * stream, unit_test_t * test)
 {
-  _pgotoy(stdout, 65);
-  _utest_perror(stdout, test->result, 1);
+  _pgotoy(stream, 65);
+  _utest_perror(stream, test->result, 1);
   switch(test->result) {
   case UTEST_SUCCESS:
-    printf(" (%1.1fs)", test->duration);
+    fprintf(stream, " (%1.1fs)", test->duration);
     break;
   case UTEST_FAILURE:
-    printf("\n\t-> %s (%s, %d)", test->msg, test->filename, test->line);
+    fprintf(stream, "\n\t-> %s (%s, %d)", test->msg,
+	    test->filename, test->line);
     break;
   }
-  printf("\n");
+  fprintf(stream, "\n");
+  fflush(stream);
 
   if (xml_stream != NULL) {
     fprintf(xml_stream, "    <test>\n");
@@ -417,7 +419,7 @@ void utest_set_message(const char * filename,
 {
   va_list ap;
 
-  snprintf(_filename, UTEST_FILE_MAX, filename);
+  snprintf(_filename, UTEST_FILE_MAX, "%s", filename);
   _line= line;
 
   va_start(ap, format);
@@ -563,8 +565,9 @@ int utest_run_suite(const char * name, unit_test_t * tests,
     utest.num_tests++;
 
     test= &tests[index];
-    printf("Testing: ");
+    fprintf(stdout, "Testing: ");
     _pcolor(stdout, COLOR_BOLD, "%s:%s", name, test->name);
+    fflush(stdout);
 
     // Run the test
     if (utest.with_fork) {
@@ -573,7 +576,7 @@ int utest_run_suite(const char * name, unit_test_t * tests,
       test_result= _utest_run_test(name, test, before, after);
     }
 
-    utest_write_test(test);
+    utest_write_test(stdout, test);
 
     if (test_result != UTEST_SUCCESS) {
       if (test_result == UTEST_SKIPPED) {
