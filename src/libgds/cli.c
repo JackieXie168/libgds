@@ -690,7 +690,8 @@ unsigned int cli_get_arg_num_values(const cli_cmd_t * cmd,
   assert(cmd->args != NULL);
   arg= cli_args_at(cmd->args, index);
   if (arg == NULL)
-    gds_fatal("trying to get non-existing argument (index:%u)\n", index);
+    gds_fatal("trying to get non-existing argument (index:%u) in cmd \"%s\"\n",
+	      index, cmd->name);
   return cli_arg_get_num_values(arg);
 }
 
@@ -702,7 +703,7 @@ const char * cli_get_opt_value(const cli_cmd_t * cmd, const char * name)
   assert(cmd->opts != NULL);
   opt= cli_opts_find(cmd->opts, name);
   if (opt == NULL)
-    gds_fatal("trying to get non-existing option \"%s\" in cmd \"%\"\n",
+    gds_fatal("trying to get non-existing option \"%s\" in cmd \"%s\"\n",
 	     name, cmd->name);
   return opt->value;
 }
