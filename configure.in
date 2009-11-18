@@ -65,25 +65,25 @@ AC_ARG_ENABLE(xml,
                              [enable XML support]),
               gds_config_xml="$enableval",
               )
-if test "x$gds_config_xml" = "xyes"; then
-  dnl Check for existence of 'xml2-config'
-  AM_PATH_XML2(2.0.0,
-                [ LIBS="${LIBS} ${XML_LIBS}" ]
-		[ CPPFLAGS="${CPPFLAGS} ${XML_CFLAGS} ${XML_CPPFLAGS}" ],
-		)
-   AC_CHECK_LIB([xml2], [xmlNodeGetContent], [xml_ok=yes], [xml_ok=no])
-   if test "x$xml_ok" != "xyes"; then
-      AC_MSG_ERROR([libxml2 is needed to compile xml.* of libgds])
-   else
-      dnl Check for headers
-      AC_CHECK_HEADER([libxml/tree.h], [xml_header_ok=yes], [xml_header_ok=no])
-      if test "x$xml_header_ok" != "xyes"; then
-         AC_MSG_ERROR([libxml2 headers are needed to compile xml.* of libgds])
-      else
-         AC_DEFINE(HAVE_LIBXML, 1, [Define to 1 if you have the 'xml2' library])
-      fi
-   fi
-fi
+#if test "x$gds_config_xml" = "xyes"; then
+#  dnl Check for existence of 'xml2-config'
+#  AM_PATH_XML2(2.0.0,
+#                [ LIBS="${LIBS} ${XML_LIBS}" ]
+#		[ CPPFLAGS="${CPPFLAGS} ${XML_CFLAGS} ${XML_CPPFLAGS}" ],
+#		)
+#   AC_CHECK_LIB([xml2], [xmlNodeGetContent], [xml_ok=yes], [xml_ok=no])
+#   if test "x$xml_ok" != "xyes"; then
+#      AC_MSG_ERROR([libxml2 is needed to compile xml.* of libgds])
+#   else
+#      dnl Check for headers
+#      AC_CHECK_HEADER([libxml/tree.h], [xml_header_ok=yes], [xml_header_ok=no])
+#      if test "x$xml_header_ok" != "xyes"; then
+#         AC_MSG_ERROR([libxml2 headers are needed to compile xml.* of libgds])
+#      else
+#         AC_DEFINE(HAVE_LIBXML, 1, [Define to 1 if you have the 'xml2' library])
+#      fi
+#   fi
+#fi
 
 dnl Enable the memory debugging
 AC_ARG_ENABLE(memory-debug,
