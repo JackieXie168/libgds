@@ -230,7 +230,7 @@ extern "C" {
    * 
    * \param str is the textual representation of the stream level.
    */
-  stream_level_t stream_str2level(const char * str);
+  int stream_str2level(const char * str, stream_level_t * level);
 
   // -----[ stream_enabled ]-----------------------------------------
   /**
