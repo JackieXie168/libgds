@@ -38,6 +38,7 @@ libgdsinclude_HEADERS = \
 	tokenizer.h \
 	tokens.h \
 	trie.h \
+	trie_dico.h \
 	types.h \
 	utest.h \
 	xml.h 
@@ -97,6 +98,8 @@ libgds_la_SOURCES =\
 	tokens.h \
 	trie.c \
 	trie.h \
+	trie_dico.c \
+	trie_dico.h \
 	utest.c \
 	utest.h \
 	xml.c \
