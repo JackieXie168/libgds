@@ -54,6 +54,8 @@ typedef enum {
   CLI_ERROR_COMPL_FAILED     = -14,
   /** Input line was too long. */
   CLI_ERROR_LINE_TOO_LONG    = -15,
+  /** Command is prohibited in the current context. */
+  CLI_ERROR_CMD_PROHIBITED   = -16,
   /** Terminate the CLI processing. */
   CLI_SUCCESS_TERMINATE      = 1,
 } cli_error_type_t;
