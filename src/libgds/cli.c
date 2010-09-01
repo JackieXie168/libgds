@@ -492,6 +492,8 @@ const char * cli_strerror(cli_error_type_t error)
     return "completion could not be performed";
   case CLI_ERROR_LINE_TOO_LONG:
     return "input line too long";
+  case CLI_ERROR_CMD_PROHIBITED:
+    return "command prohibited in the current context";
   case CLI_SUCCESS_TERMINATE:
     gds_fatal("CLI_SUCCESS_TERMINATE is not an error");
   }
@@ -624,7 +626,14 @@ void cli_perror_details(gds_stream_t * stream, cli_t * cli)
       stream_printf(stream, "\n");
     }
     break;
-
+  case CLI_ERROR_CMD_PROHIBITED:
+    if (cli->error.user_msg != NULL) {
+      stream_printf(stream, " +-- reason: ");
+      stream_printf(stream, "%s", cli->error.user_msg);
+      stream_printf(stream, "\n");
+    }
+    break;
+    
   default:
     gds_warn("no details available for this error code (%d)\n",
 	     cli->error.error);
