@@ -36,7 +36,7 @@ typedef uint8_t trie_dico_key_len_t;
 #define TRIE_DICO_KEY_SIZE (sizeof(trie_dico_key_t)*8)
 
 /** Callback function to traverse whole trie_dico. */
-typedef int  (*gds_trie_dico_foreach_f) (trie_dico_key_t key,
+typedef int (*gds_trie_dico_foreach_f) (trie_dico_key_t key,
 				    void * data, void * ctx);
 
 /** Callback function to destroy a trie_dico item. */

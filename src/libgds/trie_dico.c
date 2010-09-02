@@ -880,7 +880,7 @@ void trie_dico_to_graphviz(gds_stream_t * stream, gds_trie_dico_t * trie_dico)
 /////////////////////////////////////////////////////////////////////
 
 // -----[ _trie_dico_get_array_for_each ]---------------------------------
-static int _trie_dico_get_array_for_each(uint32_t key,
+static int _trie_dico_get_array_for_each(trie_dico_key_t key,
 				    void * data, void * ctx)
 {
   ptr_array_t * array= (ptr_array_t *) ctx;
