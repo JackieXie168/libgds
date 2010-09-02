@@ -787,8 +787,8 @@ static int _trie_dico_item_for_each(_trie_dico_item_t * item,
     if (result != 0)
       return result;
   }
-  else
-    return 0;
+  
+  return 0;  
 }
 
 // -----[ trie_dico_for_each ]--------------------------------------------
