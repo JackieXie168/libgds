@@ -5,7 +5,7 @@
 //
 // @author Stefan Beauport (stefan.beauport@umons.ac.be)
 // @date 19/08/2010
-// $Id: ....? $
+// $Id$
 
 //#ifndef TRIE_DICO_H
 //#define TRIE_DICO_H
@@ -16,12 +16,7 @@
 #include <libgds/array.h>
 #include <libgds/stream.h>
 
-#ifdef	__cplusplus
-extern "C" {
-#endif
-
-
-    /** Trie dico key data type. */
+  /** Trie dico key data type. */
 typedef char *  trie_dico_key_t;
 
 /** Trie dico key length data type. */
@@ -51,6 +46,9 @@ typedef struct gds_trie_dico_t {
   gds_trie_dico_destroy_f    destroy;
 } gds_trie_dico_t;
 
+#ifdef	__cplusplus
+extern "C" {
+#endif
 
   // -----[ trie_dico_create ]--------------------------------------------
   /**
