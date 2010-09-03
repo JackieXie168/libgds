@@ -6,6 +6,8 @@
 // @author Stefan Beauport (stefan.beauport@umons.ac.be)
 // @date 19/08/2010
 // $Id$
+// ==================================================================
+
 
 //#ifndef TRIE_DICO_H
 //#define TRIE_DICO_H
