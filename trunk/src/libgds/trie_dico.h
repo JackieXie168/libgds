@@ -5,12 +5,9 @@
 //
 // @author Stefan Beauport (stefan.beauport@umons.ac.be)
 // @date 19/08/2010
-// $Id$
+// $Id:$
 // ==================================================================
 
-
-//#ifndef TRIE_DICO_H
-//#define TRIE_DICO_H
 
 #ifndef __GDS_TRIE_DICO_H__
 #define __GDS_TRIE_DICO_H__
@@ -208,9 +205,9 @@ extern "C" {
 
 
 
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
-#endif	/* TRIE_DICO_H */
+#endif	/* __GDS_TRIE_DICO_H__ */
 
