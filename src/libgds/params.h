@@ -80,7 +80,7 @@ typedef enum {
  */
 static inline int _is_param_first_char(char c)
 {
-  return (isalpha(c) || (c == PARAM_CHAR_UNDERSCORE));
+  return (isalpha(((int) c)) || (c == PARAM_CHAR_UNDERSCORE));
 }
 
 // -----[ _is_param_char ]-------------------------------------------
@@ -89,7 +89,7 @@ static inline int _is_param_first_char(char c)
  */
 static inline int _is_param_char(char c)
 {
-  return (_is_param_first_char(c) || isdigit(c));
+  return (_is_param_first_char(c) || isdigit(((int) c)));
 }
 
 #ifdef __cplusplus
