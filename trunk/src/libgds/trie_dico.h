@@ -5,7 +5,7 @@
 //
 // @author Stefan Beauport (stefan.beauport@umons.ac.be)
 // @date 19/08/2010
-// $Id:$
+// $Id$
 // ==================================================================
 
 
