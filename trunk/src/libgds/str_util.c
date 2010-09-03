@@ -1,7 +1,7 @@
 // =================================================================
 // @(#)str_util.c
 //
-// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
+// @author Bruno Quoitin (bruno.quoitin@umons.ac.be)
 // @date 24/07/2003
 // $Id$
 // =================================================================
@@ -10,6 +10,7 @@
 #include <config.h>
 #endif
 
+#include <ctype.h>
 #include <errno.h>
 
 #include <libgds/memory.h>
@@ -289,26 +290,56 @@ int str_as_int(const char * s, int * value)
  * maximum value of LONG_MAX while we need ULONG_MAX. We cannot use
  * 'strtoul()' since it will convert a negative number to a positive
  * number.
+ *
+ * Warning: on 64-bits platforms, it is possible that 'long' and
+ *          'long long' have the same size. In this case, it is also
+ *          impossible to rely on 'strtoll()' to perform the
+ *          conversion. Indeed, in this case LLONG_MAX < ULONG_MAX.
  */
 int str_as_ulong(const char * s, unsigned long int * value)
 {
-  long long int ll_value;
+#ifdef sizeof(long long) > sizeof(long)
+  long long int ll_value= 0;
+#else
+  unsigned long ul_value= 0;
+#endif
   char * endptr;
 
   if (value == NULL)
     return -1;
   errno= 0;
-  ll_value= strtoll(s, &endptr, 0);
+
+  // If the size of a 'long long' is larger than that of a 'long'
+  // then we can rely on 'strtoll()'. Otherwise, we need to manually
+  // check if the input string does not contain a leading minus ('-')
+#ifdef sizeof(long long) > sizeof(long)
+    ll_value= strtoll(s, &endptr, 0);
+#else
+    // spec for 'strtoul()' says that it will accepts spaces
+    // followed by a '+' or '-' character. We manually skip the
+    // spaces, then fail if we find a '-' character.
+    while (isspace(*s)) s++;
+    if (*s == '-')
+      return -1;
+    ul_value= strtoul(s, &endptr, 0);
+#endif
+
   // If no conversion could be performed, 0 is returned and errno <- EINVAL
   if (errno == EINVAL)
     return -1;
   // If under/over-flow occurs, errno <- ERANGE
   if (errno == ERANGE)
     return -1;
+
+#ifdef sizeof(long long) > sizeof(long)
   // Check for bounds (0 <= x <= ULONG_MAX)
   if ((ll_value < 0) || (ll_value > ULONG_MAX))
     return -1;
   *value= (unsigned long int) ll_value;
+#else
+  *value= (unsigned long int) ul_value;
+#endif
+
   // We do full string conversions. There is an error if the char
   // pointed by endptr is not '\0'
   return (*endptr == 0)?0:-1;
