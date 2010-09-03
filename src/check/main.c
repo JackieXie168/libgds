@@ -191,19 +191,19 @@ int test_strutils_convert_int()
   case 4:
     UTEST_ASSERT((str_as_int(INT32_MIN_STR, &value) == 0) &&
 		  (value == INT_MIN),
-		  "could not convert string to int");
+		  "could not convert string to int (size=32bits)");
     UTEST_ASSERT((str_as_int(INT32_MAX_STR, &value) == 0) &&
 		  (value == INT_MAX),
-		  "could not convert string to int");
+		  "could not convert string to int (size=32bits)");
     break;
 
   case 8:
     UTEST_ASSERT((str_as_int(INT64_MIN_STR, &value) == 0)
 		  && (value = (int) INT64_MIN),
-		  "could not convert string to int");
+		  "could not convert string to int (size=64bits)");
     UTEST_ASSERT((str_as_int(INT64_MAX_STR, &value) == 0)
 		  && (value == (int) INT64_MAX),
-		  "could not convert string to int");
+		  "could not convert string to int (size=64bits)");
     break;
 
   default:
@@ -222,13 +222,13 @@ int test_strutils_convert_uint()
   case 4:
     UTEST_ASSERT((str_as_uint(UINT32_MAX_STR, &value) == 0) &&
 		  (value == UINT_MAX),
-		  "could not convert string to uint");
+		  "could not convert string to uint (size=32bits)");
     break;
 
   case 8:
     UTEST_ASSERT((str_as_uint(UINT64_MAX_STR, &value) == 0)
 		  && (value == UINT_MAX),
-		  "could not convert string to uint");
+		  "could not convert string to uint (size=64bits)");
     break;
 
   default:
@@ -247,19 +247,19 @@ int test_strutils_convert_long()
   case 4:
     UTEST_ASSERT((str_as_long(INT32_MIN_STR, &value) == 0)
 		  && (value = INT32_MIN),
-		  "could not convert string to long");
+		  "could not convert string to long (size=32bits)");
     UTEST_ASSERT((str_as_long(INT32_MAX_STR, &value) == 0)
 		  && (value == INT32_MAX),
-		  "could not convert string to long");
+		  "could not convert string to long (size=32bits)");
     break;
 
   case 8:
     UTEST_ASSERT((str_as_long(INT64_MIN_STR, &value) == 0)
 		  && (value = (long) INT64_MIN),
-		  "could not convert string to long");
+		  "could not convert string to long (size=64bits)");
     UTEST_ASSERT((str_as_long(INT64_MAX_STR, &value) == 0)
 		  && (value == (long) INT64_MAX),
-		  "could not convert string to long");
+		  "could not convert string to long (size=64bits)");
     break;
 
   default:
@@ -279,13 +279,13 @@ int test_strutils_convert_ulong()
   case 4:
     UTEST_ASSERT((str_as_ulong(UINT32_MAX_STR, &value) == 0)
 		  && (value == UINT32_MAX),
-		  "could not convert string to ulong");
+		  "could not convert string to ulong (size=4)");
     break;
 
   case 8:
     UTEST_ASSERT((str_as_ulong(UINT64_MAX_STR, &value) == 0)
 		  && (value == (unsigned long) UINT64_MAX),
-		  "could not convert string to ulong");
+		  "could not convert string to ulong (size=8)");
     break;
 
   default:
@@ -688,7 +688,7 @@ static int test_array_basic()
 // -----[ test_array_enum ]------------------------------------------
 static int test_array_enum()
 {
-  int value;
+  size_t value;
   unsigned int index;
   int_array_t * array= _random_int_array_create(ARRAY_ITEMS, ARRAY_NITEMS);
   gds_enum_t * enu;
@@ -696,7 +696,8 @@ static int test_array_enum()
   UTEST_ASSERT(enu != NULL, "int_array_get_enum() returned NULL pointer");
   index= 0;
   while (enum_has_next(enu)) {
-    value= (int) enum_get_next(enu);
+    value= (size_t) enum_get_next(enu);
+    printf("Hello %zd %d", value, ARRAY_ITEMS[index]);
     UTEST_ASSERT(value == ARRAY_ITEMS[index],
 		  "enumerator returned incorrect element");
     index++;
@@ -1369,7 +1370,7 @@ static int test_radix_add_remove()
   UTEST_ASSERT(radix_tree_add(tree, IPV4_TO_INT(1,0,0,0), 32, (void *) 1) >= 0,
 		"adding an item should succeed");
   data= radix_tree_get_exact(tree, IPV4_TO_INT(1,0,0,0), 32);
-  UTEST_ASSERT((data != NULL) && ((int) data == 1),
+  UTEST_ASSERT((data != NULL) && ((size_t) data == 1),
 		"retrieving an item should succeed");
   UTEST_ASSERT(radix_tree_remove(tree, IPV4_TO_INT(1,0,0,0), 32, 1) >= 0,
 		"removing an item should succeed");
@@ -1398,10 +1399,10 @@ static int test_radix_num_nodes()
 
 // -----[ _test_radix_for_each_cb ]----------------------------------
 static int _test_radix_for_each_cb(uint32_t key, uint8_t key_len,
-				void * data, void * ctx)
+				   void * data, void * ctx)
 {
   int * count= (int *) ctx;
-  int value= (int) data;
+  int value= (size_t) data;
   unsigned int index;
 
   for (index= 0; index < RADIX_NITEMS; index++) {
@@ -1425,7 +1426,7 @@ static int test_radix_for_each()
   // Init radix tree with random data
   for (index= 0; index < RADIX_NITEMS; index++)
     radix_tree_add(tree, (uint32_t) RADIX_ITEMS[index], 32,
-		   (void *) RADIX_ITEMS[index]);
+		   (void *) (size_t) RADIX_ITEMS[index]);
 
   // Traverse the tree using a for-each callback
   memset(RADIX_FLAGS, 0, sizeof(RADIX_FLAGS));
@@ -1457,13 +1458,13 @@ static int test_radix_enum()
   // Init radix tree with random data
   for (index= 0; index < RADIX_NITEMS; index++)
     radix_tree_add(tree, (uint32_t) RADIX_ITEMS[index], 32,
-		   (void *) RADIX_ITEMS[index]);
+		   (void *) (size_t) RADIX_ITEMS[index]);
 
   // Traverse the tree using an enumeration
   enu= radix_tree_get_enum(tree);
   memset(RADIX_FLAGS, 0, sizeof(RADIX_FLAGS));
   while (enum_has_next(enu)) {
-    data= (int) enum_get_next(enu);
+    data= (size_t) enum_get_next(enu);
     for (index= 0; index < RADIX_NITEMS; index++)
       if (RADIX_ITEMS[index] == data) {
 	RADIX_FLAGS[index]= 1;
@@ -2359,7 +2360,7 @@ static int test_trie_enum()
 		"(%u vs %u)", count, TRIE_NITEMS);
   memset(TRIE_FLAGS, 0, sizeof(TRIE_FLAGS));
   while (enum_has_next(enu)) {
-    data= (int) enum_get_next(enu);
+    data= (size_t) enum_get_next(enu);
     for (index= 0; index < TRIE_NITEMS; index++)
       if (TRIE_ITEMS[index].data == data) {
 	TRIE_FLAGS[index]= 1;
@@ -3269,8 +3270,8 @@ unsigned int _hash_set_destroy_count;
 // -----[ _hash_cmp ]------------------------------------------------
 static int _hash_cmp(const void * item1, const void * item2, unsigned int size)
 {
-  unsigned int i1= (unsigned int) item1;
-  unsigned int i2= (unsigned int) item2;
+  unsigned int i1= (size_t) item1;
+  unsigned int i2= (size_t) item2;
 
   // -> item(K) == item(K+1000*N)
   i1= i1 % 1000;
@@ -3292,7 +3293,7 @@ static void _hash_set_destroy(void * item)
 // -----[ _hash_compute ]--------------------------------------------
 static uint32_t _hash_compute(const void * item, unsigned int size)
 {
-  return ((unsigned int) item) % size;
+  return ((unsigned int) (size_t) item) % size;
 }
 
 // -----[ _hash_for_each ]-------------------------------------------
