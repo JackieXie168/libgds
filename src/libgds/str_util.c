@@ -298,7 +298,7 @@ int str_as_int(const char * s, int * value)
  */
 int str_as_ulong(const char * s, unsigned long int * value)
 {
-#ifdef sizeof(long long) > sizeof(long)
+#if LLONG_MAX > ULONG_MAX
   long long int ll_value= 0;
 #else
   unsigned long ul_value= 0;
@@ -312,13 +312,13 @@ int str_as_ulong(const char * s, unsigned long int * value)
   // If the size of a 'long long' is larger than that of a 'long'
   // then we can rely on 'strtoll()'. Otherwise, we need to manually
   // check if the input string does not contain a leading minus ('-')
-#ifdef sizeof(long long) > sizeof(long)
+#if LLONG_MAX > ULONG_MAX
     ll_value= strtoll(s, &endptr, 0);
 #else
     // spec for 'strtoul()' says that it will accepts spaces
     // followed by a '+' or '-' character. We manually skip the
     // spaces, then fail if we find a '-' character.
-    while (isspace(*s)) s++;
+    while (isspace(((int) *s))) s++;
     if (*s == '-')
       return -1;
     ul_value= strtoul(s, &endptr, 0);
@@ -331,7 +331,7 @@ int str_as_ulong(const char * s, unsigned long int * value)
   if (errno == ERANGE)
     return -1;
 
-#ifdef sizeof(long long) > sizeof(long)
+#if LLONG_MAX > ULONG_MAX
   // Check for bounds (0 <= x <= ULONG_MAX)
   if ((ll_value < 0) || (ll_value > ULONG_MAX))
     return -1;
