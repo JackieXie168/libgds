@@ -5,8 +5,9 @@
 // Dictionnaire  compact trie_dico implementation.
 //
 // @author Stefan Beauport (stefan.beauport@umons.ac.be)
+// @author Bruno Quoitin (bruno.quoitin@umons.ac.be)
 // @date 19/08/2010
-// $Id: ....? $
+// $Id$
 // ==================================================================
 
 #include <string.h>
@@ -20,7 +21,7 @@
 #include <libgds/array.h>
 #include <libgds/memory.h>
 #include <libgds/trie_dico.h>
-//#include <libgds/stack.h>
+#include <libgds/stack.h>
 
 // -----[ _trie_dico_item_t ]------------------------------------------------
 typedef struct _trie_dico_item_t {
@@ -524,7 +525,8 @@ int trie_dico_insert(gds_trie_dico_t * trie_dico, trie_dico_key_t key,
 }
 
 // -----[ trie_dico_find_exact ]------------------------------------------
-void * trie_dico_find_exact(gds_trie_dico_t * trie_dico, trie_dico_key_t key )
+void * trie_dico_find_exact(gds_trie_dico_t * trie_dico,
+			    trie_dico_key_t key)
 { 
   _trie_dico_item_t * father = _find_father( trie_dico->root , key ) ; 
   _trie_dico_item_t * left_brother = _find_left_brother(father, trie_dico->root, key );
@@ -554,8 +556,8 @@ void * trie_dico_find_exact(gds_trie_dico_t * trie_dico, trie_dico_key_t key )
 
 // -----[ trie_dico_find_best ]-------------------------------------------
 void * trie_dico_find_best(gds_trie_dico_t * trie_dico, trie_dico_key_t key)
-                            //,trie_dico_key_len_t key_len)
-{/*
+{
+  /*
   _trie_dico_item_t * tmp;
   void * data;
   int data_found= 0;
@@ -615,14 +617,14 @@ void * trie_dico_find_best(gds_trie_dico_t * trie_dico, trie_dico_key_t key)
 // -----[ _trie_dico_remove_item ]----------------------------------------
 static inline void _trie_dico_remove_item(_trie_dico_item_t ** item,
 				     gds_trie_dico_destroy_f destroy)
-{ //?
+{
+  //?
 }
 
 // -----[ _trie_dico_remove ]---------------------------------------------
-/**
- *
- *
-static int _trie_dico_remove(_trie_dico_item_t ** item, const trie_dico_key_t key,
+/*
+  static int _trie_dico_remove(_trie_dico_item_t ** item,
+const trie_dico_key_t key,
 			gds_trie_dico_destroy_f destroy)
 {
  
@@ -729,40 +731,40 @@ int trie_dico_replace(gds_trie_dico_t * trie_dico, trie_dico_key_t key,
     return -1000;
 }
 
-// -----[ _trie_dico_destroy ]--------------------------------------------
-/*static void _trie_dico_destroy(_trie_dico_item_t ** item, gds_trie_dico_destroy_f destroy)
-{printf("@%s\n",__func__);
+// -----[ _trie_dico_destroy ]---------------------------------------
+static void _trie_dico_destroy(_trie_dico_item_t ** item,
+			       gds_trie_dico_destroy_f destroy)
+{
+  //printf("@%s\n",__func__);
   if (*item != NULL) {
     // Destroy content of data item
-    if ((*item)->has_data)
+    if ((*item)->is_final_data)
       if (destroy != NULL)
 	destroy(&(*item)->data);
-
-    // Recursive descent (left, then right)
-    if ((*item)->left != NULL)
-      _trie_dico_destroy(&(*item)->left, destroy);
-    if ((*item)->right != NULL)
-      _trie_dico_destroy(&(*item)->right, destroy);
-
+    
+    // Recursive descent (brother, then child)
+    if ((*item)->brother != NULL)
+      _trie_dico_destroy(&(*item)->brother, destroy);
+    if ((*item)->child != NULL)
+      _trie_dico_destroy(&(*item)->child, destroy);
+    
     FREE(*item);
   }
 
-}*/
+}
 
-// -----[ trie_dico_destroy ]---------------------------------------------
+// -----[ trie_dico_destroy ]----------------------------------------
 void trie_dico_destroy(gds_trie_dico_t ** trie_dico_ref)
 {
-    //printf("@%s\n",__func__);
-    /*
   if (*trie_dico_ref != NULL) {
-    _trie_dico_destroy(&(*trie_dico_ref)->root, (*trie_dico_ref)->destroy);
+    _trie_dico_destroy(&(*trie_dico_ref)->root,
+		       (*trie_dico_ref)->destroy);
     FREE(*trie_dico_ref);
     *trie_dico_ref= NULL;
   }
-  */
 }
 
-// -----[ _trie_dico_item_for_each ]--------------------------------------
+// -----[ _trie_dico_item_for_each ]---------------------------------
 static int _trie_dico_item_for_each(_trie_dico_item_t * item,
 			       gds_trie_dico_foreach_f foreach, void * ctx)
 {
@@ -775,11 +777,10 @@ static int _trie_dico_item_for_each(_trie_dico_item_t * item,
       return result;
   }
 
-  if (item->is_final_data)
-  {
-      result = foreach(item->key, item->data, ctx);
-      if (result != 0)
-        return result;
+  if (item->is_final_data) {
+    result = foreach(item->key, item->data, ctx);
+    if (result != 0)
+      return result;
   }
 
   if (item->brother != NULL) {
@@ -788,11 +789,12 @@ static int _trie_dico_item_for_each(_trie_dico_item_t * item,
       return result;
   }
   
-  return 0;  
+  return 0;
 }
 
-// -----[ trie_dico_for_each ]--------------------------------------------
-int trie_dico_for_each(gds_trie_dico_t * trie_dico, gds_trie_dico_foreach_f foreach, void * ctx)
+// -----[ trie_dico_for_each ]---------------------------------------
+int trie_dico_for_each(gds_trie_dico_t * trie_dico,
+		       gds_trie_dico_foreach_f foreach, void * ctx)
 {
     //printf("@%s\n",__func__);
   if (trie_dico->root != NULL)
@@ -801,40 +803,36 @@ int trie_dico_for_each(gds_trie_dico_t * trie_dico, gds_trie_dico_foreach_f fore
 
 }
 
-// -----[ _trie_dico_num_nodes ]------------------------------------------
-/*static int _trie_dico_num_nodes(_trie_dico_item_t * item, int with_data)
-{//printf("@%s\n",__func__);
+// -----[ _trie_dico_num_nodes ]-------------------------------------
+static int _trie_dico_num_nodes(_trie_dico_item_t * item, int with_data)
+{
+  int bro_child;
+
   if (item != NULL) {
-    if (!with_data || item->has_data)
-      return (1 +
-	      _trie_dico_num_nodes(item->left, with_data) +
-	      _trie_dico_num_nodes(item->right, with_data));
+    bro_child= (_trie_dico_num_nodes(item->child, with_data) +
+		_trie_dico_num_nodes(item->brother, with_data));
+    if (!with_data || item->is_final_data)
+      return 1 + bro_child;
     else
-      return (_trie_dico_num_nodes(item->left, with_data) +
-	      _trie_dico_num_nodes(item->right, with_data));
+      return bro_child;
   }
   return 0;
+}
 
-    return -1000;
-}*/
-
-// -----[ trie_dico_num_nodes ]-------------------------------------------
+// -----[ trie_dico_num_nodes ]--------------------------------------
 /**
  * Count the number of nodes in the trie_dico. The algorithm uses a
  * divide-and-conquer recursive approach.
  */
 int trie_dico_num_nodes(gds_trie_dico_t * trie_dico, int with_data)
 {
-   //printf("@%s\n",__func__);
-    /*
   return _trie_dico_num_nodes(trie_dico->root, with_data);
-     */
-    return -1000;
 }
 
-// -----[ trie_dico_to_graphviz ]-----------------------------------------
-void trie_dico_to_graphviz(gds_stream_t * stream, gds_trie_dico_t * trie_dico)
-{/*
+// -----[ trie_dico_to_graphviz ]------------------------------------
+void trie_dico_to_graphviz(gds_stream_t * stream,
+			   gds_trie_dico_t * trie_dico)
+{
   gds_stack_t * stack= stack_create(32);
   _trie_dico_item_t * item;
 
@@ -846,31 +844,30 @@ void trie_dico_to_graphviz(gds_stream_t * stream, gds_trie_dico_t * trie_dico)
   while (!stack_is_empty(stack)) {
     item= (_trie_dico_item_t *) stack_pop(stack);
 
-    stream_printf(stream, "  \"%u/%u\" ", item->key, item->key_len);
-    stream_printf(stream, "[label=\"%u/%u\\n", item->key, item->key_len);
-    if (item->has_data)
+    stream_printf(stream, "  \"%s/%s\" ", item->key, item->key_part);
+    stream_printf(stream, "[label=\"%s/%s\\n", item->key, item->key_part);
+    if (item->is_final_data)
       stream_printf(stream, "data=%p", item->data);
     stream_printf(stream, "\"]");
     stream_printf(stream, " ;\n");
 
-    if (item->left != NULL) {
-      stack_push(stack, item->left);
-      stream_printf(stream, "  \"%u/%u\" -> \"%u/%u\" ;\n",
-		    item->key, item->key_len,
-		    item->left->key, item->left->key_len);
+    if (item->brother != NULL) {
+      stack_push(stack, item->brother);
+      stream_printf(stream, "  \"%s/%s\" -> \"%s/%s\" [style=\"dashed\"];\n",
+		    item->key, item->key_part,
+		    item->brother->key, item->brother->key_part);
     }
-    if (item->right != NULL) {
-      stack_push(stack, item->right);
-      stream_printf(stream, "  \"%u/%u\" -> \"%u/%u\" ;\n",
-		    item->key, item->key_len,
-		    item->right->key, item->right->key_len);
+    if (item->child != NULL) {
+      stack_push(stack, item->child);
+      stream_printf(stream, "  \"%s/%s\" -> \"%s/%s\" ;\n",
+		    item->key, item->key_part,
+		    item->child->key, item->child->key_part);
     }
   }
 
   stream_printf(stream, "}\n");
 
   stack_destroy(&stack);
-     */
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -956,14 +953,5 @@ gds_enum_t * trie_dico_get_enum(gds_trie_dico_t * trie_dico)
 // INITIALIZATION PART
 //
 /////////////////////////////////////////////////////////////////////
-
-// -----[ _trie_dico_init ]-----------------------------------------------
-void _trie_dico_init()
-{
-            //printf("@%s\n",__func__);
-  //_trie_dico_init_predef_masks();
-}
-
-
 
 
