@@ -410,7 +410,7 @@ typedef struct {
   _radix_tree_item_t * tree_item;
   uint32_t             key;
   uint8_t              key_len;
-  void               * data;
+  void              ** data;
 } _enum_ctx_t;
 
 // -----[ _radix_tree_enum_has_next ]--------------------------------
@@ -422,7 +422,7 @@ static int _radix_tree_enum_has_next(void * ctx)
   while ((ectx->data == NULL) && (ectx->tree_item != NULL)) {
 
     if (ectx->tree_item->data != NULL)
-      ectx->data= ectx->tree_item->data;
+      ectx->data= &ectx->tree_item->data;
 
     // Move to next item
     if (ectx->tree_item->left != NULL) {
