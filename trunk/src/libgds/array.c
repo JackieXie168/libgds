@@ -30,7 +30,8 @@ typedef struct {
 } _array_ops_t;
 
 typedef struct {
-  uint8_t      ** data;
+  //  uint8_t      ** data;
+  uint8_t      * data;
   unsigned int    size;
   unsigned int    elt_size;
   uint8_t         options;
@@ -69,7 +70,7 @@ array_t * _array_create(unsigned int elt_size,
   real_array->size= size;
   real_array->elt_size= elt_size;
   if (size > 0)
-    real_array->data= (uint8_t **) MALLOC(elt_size*size);
+    real_array->data= (uint8_t *) MALLOC(elt_size*size);
   else
     real_array->data= NULL;
   real_array->options= options;
@@ -127,14 +128,14 @@ void _array_resize_if_required(array_t * array,
   if (new_length != real_array->size) {
     if (real_array->size == 0) {
       real_array->data=
-	(uint8_t **) MALLOC(new_length*real_array->elt_size);
+	(uint8_t *) MALLOC(new_length*real_array->elt_size);
     } else if (new_length == 0) {
       FREE(real_array->data);
       real_array->data= NULL;
     } else {
       real_array->data=
-	(uint8_t **) REALLOC(real_array->data,
-			     new_length*real_array->elt_size);
+	(uint8_t *) REALLOC(real_array->data,
+			    new_length*real_array->elt_size);
     }
     real_array->size= new_length;
   }
@@ -529,7 +530,8 @@ static int _enum_has_next(void * ctx)
 static void * _enum_get_next(void * ctx)
 {
   _enum_ctx_t * enum_ctx= (_enum_ctx_t *) ctx;
-  return *((void **) _array_elt_pos(enum_ctx->array, enum_ctx->index++));
+  //return *((void **) _array_elt_pos(enum_ctx->array, enum_ctx->index++));
+  return (void *) _array_elt_pos(enum_ctx->array, enum_ctx->index++);
 }
 
 // -----[ _enum_destroy ]--------------------------------------------
