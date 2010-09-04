@@ -18,9 +18,6 @@
   /** Trie dico key data type. */
 typedef char *  trie_dico_key_t;
 
-/** Trie dico key length data type. */
-typedef uint8_t trie_dico_key_len_t;
-
 #define TRIE_DICO_SUCCESS          0
 #define TRIE_DICO_ERROR_DUPLICATE -1
 #define TRIE_DICO_ERROR_NO_MATCH  -2
@@ -81,7 +78,8 @@ extern "C" {
    * \retval the pointer associated to the given key if it exists,
    *   or NULL otherwise.
    */
-  void * trie_dico_find_exact(gds_trie_dico_t * trie_dico, trie_dico_key_t key);
+  void * trie_dico_find_exact(gds_trie_dico_t * trie_dico,
+			      trie_dico_key_t key);
 
   // -----[ trie_dico_find_best ]-----------------------------------------
   /**
@@ -96,8 +94,6 @@ extern "C" {
    *   exists, or NULL otherwise.
    */
   void * trie_dico_find_best(gds_trie_dico_t * trie_dico, trie_dico_key_t key);
-                        //,trie_dico_key_len_t key_len
-                            
 
   // -----[ trie_dico_insert ]--------------------------------------------
   /**
@@ -114,8 +110,7 @@ extern "C" {
    *   key already exists.
    */
   int trie_dico_insert(gds_trie_dico_t * trie_dico, trie_dico_key_t key,
-                void * data,
-		  int replace);
+		       void * data, int replace);
 
   // -----[ trie_dico_remove ]--------------------------------------------
   /**
@@ -127,9 +122,7 @@ extern "C" {
    * \retval 0 in case of success (key existed),
    *   or <0 in case of failure (key does not exist).
    */
-  int trie_dico_remove(gds_trie_dico_t * trie_dico, trie_dico_key_t key
-                    //,trie_dico_key_len_t key_len
-                        );
+  int trie_dico_remove(gds_trie_dico_t * trie_dico, trie_dico_key_t key);
 
   // -----[ trie_dico_replace ]-------------------------------------------
   /**
@@ -144,7 +137,6 @@ extern "C" {
    *   found.
    */
   int trie_dico_replace(gds_trie_dico_t * trie_dico, trie_dico_key_t key,
-		   //trie_dico_key_len_t key_len,
                         void * data);
 
   // -----[ trie_dico_for_each ]------------------------------------------
@@ -155,15 +147,16 @@ extern "C" {
    * callback function will be called.
    *
    * \param trie_dico is the trie_dico.
-   * \param foreach is the callbeck function.
+   * \param foreach is the callback function.
    * \param ctx is the callback context pointer. This pointer will
    *   be passed to the \a foreach callback function each time it is
    *   called.
    * \retval 0 in case all calls to \a foreach succeeded, or <0
    *   if at least one call th \a foreach failed (returned <0).
    */
-  int trie_dico_for_each(gds_trie_dico_t * trie_dico, gds_trie_dico_foreach_f foreach,
-		    void * ctx);
+  int trie_dico_for_each(gds_trie_dico_t * trie_dico,
+			 gds_trie_dico_foreach_f foreach,
+			 void * ctx);
 
   // -----[ trie_dico_get_array ]-----------------------------------------
   /**
@@ -193,17 +186,8 @@ extern "C" {
   /**
    * \internal
    */
-  void trie_dico_to_graphviz(gds_stream_t * stream, gds_trie_dico_t * trie_dico);
-
-  // -----[ _trie_dico_init ]---------------------------------------------
-  /**
-   * \internal
-   */
-  void _trie_dico_init();
-
-
-
-
+  void trie_dico_to_graphviz(gds_stream_t * stream,
+			     gds_trie_dico_t * trie_dico);
 
 #ifdef __cplusplus
 }
