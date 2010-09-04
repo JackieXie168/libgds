@@ -3,7 +3,7 @@
 //
 // Generic Data Structures (libgds): validation application.
 //
-// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
+// @author Bruno Quoitin (bruno.quoitin@umons.ac.be)
 // @author Sebastien Tandel (standel@info.ucl.ac.be)
 // $Id$
 // ==================================================================
@@ -39,6 +39,7 @@
 #include <libgds/memory.h>
 #include <libgds/params.h>
 #include <libgds/trie.h>
+#include <libgds/trie_dico.h>
 #include <libgds/radix-tree.h>
 #include <libgds/stream.h>
 #include <libgds/stream_cmd.h>
@@ -688,7 +689,7 @@ static int test_array_basic()
 // -----[ test_array_enum ]------------------------------------------
 static int test_array_enum()
 {
-  size_t value;
+  int value;
   unsigned int index;
   int_array_t * array= _random_int_array_create(ARRAY_ITEMS, ARRAY_NITEMS);
   gds_enum_t * enu;
@@ -696,10 +697,9 @@ static int test_array_enum()
   UTEST_ASSERT(enu != NULL, "int_array_get_enum() returned NULL pointer");
   index= 0;
   while (enum_has_next(enu)) {
-    value= (size_t) enum_get_next(enu);
-    printf("Hello %zd %d", value, ARRAY_ITEMS[index]);
+    value= *((int*) enum_get_next(enu));
     UTEST_ASSERT(value == ARRAY_ITEMS[index],
-		  "enumerator returned incorrect element");
+		 "enumerator returned incorrect element (@%d)", index);
     index++;
   }
   UTEST_ASSERT(index == ARRAY_NITEMS,
@@ -1464,7 +1464,7 @@ static int test_radix_enum()
   enu= radix_tree_get_enum(tree);
   memset(RADIX_FLAGS, 0, sizeof(RADIX_FLAGS));
   while (enum_has_next(enu)) {
-    data= (size_t) enum_get_next(enu);
+    data= *((size_t *) enum_get_next(enu));
     for (index= 0; index < RADIX_NITEMS; index++)
       if (RADIX_ITEMS[index] == data) {
 	RADIX_FLAGS[index]= 1;
@@ -2360,7 +2360,7 @@ static int test_trie_enum()
 		"(%u vs %u)", count, TRIE_NITEMS);
   memset(TRIE_FLAGS, 0, sizeof(TRIE_FLAGS));
   while (enum_has_next(enu)) {
-    data= (size_t) enum_get_next(enu);
+    data= *((size_t *) enum_get_next(enu));
     for (index= 0; index < TRIE_NITEMS; index++)
       if (TRIE_ITEMS[index].data == data) {
 	TRIE_FLAGS[index]= 1;
@@ -2444,6 +2444,64 @@ static int test_trie_complex()
     }
   }
   trie_destroy(&trie);
+  return UTEST_SUCCESS;
+}
+
+/////////////////////////////////////////////////////////////////////
+// GDS_CHECK_TRIE_DICT
+/////////////////////////////////////////////////////////////////////
+
+// -----[ test_trie_dict_create_destroy ]----------------------------
+static int test_trie_dict_create_destroy()
+{
+  gds_trie_dico_t * dict= trie_dico_create(NULL);
+  UTEST_ASSERT(dict != NULL, "trie_dico_create() should succeed");
+  UTEST_ASSERT(trie_dico_num_nodes(dict, 0) == 0,
+	       "empty dict should have no node");
+  trie_dico_destroy(&dict);
+  UTEST_ASSERT(dict == NULL, "destroyed dict should be NULL");
+  return UTEST_SUCCESS;
+}
+
+// -----[ test_trie_dict_smoke ]-------------------------------------
+static int test_trie_dict_smoke()
+{
+  gds_trie_dico_t * dict= trie_dico_create(NULL);
+
+  UTEST_ASSERT(trie_dico_insert(dict, "abc", (void *) 1, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abcdef", (void *) 2, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abcd", (void *) 3, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abce", (void *) 4, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abcdxy", (void *) 5, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+
+  //trie_dico_to_graphviz(gdsout, dict);
+
+  UTEST_ASSERT(trie_dico_num_nodes(dict, 1) == 5,
+	       "dict should have 3 nodes with data");
+  /*UTEST_ASSERT(trie_dico_num_nodes(dict, 0) == XXX,
+    "dict should have XXX nodes total");*/
+
+  UTEST_ASSERT(trie_dico_find_exact(dict, "abc") == (void *) 1,
+	       "find did not return correct data");
+  UTEST_ASSERT(trie_dico_find_exact(dict, "abcdef") == (void *) 2,
+	       "find did not return correct data");
+  UTEST_ASSERT(trie_dico_find_exact(dict, "abcd") == (void *) 3,
+	       "find did not return correct data");
+  UTEST_ASSERT(trie_dico_find_exact(dict, "ab") == NULL,
+	       "find returned data for unexisting key");
+  UTEST_ASSERT(trie_dico_find_exact(dict, "abcdefg") == NULL,
+	       "find returned data for unexisting key");
+  trie_dico_destroy(&dict);
   return UTEST_SUCCESS;
 }
 
@@ -4026,6 +4084,12 @@ unit_test_t TRIE_TESTS[]= {
 };
 #define TRIE_NTESTS ARRAY_SIZE(TRIE_TESTS)
 
+unit_test_t TRIE_DICT_TESTS[]= {
+  {test_trie_dict_create_destroy, "creation/destruction"},
+  {test_trie_dict_smoke, "smoke"},
+};
+#define TRIE_DICT_NTESTS ARRAY_SIZE(TRIE_DICT_TESTS)
+
 unit_test_t ASSOC_TESTS[]= {
   {test_assoc_create_destroy, "creation/destruction"},
   {test_assoc_basic, "basic use"},
@@ -4109,6 +4173,7 @@ unit_test_suite_t SUITES[]= {
   {"Radix-Tree", RADIX_NTESTS, RADIX_TESTS,
    test_radix_before, NULL},
   {"Trie", TRIE_NTESTS, TRIE_TESTS},
+  {"Trie-Dict", TRIE_DICT_NTESTS, TRIE_DICT_TESTS},
   {"Tokenizer", TOKENIZER_NTESTS, TOKENIZER_TESTS},
   {"Params", PARAMS_NTESTS, PARAMS_TESTS},
   {"CLI", CLI_NTESTS, CLI_TESTS, test_before_cli, test_after_cli},
