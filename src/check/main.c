@@ -2468,7 +2468,7 @@ static int test_trie_dict_smoke()
 {
   gds_trie_dico_t * dict= trie_dico_create(NULL);
 
-  UTEST_ASSERT(trie_dico_insert(dict, "abc", (void *) 1, 0)
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 1, 0)
 	       == TRIE_DICO_SUCCESS,
 	       "could not insert item");
   UTEST_ASSERT(trie_dico_insert(dict, "abcdef", (void *) 2, 0)
@@ -2488,16 +2488,16 @@ static int test_trie_dict_smoke()
 
   UTEST_ASSERT(trie_dico_num_nodes(dict, 1) == 5,
 	       "dict should have 3 nodes with data");
-  /*UTEST_ASSERT(trie_dico_num_nodes(dict, 0) == XXX,
-    "dict should have XXX nodes total");*/
-
-  UTEST_ASSERT(trie_dico_find_exact(dict, "abc") == (void *) 1,
+  UTEST_ASSERT(trie_dico_num_nodes(dict, 0) == 6,
+	       "dict should have 6 nodes total");
+  
+  UTEST_ASSERT(trie_dico_find_exact(dict, "ab") == (void *) 1,
 	       "find did not return correct data");
   UTEST_ASSERT(trie_dico_find_exact(dict, "abcdef") == (void *) 2,
 	       "find did not return correct data");
   UTEST_ASSERT(trie_dico_find_exact(dict, "abcd") == (void *) 3,
 	       "find did not return correct data");
-  UTEST_ASSERT(trie_dico_find_exact(dict, "ab") == NULL,
+  UTEST_ASSERT(trie_dico_find_exact(dict, "abc") == NULL,
 	       "find returned data for unexisting key");
   UTEST_ASSERT(trie_dico_find_exact(dict, "abcdefg") == NULL,
 	       "find returned data for unexisting key");
