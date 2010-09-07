@@ -2515,6 +2515,53 @@ static int test_trie_dict_insert_duplicate()
   UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 2, 0)
 	       == TRIE_DICO_ERROR_DUPLICATE,
 	       "should return error code (duplicate)");
+  UTEST_ASSERT(trie_dico_find_exact(dict, "ab") == (void *) 1,
+	       "find did not return correct data");
+  trie_dico_destroy(&dict);
+  return UTEST_SUCCESS;
+}
+
+static int test_trie_dict_insert_replace()
+{
+  gds_trie_dico_t * dict= trie_dico_create(NULL);
+
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 1, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 2, 1)
+	       == TRIE_DICO_SUCCESS,
+	       "could not replace item");
+  UTEST_ASSERT(trie_dico_find_exact(dict, "ab") == (void *) 2,
+	       "find did not return correct data");
+  trie_dico_destroy(&dict);
+  return UTEST_SUCCESS;
+}
+
+static int test_trie_dict_replace()
+{
+  gds_trie_dico_t * dict= trie_dico_create(NULL);
+
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 1, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_replace(dict, "ab", (void *) 2)
+	       == TRIE_DICO_SUCCESS,
+	       "could not replace item");
+  UTEST_ASSERT(trie_dico_find_exact(dict, "ab") == (void *) 2,
+	       "find did not return correct data");
+  trie_dico_destroy(&dict);
+  return UTEST_SUCCESS;
+}
+
+static int test_trie_dict_replace_missing()
+{
+  gds_trie_dico_t * dict= trie_dico_create(NULL);
+
+  UTEST_ASSERT(trie_dico_replace(dict, "ab", (void *) 2)
+	       == TRIE_DICO_ERROR_NO_MATCH,
+	       "should return error code (no-match)");
+  UTEST_ASSERT(trie_dico_find_exact(dict, "ab") == NULL,
+	       "find returned data for unexisting key");
   trie_dico_destroy(&dict);
   return UTEST_SUCCESS;
 }
@@ -4101,6 +4148,9 @@ unit_test_t TRIE_DICT_TESTS[]= {
   {test_trie_dict_create_destroy, "creation/destruction"},
   {test_trie_dict_smoke, "smoke"},
   {test_trie_dict_insert_duplicate, "insert duplicate"},
+  {test_trie_dict_insert_replace, "insert replace"},
+  {test_trie_dict_replace, "replace"},
+  {test_trie_dict_replace_missing, "replace missing"},
 };
 #define TRIE_DICT_NTESTS ARRAY_SIZE(TRIE_DICT_TESTS)
 
