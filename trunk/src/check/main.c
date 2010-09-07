@@ -2528,7 +2528,8 @@ static int test_trie_dict_insert_replace()
   UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 1, 0)
 	       == TRIE_DICO_SUCCESS,
 	       "could not insert item");
-  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 2, 1)
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 2,
+				TRIE_DICO_INSERT_OR_REPLACE)
 	       == TRIE_DICO_SUCCESS,
 	       "could not replace item");
   UTEST_ASSERT(trie_dico_find_exact(dict, "ab") == (void *) 2,
