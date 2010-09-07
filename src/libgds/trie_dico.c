@@ -396,7 +396,11 @@ static int _trie_dico_insert(_trie_dico_item_t ** item, trie_dico_key_t key,
                   }
                   else
                   {
-                      printf("Noeud contient déjà une data ! REMPLACER ???");
+		    if (replace != TRIE_DICO_INSERT_OR_REPLACE)
+		      return TRIE_DICO_ERROR_DUPLICATE;
+		    if (destroy != NULL)
+		      destroy(&(*ptrTonodetoanalyse)->data);
+		    (*ptrTonodetoanalyse)->data= data;
                   }
               }
               else
@@ -735,7 +739,6 @@ int trie_dico_replace(gds_trie_dico_t * trie_dico, trie_dico_key_t key,
 static void _trie_dico_destroy(_trie_dico_item_t ** item,
 			       gds_trie_dico_destroy_f destroy)
 {
-  //printf("@%s\n",__func__);
   if (*item != NULL) {
     // Destroy content of data item
     if ((*item)->is_final_data)
@@ -750,7 +753,6 @@ static void _trie_dico_destroy(_trie_dico_item_t ** item,
     
     FREE(*item);
   }
-
 }
 
 // -----[ trie_dico_destroy ]----------------------------------------
@@ -768,7 +770,6 @@ void trie_dico_destroy(gds_trie_dico_t ** trie_dico_ref)
 static int _trie_dico_item_for_each(_trie_dico_item_t * item,
 			       gds_trie_dico_foreach_f foreach, void * ctx)
 {
-  //printf("@%s\n",__func__);
   int result;
 
   if (item->child != NULL) {
@@ -796,7 +797,6 @@ static int _trie_dico_item_for_each(_trie_dico_item_t * item,
 int trie_dico_for_each(gds_trie_dico_t * trie_dico,
 		       gds_trie_dico_foreach_f foreach, void * ctx)
 {
-    //printf("@%s\n",__func__);
   if (trie_dico->root != NULL)
     return _trie_dico_item_for_each(trie_dico->root, foreach, ctx);
   return 0;
