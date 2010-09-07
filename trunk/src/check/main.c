@@ -2505,6 +2505,19 @@ static int test_trie_dict_smoke()
   return UTEST_SUCCESS;
 }
 
+static int test_trie_dict_insert_duplicate()
+{
+  gds_trie_dico_t * dict= trie_dico_create(NULL);
+
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 1, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 2, 0)
+	       == TRIE_DICO_ERROR_DUPLICATE,
+	       "should return error code (duplicate)");
+  trie_dico_destroy(&dict);
+  return UTEST_SUCCESS;
+}
 
 /////////////////////////////////////////////////////////////////////
 // GDS_CHECK_CLI
@@ -4087,6 +4100,7 @@ unit_test_t TRIE_TESTS[]= {
 unit_test_t TRIE_DICT_TESTS[]= {
   {test_trie_dict_create_destroy, "creation/destruction"},
   {test_trie_dict_smoke, "smoke"},
+  {test_trie_dict_insert_duplicate, "insert duplicate"},
 };
 #define TRIE_DICT_NTESTS ARRAY_SIZE(TRIE_DICT_TESTS)
 
