@@ -2505,6 +2505,77 @@ static int test_trie_dict_smoke()
   return UTEST_SUCCESS;
 }
 
+static int test_trie_dict_insert()
+{
+  gds_trie_dico_t * dict= trie_dico_create(NULL);
+  trie_dico_destroy(&dict);
+  return UTEST_SUCCESS;
+}
+
+static int test_trie_dict_insert_child()
+{
+  gds_trie_dico_t * dict= trie_dico_create(NULL);
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 1, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abcd", (void *) 2, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abcdef", (void *) 3, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  trie_dico_destroy(&dict);
+  return UTEST_SUCCESS;
+}
+
+static int test_trie_dict_insert_brother()
+{
+  gds_trie_dico_t * dict= trie_dico_create(NULL);
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 1, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "bc", (void *) 2, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "cd", (void *) 3, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  trie_dico_destroy(&dict);
+  return UTEST_SUCCESS;
+}
+
+static int test_trie_dict_insert_father()
+{
+  gds_trie_dico_t * dict= trie_dico_create(NULL);
+  UTEST_ASSERT(trie_dico_insert(dict, "abcdef", (void *) 3, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abcd", (void *) 2, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 1, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  trie_dico_destroy(&dict);
+  return UTEST_SUCCESS;  
+}
+
+static int test_trie_dict_insert_split()
+{
+  gds_trie_dico_t * dict= trie_dico_create(NULL);
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 1, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abc", (void *) 2, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abd", (void *) 3, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  trie_dico_destroy(&dict);
+  return UTEST_SUCCESS;
+}
+
 static int test_trie_dict_insert_duplicate()
 {
   gds_trie_dico_t * dict= trie_dico_create(NULL);
@@ -2563,8 +2634,237 @@ static int test_trie_dict_replace_missing()
 	       "should return error code (no-match)");
   UTEST_ASSERT(trie_dico_find_exact(dict, "ab") == NULL,
 	       "find returned data for unexisting key");
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 1, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_replace(dict, "abcd", (void *) 2)
+	       == TRIE_DICO_ERROR_NO_MATCH,
+	       "should return error code (no-match)");
   trie_dico_destroy(&dict);
   return UTEST_SUCCESS;
+}
+
+static int test_trie_dict_remove()
+{
+  gds_trie_dico_t * dict= trie_dico_create(NULL);
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 1, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_remove(dict, "ab") == TRIE_DICO_SUCCESS,
+	       "could not remove item 1");
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 1, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abcd", (void *) 2, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_remove(dict, "abcd") == TRIE_DICO_SUCCESS,
+	       "could not remove item 2");
+  UTEST_ASSERT(trie_dico_insert(dict, "abcd", (void *) 2, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_remove(dict, "ab") == TRIE_DICO_SUCCESS,
+	       "could not remove item 3");
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 1, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abef", (void *) 3, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_remove(dict, "abcd") == TRIE_DICO_SUCCESS,
+	       "could not remove item 4");
+  UTEST_ASSERT(trie_dico_insert(dict, "abcd", (void *) 2, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_remove(dict, "abef") == TRIE_DICO_SUCCESS,
+	       "could not remove item 5");
+  trie_dico_destroy(&dict);
+  return UTEST_SUCCESS;
+}
+
+static int test_trie_dict_remove_child_father()
+{
+  gds_trie_dico_t * dict= trie_dico_create(NULL);
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 1, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abcd", (void *) 2, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abxy", (void *) 3, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abcdef", (void *) 4, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  // Remove key
+  UTEST_ASSERT(trie_dico_remove(dict, "abcd")
+	       == TRIE_DICO_SUCCESS,
+	       "could not remove item");
+  // Check keys
+  UTEST_ASSERT(trie_dico_find_exact(dict, "ab") == (void *) 1,
+	       "find did not return correct data");
+  UTEST_ASSERT(trie_dico_find_exact(dict, "abxy") == (void *) 3,
+	       "find did not return correct data");
+  UTEST_ASSERT(trie_dico_find_exact(dict, "abcdef") == (void *) 4,
+	       "find did not return correct data");
+  UTEST_ASSERT(trie_dico_find_exact(dict, "abcd") == NULL,
+	       "should not return data for a removed item");
+  trie_dico_destroy(&dict);
+  return UTEST_SUCCESS;
+}
+
+static int test_trie_dict_remove_brother()
+{
+  gds_trie_dico_t * dict= trie_dico_create(NULL);
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 1, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abcd", (void *) 2, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abef", (void *) 3, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abgh", (void *) 4, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  // Remove key
+  UTEST_ASSERT(trie_dico_remove(dict, "abef") == TRIE_DICO_SUCCESS,
+	       "could not remove item");
+  // Check keys
+  UTEST_ASSERT(trie_dico_find_exact(dict, "ab") == (void *) 1,
+	       "find did not return correct data");
+  UTEST_ASSERT(trie_dico_find_exact(dict, "abcd") == (void *) 2,
+	       "find did not return correct data");
+  UTEST_ASSERT(trie_dico_find_exact(dict, "abgh") == (void *) 4,
+	       "find did not return correct data");
+  UTEST_ASSERT(trie_dico_find_exact(dict, "abef") == NULL,
+	       "should not return data for a removed item");
+  trie_dico_destroy(&dict);
+  return UTEST_SUCCESS;
+}
+
+static int test_trie_dict_remove_split()
+{
+  gds_trie_dico_t * dict= trie_dico_create(NULL);
+  UTEST_ASSERT(trie_dico_insert(dict, "a", (void *) 1, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 2, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "ac", (void *) 3, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  // Remove key
+  UTEST_ASSERT(trie_dico_remove(dict, "a") == TRIE_DICO_SUCCESS,
+	       "could not remove item");
+  // Check keys
+  void * res;
+  UTEST_ASSERT((res= trie_dico_find_exact(dict, "a")) == NULL,
+	       "find did not return correct data (split) %p", res);
+  UTEST_ASSERT(trie_dico_find_exact(dict, "ab") == (void *) 2,
+	       "find did not return correct data");
+  UTEST_ASSERT(trie_dico_find_exact(dict, "ac") == (void *) 3,
+	       "find did not return correct data");
+  trie_dico_destroy(&dict);
+  return UTEST_SUCCESS;
+}
+
+static int test_trie_dict_remove_missing_split()
+{
+  gds_trie_dico_t * dict= trie_dico_create(NULL);
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 1, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "ac", (void *) 2, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_remove(dict, "a")
+	       == TRIE_DICO_ERROR_NO_MATCH,
+	       "should return an error (no-match)");
+  trie_dico_destroy(&dict);
+  return UTEST_SUCCESS;
+}
+
+static int test_trie_dict_remove_missing()
+{
+  gds_trie_dico_t * dict= trie_dico_create(NULL);
+  UTEST_ASSERT(trie_dico_remove(dict, "ab")
+	       == TRIE_DICO_ERROR_NO_MATCH,
+	       "should return an error (no-match)");
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 1, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_remove(dict, "abcd")
+	       == TRIE_DICO_ERROR_NO_MATCH,
+	       "should return an error (no-match)");
+  trie_dico_destroy(&dict);
+  return UTEST_SUCCESS;
+}
+
+static int test_trie_dict_foreach()
+{
+  return UTEST_SKIPPED;
+}
+
+static int test_trie_dict_array()
+{
+  gds_trie_dico_t * dict= trie_dico_create(NULL);
+  ptr_array_t * array;
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 1, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abcd", (void *) 2, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abef", (void *) 3, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abcdef", (void *) 4, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abcdgh", (void *) 5, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  array= trie_dico_get_array(dict);
+  UTEST_ASSERT(array != NULL, "array should not be NULL");
+  for (int i= 0; i < ptr_array_length(array); i++) {
+    printf("%zu\n", (size_t) array->data[i]);
+  }
+  ptr_array_destroy(&array);
+  trie_dico_destroy(&dict);
+  return UTEST_SUCCESS;  
+}
+
+static int test_trie_dict_enum()
+{
+  gds_trie_dico_t * dict= trie_dico_create(NULL);
+  gds_enum_t * enu;
+  UTEST_ASSERT(trie_dico_insert(dict, "ab", (void *) 1, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abcd", (void *) 2, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abef", (void *) 3, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abcdef", (void *) 4, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  UTEST_ASSERT(trie_dico_insert(dict, "abcdgh", (void *) 5, 0)
+	       == TRIE_DICO_SUCCESS,
+	       "could not insert item");
+  enu= trie_dico_get_enum(dict);
+  UTEST_ASSERT(enu != NULL, "enumeration should not be NULL");
+  while (enum_has_next(enu)) {
+    printf("%zu\n", *((size_t *) enum_get_next(enu)));
+  }
+  enum_destroy(&enu);
+  trie_dico_destroy(&dict);
+  return UTEST_SUCCESS;  
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -4148,10 +4448,24 @@ unit_test_t TRIE_TESTS[]= {
 unit_test_t TRIE_DICT_TESTS[]= {
   {test_trie_dict_create_destroy, "creation/destruction"},
   {test_trie_dict_smoke, "smoke"},
+  {test_trie_dict_insert, "insert"},
+  {test_trie_dict_insert_child, "insert child"},
+  {test_trie_dict_insert_brother, "insert brother"},
+  {test_trie_dict_insert_father, "insert father"},
+  {test_trie_dict_insert_split, "insert split"},
   {test_trie_dict_insert_duplicate, "insert duplicate"},
   {test_trie_dict_insert_replace, "insert replace"},
   {test_trie_dict_replace, "replace"},
   {test_trie_dict_replace_missing, "replace missing"},
+  {test_trie_dict_remove, "remove"},
+  {test_trie_dict_remove_child_father, "remove child-father"},
+  {test_trie_dict_remove_brother, "remove brother"},
+  {test_trie_dict_remove_split, "remove split"},
+  {test_trie_dict_remove_missing, "remove missing"},
+  {test_trie_dict_remove_missing_split, "remove missing split"},
+  {test_trie_dict_foreach, "for-each"},
+  {test_trie_dict_array, "array"},
+  {test_trie_dict_enum, "enum"},
 };
 #define TRIE_DICT_NTESTS ARRAY_SIZE(TRIE_DICT_TESTS)
 
