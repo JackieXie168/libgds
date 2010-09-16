@@ -4,7 +4,7 @@
 // @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
 // @author Sebastien Tandel
 // @date 17/05/2005
-// $Id: log.c 273 2008-08-21 10:00:30Z bquoitin $
+// $Id$
 // ==================================================================
 
 #ifdef HAVE_CONFIG_H
