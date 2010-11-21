@@ -123,12 +123,26 @@ int fifo_tunable_push(gds_fifo_tunable_t * fifo, void * item)
 
 int fifo_tunable_set_next(gds_fifo_tunable_t * fifo, int indexOfNext)
 {
+    void * startItem;
+
+    printf("echanger le %d avec le %d",
+                    indexOfNext,
+                (sched->events->start_index)  % sched->events->max_depth);
+
+
+
+    startItem = fifo->items[fifo->start_index];
+    fifo->items[fifo->start_index] = fifo->items[indexOfNext];
+    fifo->items[indexOfNext] = startItem;
+
+    /*
+
     //swap the items in current position, and indexOfNext
     void * thecurrent = fifo->items[(fifo->start_index+fifo->current_depth) % fifo->max_depth];
     fifo->items[(fifo->start_index+fifo->current_depth) % fifo->max_depth] =
             fifo->items[(indexOfNext) % fifo->max_depth];
     fifo->items[(indexOfNext) % fifo->max_depth]= thecurrent;
-
+*/
     
 }
 // ----- fifo_pop ---------------------------------------------------
