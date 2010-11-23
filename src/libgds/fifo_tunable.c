@@ -120,20 +120,24 @@ int fifo_tunable_push(gds_fifo_tunable_t * fifo, void * item)
   return 0;
 }
 
-
-int fifo_tunable_set_next(gds_fifo_tunable_t * fifo, int indexOfNext)
+int fifo_tunable_swap(gds_fifo_tunable_t * fifo, int nb1, int nb2)
 {
-    void * startItem;
+      void * item1;
 
-    printf("echanger le %d avec le %d",
-                    indexOfNext,
-                (sched->events->start_index)  % sched->events->max_depth);
+    printf("echanger le %d avec le %d\n",
+            (fifo->start_index + nb1) % fifo->max_depth ,
+            (fifo->start_index + nb2) % fifo->max_depth );
 
+    item1 = fifo->items[(fifo->start_index + nb1) % fifo->max_depth];
+    fifo->items[(fifo->start_index + nb1) % fifo->max_depth] = fifo->items[(fifo->start_index + nb2) % fifo->max_depth];
+    fifo->items[(fifo->start_index + nb2) % fifo->max_depth] = item1;
+    return 0;
+}
 
-
-    startItem = fifo->items[fifo->start_index];
-    fifo->items[fifo->start_index] = fifo->items[indexOfNext];
-    fifo->items[indexOfNext] = startItem;
+int fifo_tunable_set_first(gds_fifo_tunable_t * fifo, int nb)
+{
+    return fifo_tunable_swap(fifo, 0, nb );
+    
 
     /*
 
