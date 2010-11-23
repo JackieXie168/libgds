@@ -74,10 +74,16 @@ extern "C" {
 
 
   /*
-   swap the current event with the one in indexOfNext
+   set nb as the first elem in the fifo, by swapping with the current first element
 
    */
-  int fifo_tunable_set_next(gds_fifo_tunable_t * fifo, int indexOfNext);
+  int fifo_tunable_set_first(gds_fifo_tunable_t * fifo, int nb);
+
+    /*
+   swap elem in positions nb1 and nb2 in the fifo
+
+   */
+  int fifo_tunable_swap(gds_fifo_tunable_t * fifo, int nb1, int nb2);
 
 
   // -----[ fifo_pop ]-----------------------------------------------
