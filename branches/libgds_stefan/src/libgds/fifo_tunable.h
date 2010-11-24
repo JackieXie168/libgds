@@ -85,6 +85,9 @@ extern "C" {
    */
   int fifo_tunable_swap(gds_fifo_tunable_t * fifo, int nb1, int nb2);
 
+  /* décaler */
+  int fifo_tunable_bringForward(gds_fifo_tunable_t * fifo, int num);
+
 
   // -----[ fifo_pop ]-----------------------------------------------
   /**
