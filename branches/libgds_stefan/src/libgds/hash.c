@@ -539,7 +539,7 @@ int _enum_has_next(void * ctx)
   if (index1 >= enum_ctx->hash->size )
     return 0;
 
-  /* is the anything more in the array we are going through? */
+  /* is there anything more in the array we are going through? */
   pHashItems= enum_ctx->hash->items[enum_ctx->index1];
   if ((pHashItems != NULL) &&
       (enum_ctx->index2 < ptr_array_length(pHashItems)))
@@ -572,7 +572,7 @@ void * _enum_get_next(void * ctx)
       (enum_ctx->index2 < ptr_array_length(pHashItems))) {
     item= ((hash_elt_t *) pHashItems->data[enum_ctx->index2])->item;
     enum_ctx->index2++;
-    return item;
+    return &item;
   }
 
   /* We have to return an item from another array of the hash table */
@@ -582,7 +582,7 @@ void * _enum_get_next(void * ctx)
   for (; enum_ctx->index1 < enum_ctx->hash->size; enum_ctx->index1++) {
     pHashItems= enum_ctx->hash->items[enum_ctx->index1];
     if ((pHashItems != NULL) && (ptr_array_length(pHashItems) > 0))
-      return ((hash_elt_t *) pHashItems->data[0])->item;
+      return &((hash_elt_t *) pHashItems->data[0])->item;
   }
   return NULL;
 }
