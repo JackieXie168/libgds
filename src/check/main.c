@@ -3863,7 +3863,7 @@ static int test_hash_set_enum()
   gds_hash_set_t * hash= hash_set_create(100, 0.0, _hash_cmp,
 				     _hash_set_destroy, _hash_compute);
   gds_enum_t * enu;
-  unsigned int value;
+  size_t value;
   unsigned int count= 0;
   hash_set_add(hash, (void *) 1);
   hash_set_add(hash, (void *) 2);
@@ -3871,7 +3871,8 @@ static int test_hash_set_enum()
   hash_set_add(hash, (void *) 4);
   enu= hash_set_get_enum(hash);
   while (enum_has_next(enu)) {
-    value= **(unsigned int**) enum_get_next(enu);
+    value= *((size_t *) enum_get_next(enu));
+    printf("%zu\n", value);
     count++;
   }
   UTEST_ASSERT(count == 4, "incorrect number of items enumerated");
