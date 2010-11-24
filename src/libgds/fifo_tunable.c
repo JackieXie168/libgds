@@ -149,6 +149,34 @@ int fifo_tunable_set_first(gds_fifo_tunable_t * fifo, int nb)
 */
     
 }
+
+/*
+ set num as first, and decale others
+
+ */
+int fifo_tunable_bringForward(gds_fifo_tunable_t * fifo, int num)
+{
+      void * item;
+
+
+
+    /*printf("echanger le %d avec le %d\n",
+            (fifo->start_index + nb1) % fifo->max_depth ,
+            (fifo->start_index + nb2) % fifo->max_depth );
+*/
+
+      item = fifo->items[(fifo->start_index + num) % fifo->max_depth];
+
+      for(int i=num-1; i>=0 ; i--)
+      {
+          fifo->items[( fifo->start_index + i + 1 ) % fifo->max_depth] = fifo->items[( fifo->start_index + i ) % fifo->max_depth];
+      }
+
+    fifo->items[(fifo->start_index) % fifo->max_depth] = item;
+    
+    return 0;
+}
+
 // ----- fifo_pop ---------------------------------------------------
 /**
  *
