@@ -118,6 +118,11 @@ extern "C" {
    */
   void * fifo_tunable_get_at(gds_fifo_tunable_t * fifo, unsigned int index);
 
+  typedef void*  (*gds_fifo_copy_item_f)(void * item);
+
+  gds_fifo_tunable_t * fifo_tunable_copy(gds_fifo_tunable_t * fifo, gds_fifo_copy_item_f copy_item);
+
+
 #ifdef __cplusplus
 }
 #endif
