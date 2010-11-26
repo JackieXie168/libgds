@@ -219,3 +219,22 @@ void * fifo_tunable_get_at(gds_fifo_tunable_t * fifo, unsigned int pos)
 			 fifo->max_depth];
   return NULL;
 }
+
+
+
+gds_fifo_tunable_t * fifo_tunable_copy(gds_fifo_tunable_t * fifo, gds_fifo_copy_item_f copy_item)
+{
+    if(fifo==NULL)
+        return NULL;
+    
+    gds_fifo_tunable_t * new_fifo = fifo_tunable_create( fifo->max_depth, fifo->destroy);
+
+    unsigned int i=0;
+    while(i<fifo->current_depth)
+    {
+        void * item_copied = copy_item(   fifo_tunable_get_at(fifo, i)   );
+        fifo_tunable_push( new_fifo, item_copied  );
+        i++;
+    }
+    return new_fifo;
+}
