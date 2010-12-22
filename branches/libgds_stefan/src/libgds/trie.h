@@ -171,7 +171,7 @@ extern "C" {
   /**
    * Return an array with the items in the trie.
    */
-  ptr_array_t * trie_get_array(gds_trie_t * trie);
+  ptr_array_t * _trie_get_array(gds_trie_t * trie);
 
   // -----[ trie_get_enum ]------------------------------------------
   /**

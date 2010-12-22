@@ -682,7 +682,7 @@ static int _trie_get_array_for_each(uint32_t key, uint8_t key_len,
 }
 
 // -----[ _trie_get_array ]-------------------------------------------
-static ptr_array_t * _trie_get_array(gds_trie_t * trie)
+ ptr_array_t * _trie_get_array(gds_trie_t * trie)
 {
   ptr_array_t * array= ptr_array_create_ref(0);
   if (trie_for_each(trie,
