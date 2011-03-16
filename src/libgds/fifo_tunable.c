@@ -146,7 +146,7 @@ int fifo_tunable_bringForward(gds_fifo_tunable_t * fifo, int num)
 
     printf("Bring Forward the msg %d\n", num );
 
-
+    printf("1 before\n");
       item = fifo->items[(fifo->start_index + num) % fifo->max_depth];
 
       for(int i=num-1; i>=0 ; i--)
@@ -155,7 +155,7 @@ int fifo_tunable_bringForward(gds_fifo_tunable_t * fifo, int num)
       }
 
     fifo->items[(fifo->start_index) % fifo->max_depth] = item;
-    
+    printf("1 after\n");
     return 0;
 }
 
