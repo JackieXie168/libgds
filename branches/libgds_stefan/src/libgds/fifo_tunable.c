@@ -134,21 +134,7 @@ int fifo_tunable_swap(gds_fifo_tunable_t * fifo, int nb1, int nb2)
     return 0;
 }
 
-int fifo_tunable_set_first(gds_fifo_tunable_t * fifo, int nb)
-{
-    return fifo_tunable_swap(fifo, 0, nb );
-    
 
-    /*
-
-    //swap the items in current position, and indexOfNext
-    void * thecurrent = fifo->items[(fifo->start_index+fifo->current_depth) % fifo->max_depth];
-    fifo->items[(fifo->start_index+fifo->current_depth) % fifo->max_depth] =
-            fifo->items[(indexOfNext) % fifo->max_depth];
-    fifo->items[(indexOfNext) % fifo->max_depth]= thecurrent;
-*/
-    
-}
 
 /*
  set num as first, and decale others
@@ -158,12 +144,8 @@ int fifo_tunable_bringForward(gds_fifo_tunable_t * fifo, int num)
 {
       void * item;
 
+    printf("Bring Forward the msg %d\n", num );
 
-
-    /*printf("echanger le %d avec le %d\n",
-            (fifo->start_index + nb1) % fifo->max_depth ,
-            (fifo->start_index + nb2) % fifo->max_depth );
-*/
 
       item = fifo->items[(fifo->start_index + num) % fifo->max_depth];
 
@@ -175,6 +157,23 @@ int fifo_tunable_bringForward(gds_fifo_tunable_t * fifo, int num)
     fifo->items[(fifo->start_index) % fifo->max_depth] = item;
     
     return 0;
+}
+
+
+int fifo_tunable_set_first(gds_fifo_tunable_t * fifo, int nb)
+{
+    //return fifo_tunable_swap(fifo, 0, nb );
+    return fifo_tunable_bringForward(fifo,nb);
+
+    /*
+
+    //swap the items in current position, and indexOfNext
+    void * thecurrent = fifo->items[(fifo->start_index+fifo->current_depth) % fifo->max_depth];
+    fifo->items[(fifo->start_index+fifo->current_depth) % fifo->max_depth] =
+            fifo->items[(indexOfNext) % fifo->max_depth];
+    fifo->items[(indexOfNext) % fifo->max_depth]= thecurrent;
+*/
+
 }
 
 // ----- fifo_pop ---------------------------------------------------
