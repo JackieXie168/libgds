@@ -107,7 +107,7 @@ static int _lifo_grow(gds_lifo_t * lifo)
 int lifo_push(gds_lifo_t * lifo, void * item)
 {
 
-  // If there is not enough space in the queue, try to grow it
+  // If there is not enough space in the lifo, try to grow it
   if (lifo->current_depth >= lifo->max_depth)
     if (_lifo_grow(lifo) != 0)
       return -1;
@@ -126,7 +126,7 @@ void * lifo_pop(gds_lifo_t * lifo)
   void * item= NULL;
 
   if (lifo->current_depth > 0) {
-    item= lifo->items[0];
+    item= lifo->items[lifo->current_depth];
     lifo->current_depth--;
   }
   return item;

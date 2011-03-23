@@ -20,6 +20,7 @@ libgdsinclude_HEADERS = \
 	dllist.h \
 	enumerator.h \
 	fifo.h \
+	lifo.h \
 	fifo_tunable.h \
 	gds.h \
 	hash.h \
@@ -71,6 +72,8 @@ libgds_la_SOURCES =\
 	enumerator.h \
 	fifo.c \
 	fifo.h \
+	lifo.c \
+	lifo.h \
 	fifo_tunable.c \
 	fifo_tunable.h \
 	gds.c \
