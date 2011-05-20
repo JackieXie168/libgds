@@ -111,8 +111,8 @@ int lifo_push(gds_lifo_t * lifo, void * item)
   if (lifo->current_depth >= lifo->max_depth)
     if (_lifo_grow(lifo) != 0)
       return -1;
-
-  lifo->items[(  lifo->current_depth) % lifo->max_depth]= item;
+  
+  lifo->items[  lifo->current_depth ]= item;
   lifo->current_depth++;
   return 0;
 }
@@ -126,7 +126,7 @@ void * lifo_pop(gds_lifo_t * lifo)
   void * item= NULL;
 
   if (lifo->current_depth > 0) {
-    item= lifo->items[lifo->current_depth];
+    item= lifo->items[lifo->current_depth - 1 ];
     lifo->current_depth--;
   }
   return item;
