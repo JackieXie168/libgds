@@ -132,6 +132,11 @@ void * lifo_pop(gds_lifo_t * lifo)
   return item;
 }
 
+void lifo_empty(gds_lifo_t * lifo)
+{ 
+  lifo->current_depth = 0;  
+}
+
 // -----[ lifo_depth ]---------------------------------------------
 /**
  *

@@ -81,6 +81,9 @@ extern "C" {
    */
   void * lifo_pop(gds_lifo_t * lifo);
 
+  void lifo_empty(gds_lifo_t * lifo);
+
+  
   // -----[ lifo_depth ]---------------------------------------------
   /**
    * Return the depth of the lifo queue.

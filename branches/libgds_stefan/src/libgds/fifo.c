@@ -134,6 +134,13 @@ void * fifo_pop(gds_fifo_t * fifo)
   return item;
 }
 
+void fifo_empty(gds_fifo_t * fifo)
+{
+    fifo->start_index = 0;
+    fifo->current_depth = 0;
+}
+
+
 // -----[ fifo_depth ]---------------------------------------------
 /**
  *

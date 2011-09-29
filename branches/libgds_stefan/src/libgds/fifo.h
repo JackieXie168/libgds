@@ -82,6 +82,9 @@ extern "C" {
    */
   void * fifo_pop(gds_fifo_t * fifo);
 
+  void fifo_empty(gds_fifo_t * fifo);
+
+  
   // -----[ fifo_depth ]---------------------------------------------
   /**
    * Return the depth of the FIFO queue.
