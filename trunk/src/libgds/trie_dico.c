@@ -27,11 +27,10 @@
 typedef struct _trie_dico_item_t {
   struct _trie_dico_item_t * child;
   struct _trie_dico_item_t * brother;
-//  struct _trie_dico_item_t * father;   // null if father is root
-  trie_dico_key_t                     key_part;
-  trie_dico_key_t                     key;
-  uint8_t                       is_final_data;
-  void *     data;
+  trie_dico_key_t            key_part;
+  trie_dico_key_t            key;
+  uint8_t                    is_final_data;
+  void                     * data;
 } _trie_dico_item_t;
 
 
@@ -115,8 +114,8 @@ _trie_dico_item_t * _trie_dico_item_create_data(trie_dico_key_t key,
                                       trie_dico_key_t key_part,
 				      void * data)
 {
-    //printf("@%s\n",__func__);
-  _trie_dico_item_t * trie_dico_item= (_trie_dico_item_t *) MALLOC(sizeof(_trie_dico_item_t));
+  _trie_dico_item_t * trie_dico_item=
+    (_trie_dico_item_t *) MALLOC(sizeof(_trie_dico_item_t));
   trie_dico_item->child= NULL;
   trie_dico_item->brother= NULL;
   trie_dico_item->key= key;
@@ -131,9 +130,8 @@ static inline
 _trie_dico_item_t * _trie_dico_item_create_empty(trie_dico_key_t key,
                                       trie_dico_key_t key_part)
 {
- //printf("@%s\n",__func__);
-
-  _trie_dico_item_t * trie_dico_item= (_trie_dico_item_t *) MALLOC(sizeof(_trie_dico_item_t));
+  _trie_dico_item_t * trie_dico_item=
+    (_trie_dico_item_t *) MALLOC(sizeof(_trie_dico_item_t));
   trie_dico_item->child= NULL;
   trie_dico_item->brother= NULL;
   trie_dico_item->key= key;
@@ -143,16 +141,14 @@ _trie_dico_item_t * _trie_dico_item_create_empty(trie_dico_key_t key,
   return trie_dico_item;
 }
 
-
 // -----[ trie_dico_create ]----------------------------------------------
 /**
  * Create a new Dico tree.
  */
 gds_trie_dico_t * trie_dico_create(gds_trie_dico_destroy_f destroy)
 {
-//printf("@%s\n",__func__);
-
-  gds_trie_dico_t * trie_dico= (gds_trie_dico_t *) MALLOC(sizeof(gds_trie_dico_t));
+  gds_trie_dico_t * trie_dico=
+    (gds_trie_dico_t *) MALLOC(sizeof(gds_trie_dico_t));
   trie_dico->root= NULL;
   trie_dico->destroy= destroy;
   return trie_dico;
@@ -163,84 +159,100 @@ gds_trie_dico_t * trie_dico_create(gds_trie_dico_destroy_f destroy)
  * we want to insert a key/value pair
  *  this function allows to find the father of our new node.
  *
- * Result: the father of the new node, or NULL if it should be at the first visited floor (root)
+ * Result: the father of the new node, or NULL if it should be at
+ * the first visited floor (root)
  */
 static _trie_dico_item_t * _find_father(_trie_dico_item_t * root,
-                           trie_dico_key_t key)
-{ //printf("@%s\n",__func__);//printf("@find_father\n");
-    _trie_dico_item_t * current_father = NULL;
-    _trie_dico_item_t * uncle = root;
+					trie_dico_key_t key)
+{
+  _trie_dico_item_t * current_father= NULL;
+  _trie_dico_item_t * uncle= root;
     
-    trie_dico_key_t current_key_part;
-    current_key_part = MALLOC(sizeof(char)*( strlen(key) +1));
-    strcpy(current_key_part, key);
-    trie_dico_key_t key_part_tmp;
-    key_part_tmp = MALLOC(sizeof(char)*( strlen(key) +1));
-    
-    while( uncle != NULL)
-    {
-        // pour cette profondeur :
-        int found_ancester = 0;
-        while(!found_ancester && uncle != NULL && strlen(current_key_part)>0 )
-        {
-            if(current_key_part[0] < (uncle->key_part)[0] )
-            { // stop, ca ne sert à rien d'aller plus loin dans cet étage, il n'y a pas d'ancetre commun ici, ==> prendre celui du niveau au dessu, cad current_father
-                 uncle = NULL;
-            }
-            else if ( strlen(current_key_part) <= strlen(uncle->key_part) ) // l'oncle est trop long pour etre mon father
-            {
-                uncle = uncle->brother;
-            }
-            else    // c'est un father potentiel.
-            {// alors c'est p'tete possible avec cet oncle-ci
-                // coupons nous a la taille de l'oncle
-                 strncpy(key_part_tmp,current_key_part, strlen(uncle->key_part));
-                 key_part_tmp[strlen(uncle->key_part)]='\0';
-                 // on a coupé la key a la taille du uncle,
-                 // on va vérifier si ils sont identiques.
-                 // s'ils sont identiques, on a un ancetre, si pas, continuer
-                 if (strcmp(key_part_tmp , uncle->key_part) == 0)
-                 {
-                     // il s'agit donc d'un ancetre !!
-                     // ils ne sont pas de la meme taille sinon on ne serait pas dans ce if ci!
-                     found_ancester = 1;
-                     current_father = uncle;
-                 }
-                 else{
-                         uncle = uncle->brother;
-                 }
-            }
+  trie_dico_key_t current_key_part= MALLOC(sizeof(char)*(strlen(key)+1));
+  trie_dico_key_t key_part_tmp= MALLOC(sizeof(char)*(strlen(key)+1));
 
-        }
-       // research for this depth ended
-        if(!found_ancester)
-        {
-            // on a fait le tour de cet étage, et il n'y a pas d'ancêtre commun, on arrête la!
-            return current_father;
-        }
-        else // on vient de trouver un ancetre (se trouve dans current_father)
-            // si l'ancêtre  qu'on a trouvé n'a pas de fils, alors c'est le meilleur ancetre comme père
-        if(current_father->child == NULL)
-        {
-            return current_father;
-        }
-        else
-        {
-            // on va continuer à descendre dans l'arbre, avec comme oncle potentiel
-            //le premier fils de l'ancetre qu'on vient de trouver
-            // couper les key_part
-            uncle = current_father->child ;
-            //strcpy(current_key_part, key);
-            // garder la fin de la key (enlever la partie commune avec le père)
-            int new_size =  strlen(current_key_part) - strlen(current_father->key_part) ;
-            for (int i = 0 ; i < new_size ; i++)
-            {
-                current_key_part[i] = current_key_part[i+strlen(current_father->key_part)];
-            }
-            current_key_part[new_size] = '\0';
-        }
+  strcpy(current_key_part, key);
+    
+  while(uncle != NULL) {
+
+    // pour cette profondeur :
+    // Warning-bqu: requires ISO C99 compiler !
+    int found_ancestor= 0;
+
+    while (!found_ancestor && (uncle != NULL) &&
+	   (strlen(current_key_part) > 0)) {
+
+      if (current_key_part[0] < (uncle->key_part)[0]) {
+
+	// stop, ca ne sert à rien d'aller plus loin dans cet étage
+	// il n'y a pas d'ancetre commun ici ==> prendre celui du
+	// niveau au dessu, cad current_father
+	uncle = NULL;
+
+      } else if (strlen(current_key_part) <= strlen(uncle->key_part)) {
+
+	// l'oncle est trop long pour etre mon father
+	uncle= uncle->brother;
+
+      } else {
+
+	// c'est un father potentiel.
+	// alors c'est p'tete possible avec cet oncle-ci
+	// coupons nous a la taille de l'oncle
+
+	strncpy(key_part_tmp, current_key_part, strlen(uncle->key_part));
+	key_part_tmp[strlen(uncle->key_part)]='\0';
+
+	// on a coupé la key a la taille du uncle,
+	// on va vérifier si ils sont identiques.
+	// s'ils sont identiques, on a un ancetre, si pas, continuer
+	if (strcmp(key_part_tmp , uncle->key_part) == 0) {
+
+	  // il s'agit donc d'un ancetre !!
+	  // ils ne sont pas de la meme taille sinon on ne serait pas dans ce if ci!
+	  found_ancestor= 1;
+	  current_father= uncle;
+
+	} else {
+	  uncle= uncle->brother;
+	}
+      }
+
     }
-    return current_father;
+
+    // search for this depth ended
+    if(!found_ancestor) {
+
+      // on a fait le tour de cet étage, et il n'y a pas
+      //d'ancêtre commun, on arrête la!
+      return current_father;
+
+    } else if(current_father->child == NULL) {
+      // on vient de trouver un ancetre (se trouve dans current_father)
+      // si l'ancêtre  qu'on a trouvé n'a pas de fils, alors c'est
+      // le meilleur ancetre comme père
+      
+      return current_father;
+
+    } else {
+      
+      // on va continuer à descendre dans l'arbre, avec comme oncle potentiel
+      //le premier fils de l'ancetre qu'on vient de trouver
+      // couper les key_part
+      uncle= current_father->child;
+
+      //strcpy(current_key_part, key);
+      // garder la fin de la key (enlever la partie commune avec le père)
+      int new_size= strlen(current_key_part)-strlen(current_father->key_part);
+      for (int i= 0 ; i < new_size ; i++) {
+	current_key_part[i]=
+	  current_key_part[i+strlen(current_father->key_part)];
+      }
+      current_key_part[new_size] = '\0';
+    }
+  }
+
+  return current_father;
 }
 
 
@@ -259,15 +271,15 @@ static _trie_dico_item_t * _find_father(_trie_dico_item_t * root,
  * Result: the left brother of the new node (meaning that we have to insert before, or to split the right brother. or NULL if it should be the first brother.
  */
 static _trie_dico_item_t * _find_left_brother(_trie_dico_item_t * father,
-                            _trie_dico_item_t * root,
-                           trie_dico_key_t key)
+					      _trie_dico_item_t * root,
+					      trie_dico_key_t key)
 { 
     _trie_dico_item_t * current_left_brother = NULL;
     _trie_dico_item_t * temp_left_brother = NULL;
     trie_dico_key_t key_part;
 
-    if(father == NULL) // c'est que c'est au tout premier étage (root)
-    {
+    // c'est que c'est au tout premier étage (root)
+    if (father == NULL) {
         temp_left_brother = root;
         key_part = (trie_dico_key_t) MALLOC( (strlen(key)+1) * sizeof(char) );
         strcpy(key_part,key);
@@ -311,19 +323,21 @@ static _trie_dico_item_t * _find_left_brother(_trie_dico_item_t * father,
  *
  * Result: 0 on success and -1 on error (duplicate key)
  */
-static int _trie_dico_insert(_trie_dico_item_t ** item, trie_dico_key_t key,
-                    void * data,
-			gds_trie_dico_destroy_f destroy, int replace)
+static int _trie_dico_insert(_trie_dico_item_t ** item,
+			     trie_dico_key_t key,
+			     void * data,
+			     gds_trie_dico_destroy_f destroy,
+			     int replace)
 {
 
   trie_dico_key_t father_s_key;
 
   _trie_dico_item_t * new_item;
-  _trie_dico_item_t * father = _find_father( *item , key );
-  _trie_dico_item_t * left_brother = _find_left_brother(father, *item, key );
-  _trie_dico_item_t ** ptrTonodetoanalyse = NULL;
+  _trie_dico_item_t * father= _find_father(*item, key);
+  _trie_dico_item_t * left_brother= _find_left_brother(father, *item, key);
+  _trie_dico_item_t ** ptrTonodetoanalyse= NULL;
 
-  if(left_brother == NULL)
+  if (left_brother == NULL)
   {
     if(father == NULL)  // c'est celui pointé par root qu'il faut analyser
         ptrTonodetoanalyse = item;
@@ -340,11 +354,10 @@ static int _trie_dico_insert(_trie_dico_item_t ** item, trie_dico_key_t key,
 
   int end_of_key_len = strlen(key) - strlen(father_s_key) ;
   trie_dico_key_t end_of_key = (trie_dico_key_t) MALLOC( (end_of_key_len +1 ) * sizeof(char));
-  for (int i = 0 ; i < end_of_key_len ; i++)
-  {
+  for (int i= 0; i < end_of_key_len; i++) {
      end_of_key[i] = key[ i + strlen(father_s_key)];
   }
-  end_of_key[end_of_key_len] = '\0';
+  end_of_key[end_of_key_len]= '\0';
 
   // si ce qu'il faut pointer est null, alors on crée et on insère.
   // sinon,
@@ -357,6 +370,7 @@ static int _trie_dico_insert(_trie_dico_item_t ** item, trie_dico_key_t key,
 
   if((*ptrTonodetoanalyse)==NULL)
   {   // créer et insérer là!
+
        new_item = _trie_dico_item_create_data( key,
                                        end_of_key,
                                        data);
@@ -386,25 +400,27 @@ static int _trie_dico_insert(_trie_dico_item_t ** item, trie_dico_key_t key,
           if( i == strlen(end_of_key) ) // end_of_key est épuisé, et l'autre est plus grand (ou égal)
           {
              //i caractères communs, cas 1 - on est entièrement contenu dans l'autre
-              if( i == strlen((*ptrTonodetoanalyse)->key_part))
-              {
-                  // tout est identique, donc juste noter que le noeud en question contient une info (s'il n'en contient pas encore !
-                  if((*ptrTonodetoanalyse)->is_final_data == 0)
-                  {
-                      (*ptrTonodetoanalyse)->is_final_data = 1;
-                      (*ptrTonodetoanalyse)->data = data;
-                  }
-                  else
-                  {
-		    if (replace != TRIE_DICO_INSERT_OR_REPLACE)
-		      return TRIE_DICO_ERROR_DUPLICATE;
-		    if (destroy != NULL)
-		      destroy(&(*ptrTonodetoanalyse)->data);
-		    (*ptrTonodetoanalyse)->data= data;
-                  }
-              }
-              else
-              {   // le déjà présent est plus long, il faut le spliter !
+	    if( i == strlen((*ptrTonodetoanalyse)->key_part)) {
+
+	      // a node with this key already exists. Action depends
+	      // on whether the node contains data or not.
+
+	      if((*ptrTonodetoanalyse)->is_final_data == 0) {
+		(*ptrTonodetoanalyse)->is_final_data = 1;
+		(*ptrTonodetoanalyse)->data = data;
+	      } else {
+		if (replace != TRIE_DICO_INSERT_OR_REPLACE)
+		  return TRIE_DICO_ERROR_DUPLICATE;
+		if (destroy != NULL)
+		  destroy(&(*ptrTonodetoanalyse)->data);
+		(*ptrTonodetoanalyse)->data= data;
+	      }
+
+	    } else {
+
+	      // A node with a longer key was reached. It is needed
+	      // to split it.
+
                   // concernant le nouvel élément :
                   new_item = _trie_dico_item_create_data( key,
                                        end_of_key,
@@ -483,7 +499,8 @@ static int _trie_dico_insert(_trie_dico_item_t ** item, trie_dico_key_t key,
                    (*ptrTonodetoanalyse)->brother = new_item;
                }
                else
-               {// placer l'ancien noeud après le nouveau
+               {
+		 // placer l'ancien noeud après le nouveau
                    new_item_commun->child = new_item;
                    new_item->brother = (*ptrTonodetoanalyse);
                    (*ptrTonodetoanalyse)->brother = NULL;
@@ -508,24 +525,15 @@ static int _trie_dico_insert(_trie_dico_item_t ** item, trie_dico_key_t key,
  *  ???
  */
 int trie_dico_insert(gds_trie_dico_t * trie_dico, trie_dico_key_t key,
-                void * data,
-		int replace)
+		     void * data, int replace)
 { 
-    //printf("\nBEFORE : ");
-    //trie_dico_print(trie_dico);
-
   if (trie_dico->root == NULL) {
-    trie_dico->root= _trie_dico_item_create_data(key, 
-                                key,
-                                data);
-    //printf("\nAFTER : ");
-    //trie_dico_print(trie_dico);
-
+    trie_dico->root= _trie_dico_item_create_data(key, key, data);
     return TRIE_DICO_SUCCESS;
   }
 
   return _trie_dico_insert(&trie_dico->root, key,
-		      data, trie_dico->destroy, replace);
+			   data, trie_dico->destroy, replace);
 }
 
 // -----[ trie_dico_find_exact ]------------------------------------------
@@ -535,105 +543,132 @@ void * trie_dico_find_exact(gds_trie_dico_t * trie_dico,
   _trie_dico_item_t * father = _find_father( trie_dico->root , key ) ; 
   _trie_dico_item_t * left_brother = _find_left_brother(father, trie_dico->root, key );
   _trie_dico_item_t * theNode = NULL;
-
-  if(left_brother == NULL)
-  {
-    if(father == NULL)// c'est celui pointé par root qu'il faut analyser
-        theNode = trie_dico->root;
-    else  // c'est le noeud pointé par le fils de father qu'il faut analyser.
-       theNode = father->child;
-  }
-  else // comme on a un left_brother, c'est le noeud pointé par son frère droit qu'il faut analyser
-      theNode = left_brother->brother;
   
-  if(theNode != NULL)    // alors s'il est présent, c'est là que devrait se trouver le noeud.
-  {
-       if(strcmp(theNode->key,key) == 0 ) // il est là !!!
-       {
-           return theNode->data;
-       }
-  }else
-      return NULL;
+  if(left_brother == NULL) {
+    if(father == NULL)// c'est celui pointé par root qu'il faut analyser
+      theNode = trie_dico->root;
+    else  // c'est le noeud pointé par le fils de father qu'il faut analyser.
+      theNode = father->child;
+  } else {
+    // comme on a un left_brother, c'est le noeud pointé par son
+    // frère droit qu'il faut analyser
+      theNode = left_brother->brother;
+  }
+  
+  if (theNode != NULL) {
+    // alors s'il est présent, c'est là que devrait se trouver le noeud.
+    if(strcmp(theNode->key,key) == 0) {
+      return theNode->data;
+    }
+  } else
+    return NULL;
   
   return NULL;
 }
 
-// -----[ trie_dico_find_best ]-------------------------------------------
-void * trie_dico_find_best(gds_trie_dico_t * trie_dico, trie_dico_key_t key)
+static _trie_dico_item_t * _trie_dico_find_best(_trie_dico_item_t * item,
+						const trie_dico_key_t key,
+						int with_data)
 {
-  /*
-  _trie_dico_item_t * tmp;
-  void * data;
-  int data_found= 0;
-  trie_dico_key_t prefix;
-  trie_dico_key_len_t prefix_len;
-  trie_dico_key_t search_key= _trie_dico_mask_key(key, key_len);
+  _trie_dico_item_t * best;
+  size_t item_key_len;
 
-  if (trie_dico->root == NULL)
+  if (item == NULL)
     return NULL;
-  tmp= trie_dico->root;
-  data= NULL;
-  while (tmp != NULL) {
 
-    // requested key is smaller than current => no match found
-    if (key_len < tmp->key_len)
-      break;
+  item_key_len= strlen(item->key_part);
 
-    // requested key has same length
-    if (key_len == tmp->key_len) {
-      // (keys are equal) <=> match found
-      if (search_key == tmp->key) {
-	if (tmp->has_data) {
-	  return tmp->data;
-	} else {
-	  return NULL;
-	}
-      } else
-	break;
-    }
-
-    // requested key is longer => check if common parts match
-    if (key_len > tmp->key_len) {
-      _longest_common_prefix(tmp->key, tmp->key_len,
-			     search_key, key_len, &prefix, &prefix_len);
-
-      // Current key is too long => no match found
-      if (prefix_len < tmp->key_len)
-	break;
-
-      if (tmp->has_data) {
-	data= tmp->data;
-	data_found= 1;
-      }
-
-      if (search_key & (1 << (TRIE_DICO_KEY_SIZE-prefix_len-1)))
-	tmp= tmp->right;
-      else
-	tmp= tmp->left;
-    }
+  if ((item->child != NULL) &&
+      !strncmp(key, item->key_part, item_key_len)) {
+    best= _trie_dico_find_best(item->child, key+item_key_len, with_data);
+    if (best != NULL)
+      return best;
+    if (!with_data || item->is_final_data)
+      return item;
+    return NULL;
   }
-  if (data_found)
-    return data;
-  */
-    return NULL;
+
+  return _trie_dico_find_best(item->brother, key, with_data);
 }
 
-// -----[ _trie_dico_remove_item ]----------------------------------------
-static inline void _trie_dico_remove_item(_trie_dico_item_t ** item,
-				     gds_trie_dico_destroy_f destroy)
+// -----[ trie_dico_find_best ]-------------------------------------------
+void * trie_dico_find_best(gds_trie_dico_t * trie_dico,
+			   const trie_dico_key_t key)
 {
-  //?
+  if (trie_dico->root == NULL)
+    return NULL;
+  return _trie_dico_find_best(trie_dico->root, key, 1);
 }
 
 // -----[ _trie_dico_remove ]---------------------------------------------
-/*
-  static int _trie_dico_remove(_trie_dico_item_t ** item,
-const trie_dico_key_t key,
-			gds_trie_dico_destroy_f destroy)
+static int _trie_dico_remove(_trie_dico_item_t ** item,
+			     const trie_dico_key_t key,
+			     gds_trie_dico_destroy_f destroy)
 {
- 
+  size_t key_len;
+  size_t item_key_len;
+
+  if (*item == NULL)
+    return TRIE_DICO_ERROR_NO_MATCH;
+
+  key_len= strlen(key);
+  item_key_len= strlen((*item)->key_part);
+
+  if (key_len < item_key_len)
+    return TRIE_DICO_ERROR_NO_MATCH;
+
+  if (key_len == item_key_len) {
+    if (strcmp(key, (*item)->key_part))
+      return _trie_dico_remove(&(*item)->brother, key, destroy);
+
+    if (!(*item)->is_final_data)
+      return TRIE_DICO_ERROR_NO_MATCH;
+
+    if (destroy != NULL)
+      destroy((*item)->data);
+    (*item)->data= NULL;
+    
+    // ... depends on whether there is a single child or multiple children ...
+    if ((*item)->child != NULL) {
+      if ((*item)->child->brother != NULL) {
+	// It is a split-node, node cannot be removed. Do nothing.
+      } else {
+	// It has a single child. Replace with child and free.
+	_trie_dico_item_t * temp= *item;
+
+	*item= (*item)->child;
+	(*item)->brother= temp->brother;
+
+	// update node's key_part (prefix with removed node's key_part)
+	size_t l= strlen(temp->key_part);
+	char * new_key_part= MALLOC(sizeof(char)*(strlen((*item)->key_part)+l+1));
+	strcpy(new_key_part, temp->key_part);
+	strcat(new_key_part+l, (*item)->key_part);
+	FREE((*item)->key_part);
+	(*item)->key_part= new_key_part;
+
+	FREE(temp);
+      }
+    } else {
+      // It is a leaf. Replace with brother and free.
+      _trie_dico_item_t * temp= *item;
+      *item= (*item)->brother;
+      FREE(temp);
+    }
+    return TRIE_DICO_SUCCESS;
+  }
+
+  if (key_len > item_key_len) {
+    do {
+      if (((*item)->child != NULL) &&
+	  !strncmp(key, (*item)->key_part, item_key_len))
+	return _trie_dico_remove(&(*item)->child, key+item_key_len, destroy);
+      item= &(*item)->brother;
+    } while (*item != NULL);
+  }
+
   return TRIE_DICO_ERROR_NO_MATCH;
-}*/
+}
 
 // -----[ trie_dico_remove ]----------------------------------------------
 /**
@@ -646,33 +681,30 @@ const trie_dico_key_t key,
  *   -1 if key does not exist
  *    0 if key has been removed.
  */
-int trie_dico_remove(gds_trie_dico_t * trie_dico, trie_dico_key_t key) //, trie_dico_key_len_t key_len)
+int trie_dico_remove(gds_trie_dico_t * trie_dico, trie_dico_key_t key)
 {
-    /*
   if (trie_dico->root == NULL)
     return TRIE_DICO_ERROR_NO_MATCH;
 
-  return _trie_dico_remove(&trie_dico->root, _trie_dico_mask_key(key, key_len),
-		      key_len, trie_dico->destroy);
-     */
-    return -1000;
+  return _trie_dico_remove(&trie_dico->root, key, trie_dico->destroy);
 }
 
 // -----[ _trie_dico_replace ]--------------------------------------------
-/*static int _trie_dico_replace(_trie_dico_item_t * item, const trie_dico_key_t key,
-			 trie_dico_key_len_t key_len, void * data,
-			 gds_trie_dico_destroy_f destroy)
-{//printf("@%s\n",__func__);
-  trie_dico_key_t prefix;
-  trie_dico_key_len_t prefix_len;
+static int _trie_dico_replace(_trie_dico_item_t * item,
+			      const trie_dico_key_t key,
+			      void * data,
+			      gds_trie_dico_destroy_f destroy)
+{
+  size_t key_len= strlen(key);
+  size_t item_key_len= strlen(item->key_part);
 
   // requested key is smaller than current => no match found
-  if (key_len < item->key_len)
+  if (key_len < item_key_len)
     return TRIE_DICO_ERROR_NO_MATCH;
 
   // requested key has same length
-  if (key_len == item->key_len) {
-    if ((key == item->key) && item->has_data) {
+  if (key_len == item_key_len) {
+    if ((strcmp(key, item->key_part) == 0) && item->is_final_data) {
       if (destroy != NULL)
 	destroy(&item->data);
       item->data= data;
@@ -682,30 +714,24 @@ int trie_dico_remove(gds_trie_dico_t * trie_dico, trie_dico_key_t key) //, trie_
   }
 
   // requested key is longer => check if common parts match
-  if (key_len > item->key_len) {
-    _longest_common_prefix(item->key, item->key_len,
-			   key, key_len, &prefix, &prefix_len);
+  if (key_len > item_key_len) {
 
-    // Current key is too long => no match found
-    if (prefix_len < item->key_len)
-      return TRIE_DICO_ERROR_NO_MATCH;
+    // Note: this search could be sped up if items were sorted in the "brother"
+    // linked list. I don't assume it is sorted right now.
 
-    if (key & (1 << (TRIE_DICO_KEY_SIZE-prefix_len-1))) {
-      if (item->right != NULL)
-	return _trie_dico_replace(item->right, key, key_len, data, destroy);
-      else
-	return TRIE_DICO_ERROR_NO_MATCH;
-    } else {
-      if (item->left != NULL)
-	return _trie_dico_replace(item->left, key, key_len, data, destroy);
-      else
-	return TRIE_DICO_ERROR_NO_MATCH;
-    }
+    do {
+      if ((item->child != NULL) &&
+	  strncmp(key, item->key_part, item_key_len) == 0)
+	return _trie_dico_replace(item->child, key+item_key_len,
+				  data, destroy);
+      item= item->brother;
+    } while (item != NULL);
+
+    // None of the brothers has a matching key_part
   }
 
-    return TRIE_DICO_ERROR_NO_MATCH;
+  return TRIE_DICO_ERROR_NO_MATCH;
 }
-*/
 
 
 // -----[ trie_dico_replace ]---------------------------------------------
@@ -721,18 +747,13 @@ int trie_dico_remove(gds_trie_dico_t * trie_dico, trie_dico_key_t key) //, trie_
  *     if no matching key was found.
  */
 int trie_dico_replace(gds_trie_dico_t * trie_dico, trie_dico_key_t key,
-                            //trie_dico_key_len_t key_len,
-                            void * data)
+		      void * data)
 {
-    //printf("@%s\n",__func__);
-    /*
   if (trie_dico->root == NULL)
     return TRIE_DICO_ERROR_NO_MATCH;
 
-  return _trie_dico_replace(trie_dico->root, _trie_dico_mask_key(key, key_len),
-		       key_len, data, trie_dico->destroy);
-     */
-    return -1000;
+  return _trie_dico_replace(trie_dico->root, key,
+			    data, trie_dico->destroy);
 }
 
 // -----[ _trie_dico_destroy ]---------------------------------------
@@ -853,7 +874,8 @@ void trie_dico_to_graphviz(gds_stream_t * stream,
 
     if (item->brother != NULL) {
       stack_push(stack, item->brother);
-      stream_printf(stream, "  \"%s/%s\" -> \"%s/%s\" [style=\"dashed\"];\n",
+      stream_printf(stream, "  \"%s/%s\" -> \"%s/%s\" "
+		    "[style=\"dashed\",label=\"brother\"];\n",
 		    item->key, item->key_part,
 		    item->brother->key, item->brother->key_part);
     }
@@ -870,12 +892,6 @@ void trie_dico_to_graphviz(gds_stream_t * stream,
   stack_destroy(&stack);
 }
 
-/////////////////////////////////////////////////////////////////////
-//
-// ENUMERATION
-//
-/////////////////////////////////////////////////////////////////////
-
 // -----[ _trie_dico_get_array_for_each ]---------------------------------
 static int _trie_dico_get_array_for_each(trie_dico_key_t key,
 				    void * data, void * ctx)
@@ -886,21 +902,22 @@ static int _trie_dico_get_array_for_each(trie_dico_key_t key,
   return 0;
 }
 
-// -----[ _trie_dico_get_array ]-------------------------------------------
-static ptr_array_t * _trie_dico_get_array(gds_trie_dico_t * trie_dico)
+// -----[ trie_dico_get_array ]-------------------------------------------
+ptr_array_t * trie_dico_get_array(gds_trie_dico_t * trie_dico)
 {
-    //printf("@%s\n",__func__);
-
   ptr_array_t * array= ptr_array_create_ref(0);
   if (trie_dico_for_each(trie_dico, _trie_dico_get_array_for_each, array)) {
     ptr_array_destroy(&array);
-
     array= NULL;
   }
-
   return array;
-
 }
+
+/////////////////////////////////////////////////////////////////////
+//
+// ENUMERATION
+//
+/////////////////////////////////////////////////////////////////////
 
 // ----- _enum_ctx_t -------------------------------------------
 typedef struct {
@@ -934,18 +951,15 @@ static void _trie_dico_get_enum_destroy(void * ctx)
 // -----[ trie_dico_get_enum ]--------------------------------------------
 gds_enum_t * trie_dico_get_enum(gds_trie_dico_t * trie_dico)
 {
-    //printf("@%s\n",__func__);
   _enum_ctx_t * ectx=
     (_enum_ctx_t *) MALLOC(sizeof(_enum_ctx_t));
-  ectx->array= _trie_dico_get_array(trie_dico);
+  ectx->array= trie_dico_get_array(trie_dico);
   ectx->enu= _array_get_enum((array_t *) ectx->array);
 
   return enum_create(ectx,
 		     _trie_dico_get_enum_has_next,
 		     _trie_dico_get_enum_get_next,
 		     _trie_dico_get_enum_destroy);
-
-    return NULL;
 }
 
 /////////////////////////////////////////////////////////////////////
