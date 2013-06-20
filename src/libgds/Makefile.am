@@ -1,4 +1,4 @@
-INCLUDES = -I..
+#INCLUDES = -I..
 AM_CFLAGS = -L/usr/lib
 
 lib_LTLIBRARIES = libgds.la
