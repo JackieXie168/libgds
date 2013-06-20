@@ -522,22 +522,19 @@ cli_arg_t * cli_vararg(const char * name, uint8_t max_args,
 // -----[ cli_opt ]--------------------------------------------------
 cli_arg_t * cli_opt(const char * name, cli_arg_check_f check)
 {
-  char * name2= str_create(name);
-  char * real_name= strsep(&name2, "=");
-  cli_arg_t * arg= _cli_arg_create(CLI_ARG_TYPE_OPT, real_name, check, NULL);
-  if (name2 != NULL)
-    arg->need_value= 1;
-  str_destroy(&real_name);
-  return arg;
+  return cli_opt2(name, check, NULL);
 }
 
 // -----[ cli_opt2 ]-------------------------------------------------
 cli_arg_t * cli_opt2(const char * name, cli_arg_check_f check,
 		     cli_arg_enum_f enumerate)
 {
-  cli_arg_t * arg= _cli_arg_create(CLI_ARG_TYPE_OPT, name, check, enumerate);
-  if (strrchr(name, '=') != NULL)
+  char * name2= str_create(name);
+  char * real_name= strsep(&name2, "=");
+  cli_arg_t * arg= _cli_arg_create(CLI_ARG_TYPE_OPT, real_name, check, enumerate);
+  if (name2 != NULL)
     arg->need_value= 1;
+  str_destroy(&real_name);
   return arg;
 }
 
