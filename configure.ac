@@ -12,7 +12,7 @@ AC_PREFIX_DEFAULT(/usr/local)
 
 dnl Version setting up for Automake
 AM_INIT_AUTOMAKE([no-define])
-AM_CONFIG_HEADER([src/config.h src/libgds/libgds-config.h])
+AC_CONFIG_HEADER([src/config.h src/libgds/libgds-config.h])
 dnl AM_MAINTAINER_MODE
 
 dnl Checks for programs.
