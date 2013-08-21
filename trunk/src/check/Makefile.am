@@ -1,4 +1,4 @@
-INCLUDES = -I..
+AM_CFLAGS = -I..
 
 check_PROGRAMS = \
 	gds_test
