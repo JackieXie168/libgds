@@ -123,15 +123,16 @@ typedef struct {
  * Definition of a CLI argument or option.
  */
 typedef struct cli_arg_t {
-  char           * name;
-  cli_arg_type_t   type;
-  uint8_t          max_args;
-  uint8_t          present;
-  uint8_t          need_value;
-  cli_arg_ops_t    ops;
+  char             * name;
+  struct cli_cmd_t * parent;
+  cli_arg_type_t     type;
+  uint8_t            max_args;
+  uint8_t            present;
+  uint8_t            need_value;
+  cli_arg_ops_t      ops;
   union {
-    char         * value;
-    gds_tokens_t * values;
+    char           * value;
+    gds_tokens_t   * values;
   };
 } cli_arg_t;
 

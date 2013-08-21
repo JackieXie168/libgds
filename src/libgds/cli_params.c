@@ -47,6 +47,7 @@ static inline cli_arg_t * _cli_arg_create(cli_arg_type_t type,
 
   arg->type= type;
   arg->name= str_create(name);
+  arg->parent= NULL;
   arg->need_value= 0;
   arg->present= 0;
   arg->max_args= 1;
