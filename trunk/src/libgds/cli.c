@@ -200,16 +200,20 @@ cli_cmd_t * cli_add_cmd(cli_cmd_t * cmd, cli_cmd_t * sub_cmd)
 // -----[ cli_add_arg ]----------------------------------------------
 cli_arg_t * cli_add_arg(cli_cmd_t * cmd, cli_arg_t * arg)
 {
+  assert(arg->parent == NULL);
   if (cmd->args == NULL)
     cmd->args= cli_args_create();
+  arg->parent= cmd;
   return cli_args_add(cmd->args, arg);
 }
 
 // -----[ cli_add_opt ]----------------------------------------------
 cli_arg_t * cli_add_opt(cli_cmd_t * cmd, cli_arg_t * opt)
 {
+  assert(opt->parent == NULL);
   if (cmd->opts == NULL)
     cmd->opts= cli_opts_create();
+  opt->parent= cmd;
   return cli_opts_add(cmd->opts, opt);
 }
 
