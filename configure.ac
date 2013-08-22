@@ -1,12 +1,12 @@
 dnl =================================================================
 dnl configure.in for libgds
 dnl
-dnl @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
+dnl @author Bruno Quoitin (bruno.quoitin@umons.ac.be)
 dnl $Id$
 dnl =================================================================
 
 m4_include([version.m4])
-AC_INIT([libgds], [VERSION_NUMBER])
+AC_INIT([libgds], [VERSION_NUMBER], [bruno.quoitin@umons.ac.be])
 AC_CONFIG_SRCDIR(src/libgds/fifo.h)
 AC_PREREQ(2.57)
 AC_PREFIX_DEFAULT(/usr/local)
