@@ -3,7 +3,7 @@
 //
 // Generic Data Structures library.
 //
-// @author Bruno Quoitin (bruno.quoitin@uclouvain.be)
+// @author Bruno Quoitin (bruno.quoitin@umons.ac.be)
 // @date 17/05/2005
 // $Id$
 // ==================================================================
@@ -13,8 +13,33 @@
  * This is the documentation for libGDS, a library of generic data
  * structures and functions intended for use in C programming.
  *
+ * <b>Where to start ?</b>
+ *
+ * Before using any of the libGDS data structures, the library must be
+ * initialized. Look at the functions defined in gds.h to learn how
+ * initialization/finalization should be done.
+ *
+ * <b>Quick links to main data structures / features</b>
+ *
+ * \li Associative arrays : assoc_array.h
+ * \li Dynamic arrays : array.h
+ * \li Command-line interface : cli.h
+ * \li Enumerations : enumerator.h
+ * \li FIFO queues : fifi.h
+ * \li Hash tables : hash.h and hash_utils.h
+ * \li Lists : list.h
+ * \li Parameter handling and parameter replacement : params.h
+ * \li Sequences : sequence.h
+ * \li Stacks : stack.h
+ * \li Streams : stream.h
+ * \li String tokenizer : tokenizer.h and tokens.h
+ * \li String utilities : str_util.h
+ * \li Unibit compressed tries : trie.h
+ * \li Unit testing : utest.h
+ *
+ *
  * \authors
- * Bruno Quoitin (bruno.quoitin\@uclouvain.be)
+ * Bruno Quoitin (bruno.quoitin\@umons.ac.be)
  */
 
 /**
