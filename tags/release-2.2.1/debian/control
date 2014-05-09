@@ -1,0 +1,49 @@
+Source: libgds
+Priority: extra
+Maintainer: Sebastien Tandel <sebastien@tandel.be>
+Build-Depends: debhelper (>= 5)
+Standards-Version: 3.7.2.2
+Section: libs
+
+Package: libgds1.2.5-dev
+Provides: libgds-dev
+Section: libdevel
+Architecture: any
+Depends: libgds1.2.5 (= ${Source-Version}), libc6-dev | libc-dev, pkg-config
+Suggests: libgds-doc
+Description: Development files for libGDS
+ libGDS is a library of functions and generic data structures. It contains
+ dynamic arrays, (dynamic) hash tables, radix trees, Patricia trees,
+ tokenizers, FIFO queues, stacks, string management functions and memory
+ management functions.
+ .
+ This package contains the header files and static libraries which are needed
+ for developing with libGDS.
+
+Package: libgds1.2.5
+Provides: libgds
+Conflicts: libgds
+Section: libs
+Architecture: any
+Depends: libc6 | libc
+Description: Library of functions and generic data structures
+ libGDS is a library of functions and generic data structures. It contains
+ dynamic arrays, (dynamic) hash tables, radix trees, Patricia trees,
+ tokenizers, FIFO queues, stacks, string management functions and memory
+ management functions.
+ .
+ This package contains the shared library.
+
+Package: libgds1.2.5-doc
+Section: doc
+Architecture: any
+Depends: lynx | www-browser
+Description: Documentation of libGDS
+ libGDS is a library of functions and generic data structures. It contains
+ dynamic arrays, (dynamic) hash tables, radix trees, Patricia trees,
+ tokenizers, FIFO queues, stacks, string management functions and memory
+ management functions.
+ .
+ This package contains the HTML documentation for the libGDS library in 
+ /usr/share/doc/libgds/html
+

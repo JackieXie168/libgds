@@ -1,0 +1,3 @@
+usr/include/libgds/*
+usr/lib/libgds.{so,a,la}
+usr/lib/pkgconfig/*.pc
