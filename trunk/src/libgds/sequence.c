@@ -111,7 +111,7 @@ void sequence_remove_at(gds_seq_t * seq, unsigned int index)
 
   if (seq->size-index > 0)
     memmove(&seq->items[index], &seq->items[index+1],
-	    seq->size-index-1);
+	    sizeof(void *) * (seq->size-index-1));
   seq->size--;
   if (seq->size == 0) {
     FREE(seq->items);
