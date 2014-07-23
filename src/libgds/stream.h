@@ -285,9 +285,9 @@ extern "C" {
 #define STREAM_DEBUG(LEVEL, ...) \
   if (stream_enabled(gdsdebug, LEVEL)) stream_printf(gdsdebug, __VA_ARGS__)
 #define STREAM_ERR(LEVEL, ...) \
-  if (stream_enabled(logerr, LEVEL)) stream_printf(gdserr, __VA_ARGS__)
+  if (stream_enabled(gdserr, LEVEL)) stream_printf(gdserr, __VA_ARGS__)
 #define STREAM_OUT(LEVEL, ...) \
-  if (stream_enabled(logout, LEVEL)) stream_printf(gdsout, __VA_ARGS__)
+  if (stream_enabled(gdsout, LEVEL)) stream_printf(gdsout, __VA_ARGS__)
 
 # else /* __VARIADIC_ELLIPSIS__ */
 
