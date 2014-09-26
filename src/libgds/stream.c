@@ -208,15 +208,15 @@ void stream_perror(gds_stream_t * stream, const char * format, ...)
 // -----[ stream_str2level ]------------------------------------------
 int stream_str2level(const char * str, stream_level_t * level)
 {
-  if (strcasecmp(str, "everything"))
+  if (!strcasecmp(str, "everything"))
     *level= STREAM_LEVEL_EVERYTHING;
-  else if (strcasecmp(str, "debug"))
+  else if (!strcasecmp(str, "debug"))
     *level= STREAM_LEVEL_DEBUG;
-  else if (strcasecmp(str, "info"))
+  else if (!strcasecmp(str, "info"))
     *level= STREAM_LEVEL_INFO;
-  else if (strcasecmp(str, "warning"))
+  else if (!strcasecmp(str, "warning"))
     *level= STREAM_LEVEL_WARNING;
-  else if (strcasecmp(str, "severe"))
+  else if (!strcasecmp(str, "severe"))
     *level= STREAM_LEVEL_SEVERE;
   else
     return -1;
